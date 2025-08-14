@@ -1,3 +1,4 @@
+import '../style/Login.css'
 import { API_URL } from "../lib/api";
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -33,11 +34,11 @@ const Login = () => {
         }
     }; 
     return(
-        <div>
-            <h2>Login</h2>
+        <div className='secao-login'>   
             <form onSubmit={handleLogin}>
-                <div>
-                    <label>Email:</label><br/>
+                <h2 className='title'>Login</h2>
+                <div className='campos'>
+                    <label>Email:</label>
                     <input
                         type="email"
                         value={email}
@@ -45,8 +46,8 @@ const Login = () => {
                         required
                     />
                 </div>
-                <div>
-                    <label>Senha:</label><br/>
+                <div className='campos'>
+                    <label>Senha:</label>
                     <input
                         type="password"
                         value={senha}
@@ -55,9 +56,9 @@ const Login = () => {
                     />
                 </div>
                 
-                {erro && <p style={{ color: 'red' }}>{erro}</p>}
+                {erro && <p className='erro'>{erro}</p>}
 
-                <button type="submit" style={{ marginTop: '1rem'}}>Entrar</button>
+                <button type="submit">Entrar</button>
             </form>
         </div>
     )

@@ -1,0 +1,68 @@
+root{
+    --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --tw-shadow-colored: 0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);
+    --tw-bg-opacity: 1;
+    --tw-text-opacity: 1;
+}
+body{
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+}
+.secao-login{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: rgb(243 244 246 / var(--tw-bg-opacity, 1))
+}
+form{
+    background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+    border-radius: 8px;
+    padding: 2rem;
+    width: 24rem;
+}
+.title{
+    font-size: 2rem /* 24px */;
+    line-height: 2rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+}
+.campos{
+    margin-bottom: 1rem;
+}
+label{
+    display:block;
+    color: rgb(55 65 81 / var(--tw-text-opacity, 1));
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+input{
+    width: 95%;
+    padding: 0.5rem;
+    border-width: 0.5px;
+    border-radius: 8px;
+    font-size: 15px;
+}
+input:hover{
+    border-color: rgb(0, 42, 255);
+}
+button{
+    background-color: rgb(59 130 246 / var(--tw-bg-opacity, 1));
+    color: rgb(255 255 255 / var(--tw-text-opacity, 1));
+    padding: 8px 16px 8px 16px;
+    border-radius: 0.5rem;
+    border: none;
+    font-size: 20px;
+    width: 100%;
+}
+button:hover{
+    background-color: rgb(37 99 235 / var(--tw-bg-opacity, 1));
+    cursor: pointer;
+}
+.erro{
+    color: rgb(239 68 68 / var(--tw-text-opacity, 1));
+    font-size: 20px;
+    font-weight: lighter;
+    font-style: italic;
+    margin-bottom: 1rem
+}

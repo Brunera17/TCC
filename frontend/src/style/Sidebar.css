@@ -1,0 +1,58 @@
+.container{
+    background-color: bisque;
+    width: 100%;
+    height: 100%;
+    margin: 8px;
+    min-height: 100svh;
+    border-radius: 2%;
+}
+.titulo{
+    font-size: 28px;
+    padding: 8px 8px 8px 20px;
+}
+.hub{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 8%;
+}
+.item{
+    font-size: 18px;
+    padding-left: 20px;
+}
+.item:hover{
+    font-size: 20px;
+    background-color: white;
+}
+.perfil{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    text-align: center;
+    background-color: white;
+    margin: 8px;
+    padding: 20px;
+    border-radius: 8%;
+    height: 50%;
+    flex-grow: 2;
+}
+.perfil-img{
+    height: 100px;
+}
+img{
+    background-color: gray;
+    border-radius: 100%;
+}
+.usuario{
+    margin-top: 10px;
+}
+.info{
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    margin:8px
+}
+.info label{
+    color: gray;
+    font-size: 12px;
+}

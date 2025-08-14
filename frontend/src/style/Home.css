@@ -1,0 +1,14 @@
+body{
+    padding: 0;
+    margin:0;
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+}
+.home{
+    background-color: aliceblue;
+}
+.sidebar{
+    height: 100%;
+    width: 25%;
+    display: flex;
+    justify-content: flex-start;
+}
