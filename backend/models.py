@@ -257,4 +257,77 @@ class EmpresaCliente(db.Model, TimestampMixin, ActiveMixin):
         return self.cnpj if self.cnpj else ""
     cnpj = property(get_cnpj, set_cnpj)
 
-class
+class endereco(db.Model, TimestampMixin, ActiveMixin):
+    """Modelo para endereço"""
+    __tablename__= "enderecos"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    rua = db.Column(db.String(255), nullable=False)
+    numero = db.Column(db.String(10), nullable=False)
+    bairro = db.Column(db.String(100), nullable=False)
+    cidade = db.Column(db.String(100), nullable=False)
+    estado = db.Column(db.String(2), nullable=False)
+    cep = db.Column(db.String(10), nullable=False, index=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False, index=True)
+    
+    # Constraints
+    __table_args__ = (
+        CheckConstraint("estado IN ('AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SE', 'SP', 'TO')", name='check_estado'),
+        UniqueConstraint('rua', 'numero', 'bairro', 'cidade', name='unique_endereco')
+    )
+    # Construtor
+    # Comentado para evitar conflito com o ORM
+#    def __init__(self, rua: str, numero: str, bairro: str, cidade: str, estado: str, cep: str):
+#        self.rua = rua.strip()
+#        self.numero = numero.strip()
+#        self.bairro = bairro.strip()
+#        self.cidade = cidade.strip()
+#        self.estado = estado.strip().upper()
+#        self.cep = cep.strip()
+#        if not re.match(r'^\d{5}-\d{3}$', self.cep):
+#            raise ValueError("CEP inválido. Formato esperado: XXXXX-XXX")
+#        if not re.match(r'^[A-Z]{2}$', self.estado):
+#            raise ValueError("Estado inválido. Deve ser uma sigla de 2 letras maiúsculas")
+#        if not self.rua or not self.numero or not self.bairro or not self.cidade:
+#            raise ValueError("Rua, número, bairro e cidade são obrigatórios")
+#        self.ativo = True
+#        self.created_at = datetime.utcnow()
+#        self.updated_at = datetime.utcnow()
+    
+    # Relacionamentos
+    clientes = db.relationship('Cliente', backref='endereco', lazy=True)
+
+    def __repr__(self):
+        return f'<Endereco {self.rua}, {self.numero}, {self.bairro}, {self.cidade}, {self.estado}>'
+    
+    def to_json(self):
+        return {
+            "id": self.id,
+            "rua": self.rua,
+            "numero": self.numero,
+            "bairro": self.bairro,
+            "cidade": self.cidade,
+            "estado": self.estado,
+            "cep": self.cep,
+            "ativo": self.ativo,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+        
+    def validar_dados(self) -> List[str]:
+        """Valida os dados do endereço"""
+        erros = []
+        if not self.rua or not self.rua.strip():
+            erros.append("Rua é obrigatória")
+        if not self.numero or not self.numero.strip():
+            erros.append("Número é obrigatório")
+        if not self.bairro or not self.bairro.strip():
+            erros.append("Bairro é obrigatório")
+        if not self.cidade or not self.cidade.strip():
+            erros.append("Cidade é obrigatória")
+        if not self.estado or not re.match(r'^[A-Z]{2}$', self.estado):
+            erros.append("Estado inválido. Deve ser uma sigla de 2 letras maiúsculas")
+        if not self.cep or not re.match(r'^\d{5}-\d{3}$', self.cep):
+            erros.append("CEP inválido. Formato esperado: XXXXX-XXX")
+        return erros
+    
