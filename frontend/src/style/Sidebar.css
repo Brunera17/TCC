@@ -1,58 +1,269 @@
-.container{
-    background-color: bisque;
-    width: 100%;
-    height: 100%;
-    margin: 8px;
-    min-height: 100svh;
-    border-radius: 2%;
+:root{
+  --bg: #ffffff;
+  --panel-border: #eef2f6;
+  --muted: #6b7280;
+  --text: #0f172a;
+  --accent: #1f6feb;      /* azul principal do active */
+  --accent-ghost: rgba(31,111,235,0.06);
+  --badge-green-bg: #e6f9ee;
+  --badge-green-text: #0f8a4a;
+  --shadow: 0 6px 16px rgba(16,24,40,0.04);
+  --radius: 10px;
 }
-.titulo{
-    font-size: 28px;
-    padding: 8px 8px 8px 20px;
+
+/* ===== Container ===== */
+.sidebar {
+  width: 280px;
+  min-height: 100vh;
+  background: var(--bg);
+  border-right: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  gap: 12px;
+  box-sizing: border-box;
 }
-.hub{
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 8%;
+
+/* collapsed state */
+.sidebar.collapsed {
+  width: 84px;
 }
-.item{
-    font-size: 18px;
-    padding-left: 20px;
+
+/* ===== Brand ===== */
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--panel-border);
 }
-.item:hover{
-    font-size: 20px;
-    background-color: white;
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #061826;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  flex-shrink: 0;
 }
-.perfil{
-    display: flex;
-    flex-direction: column;
-    justify-content: space-around;
-    text-align: center;
-    background-color: white;
-    margin: 8px;
-    padding: 20px;
-    border-radius: 8%;
-    height: 50%;
-    flex-grow: 2;
+
+.brand-title {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 1.03rem;
+  white-space: nowrap;
 }
-.perfil-img{
-    height: 100px;
+
+/* ===== Menu geral ===== */
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
 }
-img{
-    background-color: gray;
-    border-radius: 100%;
+
+/* seção (ex: FUNCIONALIDADES, OUTROS) */
+.section-title {
+  margin: 16px 8px 8px 8px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
 }
-.usuario{
-    margin-top: 10px;
+
+/* item da lista */
+.menu-item {
+  list-style: none;
 }
-.info{
-    display: flex;
-    flex-direction: column;
-    align-items: start;
-    margin:8px
+
+/* link do item */
+.menu-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  position: relative;
 }
-.info label{
-    color: gray;
-    font-size: 12px;
+
+/* ícone à esquerda (container) */
+.menu-link .icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b5563;
+  flex-shrink: 0;
+}
+
+/* label (texto) */
+.menu-link .label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* badge (à direita) */
+.menu-link .badge {
+  margin-left: auto;
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* badge tipo 'Em breve' */
+.menu-link .badge.beta {
+  background: var(--badge-green-bg);
+  color: var(--badge-green-text);
+}
+
+/* hover e foco */
+.menu-link:hover,
+.menu-link:focus {
+  background: #fbfdff;
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+/* === estado ativo (ex: NavLink active) ===
+   destaque com contorno azul e preenchimento suave
+*/
+.menu-link.active {
+  background: var(--accent-ghost);
+  border: 1px solid rgba(31,111,235,0.18);
+  box-shadow: 0 1px 0 rgba(31,111,235,0.08) inset;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* adiciona um indicador visual - borda arredondada e contorno mais forte ao redor */
+.menu-link.active::before{
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 6px;
+  bottom: 6px;
+  width: 4px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--accent), #2b62d9);
+  box-shadow: 0 0 0 4px rgba(31,111,235,0.06);
+}
+
+/* ===== Separador simples ===== */
+.divider {
+  height: 8px;
+  border-top: 1px solid transparent;
+}
+
+/* ===== Footer: notificações + usuário ===== */
+.sidebar-footer {
+  border-top: 1px solid var(--panel-border);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footer-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.footer-row .small-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.footer-row .text {
+  font-size: 0.95rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* usuário com chevron */
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.user .profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #eef2f6;
+  display: grid;
+  place-items: center;
+  color: #334155;
+}
+
+.user .name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.user .chev {
+  color: #94a3b8;
+}
+
+/* ===== Responsividade ===== */
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 40;
+    transform: translateX(0);
+    width: 260px;
+  }
+
+  .sidebar.collapsed {
+    width: 84px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-title, .menu-link .label, .menu-link .badge {
+    display: none;
+  }
+  .sidebar {
+    width: 72px;
+    padding: 10px;
+  }
 }

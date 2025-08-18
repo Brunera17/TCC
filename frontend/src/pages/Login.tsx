@@ -27,8 +27,9 @@ const Login = () => {
                 setErro(data.message || "Email ou senha inválidos");
                 return;
             }
-
-            navigate('/Home')
+            const data = await response.json();
+            localStorage.setItem('autenticado', 'true');
+            navigate('/home')
         }catch(err){
             setErro("Erro ao conectar com o banco: " + err.message);
         }
