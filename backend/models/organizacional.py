@@ -1,0 +1,171 @@
+""" Modelos de dados para organização da empresa """
+
+from datetime import datetime
+from config import db
+from sqlalchemy.orm import validates
+from werkzeug.security import generate_password_hash, check_password_hash
+from .base import TimestampMixin, ActiveMixin
+import re
+
+class Empresa(db.Model, TimestampMixin, ActiveMixin):
+    """ Modelo para representar uma empresa """
+    __tablename__ = 'empresas'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False, index=True)
+    cnpj = db.Column(db.String(14), nullable=False, unique=True, index=True)
+    endereco = db.Column(db.String(255), nullable=True)
+    telefone = db.Column(db.String(15), nullable=True)
+    email = db.Column(db.String(100), nullable=True, unique=True)
+
+    # Relacionamentos
+    cargos = db.relationship('Cargo', back_populates='empresa', lazy='dynamic', cascade='all, delete-orphan',)
+        
+    # Validadores
+    @validates('cnpj')
+    def validando_cnpj(self, key, cnpj):
+        if not cnpj:
+            raise ValueError("CNPJ não pode ser vazio")
+        if not re.match(r'^\d{14}$', cnpj):
+            raise ValueError("CNPJ deve conter 14 dígitos")
+        return cnpj
+    @validates('email')
+    def validando_email(self, key, email):
+        if not email:
+            raise ValueError("Email não pode ser vazio")
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            raise ValueError("Email inválido")
+        return email
+    @validates('telefone')
+    def validando_telefone(self, key, telefone):
+        if not telefone:
+            raise ValueError("Telefone não pode ser vazio")
+        if not re.match(r'^\d{10,15}$', telefone):
+            raise ValueError("Telefone deve conter entre 10 e 15 dígitos")
+        return telefone
+
+    # transformação para JSON
+    def to_json(self):
+        return{
+            'id': self.id,
+            'nome': self.nome,
+            'cnpj': self.cnpj,
+            'endereco': self.endereco,
+            'telefone': self.telefone,
+            'email': self.email,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+            'ativo': self.ativo
+        }
+    def __repr__(self):
+        return f"<Empresa {self.nome}>"
+    
+
+class Cargo(db.Model, TimestampMixin, ActiveMixin):
+    """ Modelo para representar um cargo """
+    __tablename__ = 'cargos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False, index=True)
+    descricao = db.Column(db.String(255), nullable=True)
+    nivel = db.Column(db.Integer, nullable=False, default=1) # nivel 1 é o mais alto, 2 é o segundo mais alto, etc.
+    
+    # Chave estrangeira para a empresa
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    # Relacionamentos
+    empresa = db.relationship('Empresa', back_populates='cargos')
+    funcionarios = db.relationship('Funcionario', back_populates='cargo', lazy='dynamic', cascade='all, delete-orphan')
+
+    # Validadores
+    @validates('nome')
+    def validando_nome(self, key, nome):
+        if not nome:
+            raise ValueError("Nome não pode ser vazio")
+        return nome
+    @validates('nivel')
+    def validando_nivel(self, key, nivel):
+        if not nivel:
+            raise ValueError("Nível não pode ser vazio")
+        if nivel < 1:
+            raise ValueError("Nível deve ser maior que 0")
+        return nivel
+    
+    # transformação para JSON
+    def to_json(self):
+        return{
+            'id': self.id,
+            'nome': self.nome,
+            'descricao': self.descricao,
+            'nivel': self.nivel,
+            'empresa_id': self.empresa_id,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+            'ativo': self.ativo
+        }
+    def __repr__(self):
+        return f"<Cargo {self.nome}>"
+    
+class Funcionario(db.Model, TimestampMixin, ActiveMixin):
+    """ Modelo para representar um funcionário """
+    __tablename__ = 'funcionarios'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False, index=True)
+    cpf = db.Column(db.String(11), nullable=False, unique=True, index=True)
+    email = db.Column(db.String(100), nullable=False, unique=True, index=True)
+    telefone = db.Column(db.String(15), nullable=True)
+    # Chave estrangeira para o cargo
+    cargo_id = db.Column(db.Integer, db.ForeignKey('cargos.id', ondelete='CASCADE'), nullable=False, index=True)
+    # Relacionamentos
+    cargo = db.relationship('Cargo', back_populates='funcionarios')
+
+    # Validadores
+    @validates('nome')
+    def validando_nome(self, key, nome):
+        if not nome:
+            raise ValueError("Nome não pode ser vazio")
+        return nome
+    @validates('cpf')
+    def validando_cpf(self, key, cpf):
+        if not cpf:
+            raise ValueError("CPF não pode ser vazio")
+        if not re.match(r'^\d{11}$', cpf):
+            raise ValueError("CPF deve conter 11 dígitos")
+        return cpf
+    @validates('email')
+    def validando_email(self, key, email):
+        if not email:
+            raise ValueError("Email não pode ser vazio")
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            raise ValueError("Email inválido")
+        return email
+    @validates('telefone')
+    def validando_telefone(self, key, telefone):
+        if not telefone:
+            raise ValueError("Telefone não pode ser vazio")
+        if not re.match(r'^\d{10,15}$', telefone):
+            raise ValueError("Telefone deve conter entre 10 e 15 dígitos")
+        return telefone
+    
+    def to_json(self):
+        return{
+            'id': self.id,
+            'nome': self.nome,
+            'cpf': self.cpf,
+            'email': self.email,
+            'telefone': self.telefone,
+            'cargo_id': self.cargo_id,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+            'ativo': self.ativo
+        }
+    def __repr__(self):
+        return f"<Funcionario {self.nome}>"
+    
+
+
+
+
+
+
