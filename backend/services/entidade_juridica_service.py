@@ -7,6 +7,9 @@ class EntidadeJuridicaService:
     def __init__(self):
         self.repo = EntidadeJuridicaRepository()
 
+    def get_by_cliente(self, cliente_id: int):
+        return self.repo.get_by_cliente(cliente_id)
+    
     def get_by_cnpj(self, cnpj: str):
         return self.repo.get_by_cnpj(cnpj)
     

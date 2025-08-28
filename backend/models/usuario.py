@@ -1,5 +1,5 @@
-from backend.extensions import db
-from backend.models.mixins import TimestampMixin, ActiveMixin
+from config import db
+from models.base import TimestampMixin, ActiveMixin
 
 class Usuario(db.Model, TimestampMixin, ActiveMixin):
     """ Modelo para representar um usuário """
