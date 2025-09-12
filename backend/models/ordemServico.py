@@ -118,4 +118,4 @@ class OrdemServico(db.Model, TimestampMixin, ActiveMixin):
         }
 
     def __repr__(self):
-        return f"<OrdemServico {self.numero_ordem}>"
+        return f"<OrdemServico {self.protocolo}>"
