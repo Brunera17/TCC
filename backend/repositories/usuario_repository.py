@@ -10,9 +10,6 @@ class UsuarioRepository:
     def get_by_id(self, usuario_id):
         return Usuario.query.filter_by(id=usuario_id, ativo=True).first()
     
-    def get_by_username(self, username):
-        return Usuario.query.filter_by(username=username, ativo=True).first()
-    
     def get_usuario_por_ultimo_login(self, dias: int):
         data_limite = datetime.utcnow() - timedelta(days=dias)
         return Usuario.query.filter(
@@ -43,9 +40,8 @@ class UsuarioRepository:
         usuario.bloqueado_ate = None
         db.session.commit()
     
-    def verificar_username_existe(self, username: str, exclude_id: int = None):
-        query = Usuario.query.filter_by(username=username, ativo=True)
+    def verificar_usuario_existe(self, cpf: str, exclude_id: int = None):
+        query = Usuario.query.filter_by(cpf=cpf, ativo=True)
         if exclude_id:
             query = query.filter(Usuario.id != exclude_id)
         return query.first() is not None
-    
