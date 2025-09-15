@@ -1,7 +1,7 @@
 from config import db
 from models.proposta import Proposta, ItemProposta
 
-class propostaRepository:
+class PropostaRepository:
     """Repositório para gerenciar os Propostas"""
     def get_all(self):
         return Proposta.query.filter_by(ativo=True).all()

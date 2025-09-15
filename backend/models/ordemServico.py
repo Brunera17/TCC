@@ -12,7 +12,7 @@ class ItemOrdemServico(db.Model, TimestampMixin, ActiveMixin):
     quantidade = db.Column(db.Integer, nullable=False, default=1)
     valor_unitario = db.Column(db.Float, nullable=False)
     valor_total = db.Column(db.Float, nullable=False)
-    desconto = db.Column(db.integer, nullable=True, default=0)
+    desconto = db.Column(db.Integer, nullable=True, default=0)
 
     # Foreign Keys
     ordem_servico_id = db.Column(db.Integer, db.ForeignKey('ordens_servicos.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -81,7 +81,7 @@ class OrdemServico(db.Model, TimestampMixin, ActiveMixin):
     # Foreign Keys
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='SET NULL'), nullable=True, index=True)
     empresa_id = db.Column(db.Integer, db.ForeignKey('entidades_juridicas.id', ondelete='SET NULL'), nullable=True, index=True)
-    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='SET NULL'), nullable=True, index=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('funcionarios.id', ondelete='SET NULL'), nullable=True, index=True)
     departamento_id = db.Column(db.Integer, db.ForeignKey('departamentos.id', ondelete='SET NULL'), nullable=True, index=True)
     
     # Relationships

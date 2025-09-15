@@ -1,5 +1,5 @@
 from config import db
-from models import Empresa
+from models.organizacional import Empresa
 
 class EmpresaRepository:
     """ Repositório para gerenciar empresas """

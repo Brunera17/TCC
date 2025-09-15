@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from backend.services.endereco_service import EnderecoService
+from services.endereco_service import EnderecoService
 
 bp = Blueprint('endereco', __name__, url_prefix='/api/enderecos')
 service = EnderecoService()

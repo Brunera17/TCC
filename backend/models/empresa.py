@@ -20,8 +20,11 @@ class EntidadeJuridica(db.Model, TimestampMixin, ActiveMixin):
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='CASCADE'), nullable=False, index=True)
     endereco_id = db.Column(db.Integer, db.ForeignKey('enderecos.id', ondelete='SET NULL'), nullable=True)
     tipo_id = db.Column(db.Integer, db.ForeignKey('tipos_empresas.id', ondelete='SET NULL'), nullable=True)
+    regime_tributario_id = db.Column(db.Integer, db.ForeignKey('regimes_tributarios.id', ondelete='SET NULL'), nullable=True)
     # Relacionamentos
     cliente = db.relationship('Cliente', back_populates='entidades_juridicas')
+    tipo = db.relationship('TipoEmpresa', back_populates='entidades_juridicas')
+    regime_tributario = db.relationship('RegimeTributario', back_populates='entidades_juridicas')
 
     # Validadores
     @validates('nome_fantasia')
@@ -56,52 +59,27 @@ class EntidadeJuridica(db.Model, TimestampMixin, ActiveMixin):
         return{
             'id': self.id,
             'nome_fantasia': self.nome_fantasia,
+            'razao_social': self.razao_social,
             'cnpj': self.cnpj,
+            'contato': self.contato,
+            'status': self.status,
             'inscricao_estadual': self.inscricao_estadual,
-            'inscricao_municipal': self.inscricao_municipal,
-            'inscricao_federal': self.inscricao_federal,
             'cliente_id': self.cliente_id,
+            'endereco_id': self.endereco_id,
+            'tipo_id': self.tipo_id,
+            'regime_tributario_id': self.regime_tributario_id,
+            'tipo': self.tipo.to_json() if self.tipo else None,
+            'regime_tributario': self.regime_tributario.to_json() if self.regime_tributario else None,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
+            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
             'ativo': self.ativo
         }
     def __repr__(self):
         return f"<EntidadeJuridica {self.nome_fantasia}>"
     
     
-class TipoEmpresa(db.Model, TimestampMixin, ActiveMixin):
-    """ Modelo para representar tipos de empresa """
-    __tablename__ = 'tipos_empresas'
 
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False, unique=True, index=True)
-    descricao = db.Column(db.String(255), nullable=True)
-    
-    #Relationships
-    entidades_juridicas = db.relationship('EntidadeJuridica', back_populates='tipo', lazy='joined')
-    
-    # Validadores
-    @validates('nome')
-    def validando_nome(self, key, nome):
-        if not nome:
-            raise ValueError("Nome não pode ser vazio")
-        if len(nome) < 3 or len(nome) > 100:
-            raise ValueError("Nome deve ter entre 3 e 100 caracteres")
-        return nome
-
-    # transformação para JSON
-    def to_json(self):
-        return{
-            'id': self.id,
-            'nome': self.nome,
-            'descricao': self.descricao,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'ativo': self.ativo
-        }
-    def __repr__(self):
-        return f"<TipoEmpresa {self.nome}>"
-    
 class RegimeTributario(db.Model, TimestampMixin, ActiveMixin):
     """ Modelo para representar regimes tributários """
     __tablename__ = 'regimes_tributarios'
@@ -112,6 +90,7 @@ class RegimeTributario(db.Model, TimestampMixin, ActiveMixin):
 
     #Relationships
     entidades_juridicas = db.relationship('EntidadeJuridica', back_populates='regime_tributario', lazy='joined')
+    faixas_faturamento = db.relationship('FaixaFaturamento', back_populates='RegimeTributario', lazy='joined')
     
     # Validadores
     @validates('nome')
