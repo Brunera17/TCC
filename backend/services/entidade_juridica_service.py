@@ -7,6 +7,12 @@ class EntidadeJuridicaService:
     def __init__(self):
         self.repo = EntidadeJuridicaRepository()
 
+    def get_all(self):
+        return self.repo.get_all()
+
+    def get_by_id(self, id: int):
+        return self.repo.get_by_id(id)
+
     def get_by_cliente(self, cliente_id: int):
         return self.repo.get_by_cliente(cliente_id)
     
@@ -21,8 +27,6 @@ class EntidadeJuridicaService:
 
         if self.repo.get_by_cnpj(data['cnpj']):
             raise ValueError("CNPJ já cadastrado")
-        if self.repo.get_by_email(data['email']):
-            raise ValueError("E-mail já cadastrado")
         
         return self.repo.create(entidade_juridica)
     

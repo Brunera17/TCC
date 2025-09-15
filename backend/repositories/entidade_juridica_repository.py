@@ -2,8 +2,12 @@ from config import db
 from models.empresa import EntidadeJuridica
 
 class EntidadeJuridicaRepository:
+    def get_by_id(self, id: int):
+        return EntidadeJuridica.query.filter_by(id=id, ativo=True).first()
+
     def get_by_cliente(self, cliente_id):
-        return EntidadeJuridica.query.filter_by(cliente_id, ativo=True).first()
+        return EntidadeJuridica.query.filter_by(cliente_id=cliente_id, ativo=True).first()
+
     def get_all(self):
         return EntidadeJuridica.query.filter_by(ativo=True).all()
     def get_by_cnpj(self, cnpj: str):

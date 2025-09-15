@@ -7,7 +7,7 @@ class ClienteRepository:
         return Cliente.query.filter_by(ativo=True).all()
 
     def get_by_id(self, cliente_id: int):
-        return Cliente.query.filter_by(cliente_id, ativo=True).first()
+        return Cliente.query.filter_by(id=cliente_id, ativo=True).first()
     
     def get_by_cpf(self, cpf: str):
         return Cliente.query.filter_by(cpf=cpf, ativo=True).first()

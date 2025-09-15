@@ -5,7 +5,7 @@ class EnderecoRepository:
     """ Repositório para gerenciar endereços """
 
     def get_by_cliente(self, cliente_id: int):
-        return Endereco.query.filter_by(cliente_id, ativo=True).first()
+        return Endereco.query.filter_by(cliente_id=cliente_id, ativo=True).all()
     def get_by_cidade(self, cidade: str):
         return Endereco.query.filter_by(cidade=cidade, ativo=True).first()
     def get_by_uf(self, uf: str):

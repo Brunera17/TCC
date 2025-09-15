@@ -1,6 +1,6 @@
 """ Modelo de Cliente """
 
-from  datetime import datetime
+from datetime import datetime
 from config import db
 from sqlalchemy.orm import validates
 from .base import TimestampMixin, ActiveMixin
@@ -25,7 +25,7 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
 
     # Métodos
     def to_json(self):
-        return{
+        return {
             'id': self.id,
             'nome': self.nome,
             'cpf': self.cpf,
@@ -33,9 +33,10 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
             'abertura_empresa': self.abertura_empresa,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
-            'enderecos': [endereco.to_json() for endereco in self.enderecos],
             'entidades_juridicas': [entidade_juridica.to_json() for entidade_juridica in self.entidades_juridicas],
-            'ordem_servicos': [ordem_servico.to_json() for ordem_servico in self.ordem_servicos],
+            'ordens_servico': [ordem_servico.to_json() for ordem_servico in self.ordens_servico],
+            'propostas': [proposta.to_json() for proposta in self.propostas],
+            'solicitacoes': [solicitacao.to_json() for solicitacao in self.solicitacoes]
         }
     
     # Validadores
@@ -44,6 +45,7 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
         if not nome:
             raise ValueError("Nome não pode ser vazio")
         return nome
+    
     @validates('cpf')
     def validando_cpf(self, key, cpf):
         if not cpf:
@@ -51,6 +53,7 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
         if not re.match(r'^\d{11}$', cpf):
             raise ValueError("CPF deve conter 11 dígitos")
         return cpf
+    
     @validates('email')
     def validando_email(self, key, email):
         if not email:
@@ -58,11 +61,6 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
         if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
             raise ValueError("Email inválido")
         return email
-    @validates('abertura_empresa')
-    def validando_abertura_empresa(self, key, abertura_empresa):
-        if not abertura_empresa:
-            raise ValueError("Abertura de empresa não pode ser vazia")
-        return abertura_empresa
 
     def __repr__(self):
         return f"<Cliente {self.nome}>"
@@ -86,47 +84,9 @@ class Endereco(db.Model, TimestampMixin, ActiveMixin):
     # Relacionamentos
     cliente = db.relationship('Cliente', back_populates='enderecos')
 
-    # Validadores
-    @validates('logradouro')
-    def validando_logradouro(self, key, logradouro):
-        if not logradouro:
-            raise ValueError("Logradouro não pode ser vazio")
-        return logradouro
-    @validates('numero')
-    def validando_numero(self, key, numero):
-        if not numero:
-            raise ValueError("Número não pode ser vazio")
-        return numero
-    @validates('complemento')
-    def validando_complemento(self, key, complemento):
-        if not complemento:
-            raise ValueError("Complemento não pode ser vazio")
-        return complemento
-    @validates('bairro')
-    def validando_bairro(self, key, bairro):
-        if not bairro:
-            raise ValueError("Bairro não pode ser vazio")
-        return bairro
-    @validates('cidade')
-    def validando_cidade(self, key, cidade):
-        if not cidade:
-            raise ValueError("Cidade não pode ser vazia")
-        return cidade
-    @validates('estado')
-    def validando_estado(self, key, estado):
-        if not estado:
-            raise ValueError("Estado não pode ser vazio")
-        return estado
-    @validates('cep')
-    def validando_cep(self, key, cep):
-        if not cep:
-            raise ValueError("CEP não pode ser vazio")
-        if not re.match(r'^\d{8}$', cep):
-            raise ValueError("CEP deve conter 8 dígitos")
-        return cep
-    
+    # Métodos
     def to_json(self):
-        return{
+        return {
             'id': self.id,
             'logradouro': self.logradouro,
             'numero': self.numero,
@@ -140,7 +100,6 @@ class Endereco(db.Model, TimestampMixin, ActiveMixin):
             'updated_at': self.updated_at.isoformat(),
             'ativo': self.ativo
         }
+
     def __repr__(self):
-        return f"<Endereco {self.logradouro} {self.numero} {self.complemento} {self.bairro} {self.cidade} {self.estado} {self.cep}>"
-
-
+        return f"<Endereco {self.logradouro}, {self.numero}, {self.bairro}, {self.cidade}/{self.estado}>"
