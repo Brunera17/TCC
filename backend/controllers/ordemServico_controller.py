@@ -2,7 +2,7 @@ import json
 from flask import Blueprint, request, jsonify
 from services.ordemServico_services import OrdemServicoService
 
-bp = Blueprint('ordem_servico', __name__, url_prefix='/api/ordens_servico')
+bp = Blueprint('ordem_servico', __name__, url_prefix='/api/ordens-servico')
 service = OrdemServicoService()
 
 @bp.route('/', methods=['GET'])
