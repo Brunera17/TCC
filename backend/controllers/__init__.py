@@ -8,8 +8,6 @@ from .ordemServico_controller import bp as ordem_servico_bp
 from .proposta_controller import bp as proposta_bp
 from .relatorio_controller import bp as relatorio_bp
 from .usuario_controller import bp as usuario_bp
-# se tiver outros, importe também:
-# from .funcionario_controller import bp as funcionario_bp
 
 def register_controllers(app):
     """Registra todos os blueprints da aplicação"""
@@ -22,4 +20,3 @@ def register_controllers(app):
     app.register_blueprint(proposta_bp)
     app.register_blueprint(relatorio_bp)
     app.register_blueprint(usuario_bp)
-    # app.register_blueprint(funcionario_bp)
