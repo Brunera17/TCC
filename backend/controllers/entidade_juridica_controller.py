@@ -1,16 +1,16 @@
 from flask import Blueprint, request, jsonify
 from services.entidade_juridica_service import EntidadeJuridicaService
 
-bp = Blueprint('entidadejuridica', __name__, url_prefix='/api/entidadejuridica')
+bp = Blueprint('entidade_juridica', __name__, url_prefix='/api/entidades-juridicas')
 service = EntidadeJuridicaService()
 
 @bp.route('/', methods=['GET'])
-def get_entidades_juridica():
+def get_entidades_juridicas():
     entidades = service.get_all()
     return jsonify([entidade.to_json() for entidade in entidades])
 
 @bp.route('/<int:entidade_id>', methods=['GET'])
-def get_entidade_juridica_especifica(entidade_id):
+def get_entidade_juridica(entidade_id):
     entidade = service.get_by_id(entidade_id)
     if not entidade:
         return jsonify({'error': 'Entidade jurídica não encontrada'}), 404

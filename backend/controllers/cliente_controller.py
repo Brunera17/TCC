@@ -21,15 +21,12 @@ def get_cliente_especifico(cliente_id):
         return jsonify({'error': 'Cliente não encontrado'}), 404
     
     # Busca dados relacionados
-    endereco = service_endereco.get_by_cliente(cliente_id)
-    entidade = service_entidade.get_by_cliente(cliente_id)
+    enderecos = service_endereco.get_by_cliente(cliente_id)
     
     # Monta resposta
     response = cliente.to_json()
-    if endereco:
-        response['endereco'] = endereco.to_json()
-    if entidade:
-        response['entidade_juridica'] = entidade.to_json()
+    if enderecos:
+        response['enderecos'] = [endereco.to_json() for endereco in enderecos]
     
     return jsonify(response)
 
