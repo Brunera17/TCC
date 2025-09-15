@@ -1,4 +1,4 @@
-from models.cliente import EntidadeJuridica
+from models.empresa import EntidadeJuridica
 from repositories.entidade_juridica_repository import EntidadeJuridicaRepository
 
 class EntidadeJuridicaService:

@@ -1,14 +1,12 @@
 from repositories.usuario_repository import UsuarioRepository
-from models.usuario import Usuario
-from models.funcionario import Funcionario
-from repositories.funcionario_repository import FuncionarioRepository
+from models.organizacional import Usuario
+from datetime import datetime
 import re
 
 class UsuarioService:
 
     def __init__(self):
         self.repo = UsuarioRepository()
-        self.repo_funcionario = FuncionarioRepository()
     
     def get_all(self):
         return self.repo.get_all()

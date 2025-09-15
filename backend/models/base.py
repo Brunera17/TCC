@@ -5,7 +5,7 @@ from config import db
 class TimestampMixin:
     """ Mixin para adicionar timestamps aos modelos """
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    deleted_at = db.Column(db.DateTime, default=datetime.utcnow, ondelete= datetime.utcnow, nullable=True)
+    deleted_at = db.Column(db.DateTime, nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 class ActiveMixin:
     """ Mixin para adicionar campo de ativo aos modelos """

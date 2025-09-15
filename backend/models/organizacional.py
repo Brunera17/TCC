@@ -19,7 +19,7 @@ class Empresa(db.Model, TimestampMixin, ActiveMixin):
     email = db.Column(db.String(100), nullable=True, unique=True)
 
     # Relacionamentos
-    cargos = db.relationship('Cargo', back_populates='empresa', lazy='dynamic', cascade='all, delete-orphan',)
+    departamentos = db.relationship('Departamento', back_populates='empresa', lazy='dynamic', cascade='all, delete-orphan')
         
     # Validadores
     @validates('cnpj')
@@ -75,6 +75,7 @@ class Departamento(db.Model, TimestampMixin, ActiveMixin):
     
     # Relacionamentos
     empresa = db.relationship('Empresa', back_populates='departamentos')
+    cargos = db.relationship('Cargo', back_populates='departamento', lazy='dynamic', cascade='all, delete-orphan')
     
     # Validadores
     @validates('nome')
@@ -90,6 +91,7 @@ class Departamento(db.Model, TimestampMixin, ActiveMixin):
             'nome': self.nome,
             'descricao': self.descricao,
             'empresa_id': self.empresa_id,
+            'cargos': [cargo.to_json() for cargo in self.cargos if cargo.ativo],
             'created_at': self.created_at.isoformat(),
             'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
             'updated_at': self.updated_at.isoformat(),
@@ -106,12 +108,11 @@ class Cargo(db.Model, TimestampMixin, ActiveMixin):
     descricao = db.Column(db.String(255), nullable=True)
     tipo = db.Column(db.String(50), nullable=True)
         
-    # Chave estrangeira para a empresa
-    departamento_id = db.Column(db.Integer, db.ForeignKey('departamento.id', ondelete='CASCADE'), nullable=False, index=True)
+    # Chave estrangeira para o departamento
+    departamento_id = db.Column(db.Integer, db.ForeignKey('departamentos.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Relacionamentos
-    departamento = db.relationship('Empresa', back_populates='cargos')
-    funcionarios = db.relationship('Funcionario', back_populates='cargo', lazy='dynamic', cascade='all, delete-orphan')
+    departamento = db.relationship('Departamento', back_populates='cargos')
 
     # Validadores
     @validates('nome')
@@ -160,6 +161,7 @@ class Usuario(db.Model, TimestampMixin, ActiveMixin):
     cargo_id = db.Column(db.Integer, db.ForeignKey('cargos.id', ondelete='CASCADE'), nullable=False, index=True)
     # Relacionamentos
     cargo = db.relationship('Cargo', back_populates='funcionarios')
+    agendamentos = db.relationship('Agendamento', back_populates='funcionario', lazy='dynamic')
 
     # Validadores
     @validates('nome')

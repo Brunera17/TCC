@@ -1,5 +1,5 @@
 from config import db
-from models.usuario import Usuario
+from models.organizacional import Usuario
 from datetime import datetime, timedelta
 
 class UsuarioRepository:

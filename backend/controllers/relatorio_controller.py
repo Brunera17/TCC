@@ -1,6 +1,6 @@
 import json
 from flask import Blueprint, request, jsonify
-from backend.services.relatorio_service import RelatorioService
+from services.relatorio_services import RelatorioService
 
 bp = Blueprint('relatorio', __name__, url_prefix='/api/relatorios')
 service = RelatorioService()

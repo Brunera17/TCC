@@ -1,6 +1,6 @@
 import json
 from flask import Blueprint, request, jsonify
-from backend.services.agendamento_service import AgendamentoService
+from services.agendamento_services import AgendamentoService
 
 bp = Blueprint('agendamento', __name__, url_prefix='/api/agendamentos')
 service = AgendamentoService()

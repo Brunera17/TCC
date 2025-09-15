@@ -15,10 +15,10 @@ class Agendamento(db.Model, TimestampMixin, ActiveMixin):
     tipo = db.Column(db.String(50), nullable=True)
     status = db.Column(db.String(50), default='pendente')
     destinatário = db.Column(db.String(150), nullable=True)
-    # Chave estrangeira para o cliente
+    # Chave estrangeira para o funcionário
     funcionario_id = db.Column(db.Integer, db.ForeignKey('funcionarios.id', ondelete='CASCADE'), nullable=False, index=True)
     # Relacionamentos
-    funcionario = db.relationship('Funcionario', back_populates='agendamentos', lazy='joined')
+    funcionario = db.relationship('Usuario', back_populates='agendamentos', lazy='joined')
     # Métodos
     def to_json(self):
         return{

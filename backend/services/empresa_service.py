@@ -1,5 +1,5 @@
-from models import Empresa
-from models.repositories import EmpresaRepository
+from models.organizacional import Empresa
+from repositories.empresa_repository import EmpresaRepository
 
 class EmpresaService:
     """ Serviço para gerenciar empresas """

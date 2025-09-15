@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
-from backend.services.usuario_service import UsuarioService
-from backend.models.organizacional import Usuario, TipoUsuario
+from services.usuario_service import UsuarioService
+from models.organizacional import Usuario
 
 bp = Blueprint('usuario', __name__, url_prefix='/usuarios')
 service = UsuarioService()

@@ -1,7 +1,7 @@
 from models.cliente import Cliente
 from repositories.cliente_repository import ClienteRepository
 
-class CLienteService:
+class ClienteService:
     """ Serviço para gerenciar clientes """
 
     def __init__(self):

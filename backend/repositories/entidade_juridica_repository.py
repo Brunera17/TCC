@@ -1,5 +1,5 @@
 from config import db
-from models.cliente import EntidadeJuridica
+from models.empresa import EntidadeJuridica
 
 class EntidadeJuridicaRepository:
     def get_by_cliente(self, cliente_id):
