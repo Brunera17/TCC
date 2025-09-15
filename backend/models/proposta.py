@@ -77,12 +77,12 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
     
     # Foreign Keys
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='SET NULL'), nullable=True, index=True)
-    empresa_id = db.Column(db.Integer, db.ForeignKey('entidades_juridicas.id', ondelete='SET NULL'), nullable=True, index=True)
+    entidade_juridica_id = db.Column(db.Integer, db.ForeignKey('entidades_juridicas.id', ondelete='SET NULL'), nullable=True, index=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('funcionarios.id', ondelete='SET NULL'), nullable=True, index=True)
     
     # Relationships
     cliente = db.relationship('Cliente', back_populates='propostas', lazy='joined')
-    empresa = db.relationship('EntidadeJuridica', back_populates='propostas', lazy='joined')
+    entidade_juridica = db.relationship('EntidadeJuridica', back_populates='propostas', lazy='joined')
     usuario = db.relationship('Usuario', back_populates='propostas', lazy='joined')
     itens = db.relationship('ItemProposta', back_populates='proposta', lazy='joined', cascade="all, delete-orphan")
     
@@ -105,9 +105,9 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
             'validade': self.validade.isoformat() if self.validade else None,
             'observacao': self.observacao,
             'status': self.status,
-            'cliente_id': self.cliente_id.to_json() if self.cliente else None,
-            'empresa_id': self.empresa_id.to_json() if self.empresa else None,
-            'usuario_id': self.usuario_id.to_json() if self.usuario else None,
+            'cliente': self.cliente.to_json() if self.cliente else None,
+            'entidade_juridica': self.entidade_juridica.to_json() if self.entidade_juridica else None,
+            'usuario': self.usuario.to_json() if self.usuario else None,
             'itens': [item.to_json() for item in self.itens],
             'ativo': self.ativo,
             'created_at': self.created_at.isoformat(),

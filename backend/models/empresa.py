@@ -25,6 +25,8 @@ class EntidadeJuridica(db.Model, TimestampMixin, ActiveMixin):
     cliente = db.relationship('Cliente', back_populates='entidades_juridicas')
     tipo = db.relationship('TipoEmpresa', back_populates='entidades_juridicas')
     regime_tributario = db.relationship('RegimeTributario', back_populates='entidades_juridicas')
+    ordens_servico = db.relationship('OrdemServico', back_populates='empresa', lazy='dynamic')
+    propostas = db.relationship('Proposta', back_populates='entidade_juridica', lazy='dynamic')
 
     # Validadores
     @validates('nome_fantasia')

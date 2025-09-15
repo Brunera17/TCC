@@ -17,7 +17,7 @@ class Relatorio(db.Model, TimestampMixin, ActiveMixin):
     # Chave estrangeira para o funcionário que criou o relatório
     funcionario_id = db.Column(db.Integer, db.ForeignKey('funcionarios.id', ondelete='CASCADE'), nullable=False, index=True)
     # Relacionamentos
-    funcionario = db.relationship('Funcionario', back_populates='relatorios', lazy='joined')
+    funcionario = db.relationship('Usuario', back_populates='relatorios', lazy='joined')
 
     # Métodos
     def to_json(self):

@@ -22,7 +22,7 @@ class Solicitacao(db.Model, TimestampMixin, ActiveMixin):
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Relacionamentos
-    funcionario = db.relationship('Funcionario', back_populates='solicitacoes', lazy='joined')
+    funcionario = db.relationship('Usuario', back_populates='solicitacoes', lazy='joined')
     cliente = db.relationship('Cliente', back_populates='solicitacoes', lazy='joined')
 
     # Métodos

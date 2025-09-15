@@ -75,6 +75,7 @@ class Departamento(db.Model, TimestampMixin, ActiveMixin):
     
     # Relacionamentos
     empresa = db.relationship('Empresa', back_populates='departamentos')
+    ordens_servico = db.relationship('OrdemServico', back_populates='departamento', lazy='dynamic')
     cargos = db.relationship('Cargo', back_populates='departamento', lazy='dynamic', cascade='all, delete-orphan')
     
     # Validadores
@@ -113,6 +114,7 @@ class Cargo(db.Model, TimestampMixin, ActiveMixin):
     
     # Relacionamentos
     departamento = db.relationship('Departamento', back_populates='cargos')
+    funcionarios = db.relationship('Usuario', back_populates='cargo', lazy='dynamic')
 
     # Validadores
     @validates('nome')
@@ -161,7 +163,11 @@ class Usuario(db.Model, TimestampMixin, ActiveMixin):
     cargo_id = db.Column(db.Integer, db.ForeignKey('cargos.id', ondelete='CASCADE'), nullable=False, index=True)
     # Relacionamentos
     cargo = db.relationship('Cargo', back_populates='funcionarios')
+    ordens_servico = db.relationship('OrdemServico', back_populates='usuario', lazy='dynamic')
     agendamentos = db.relationship('Agendamento', back_populates='funcionario', lazy='dynamic')
+    propostas = db.relationship('Proposta', back_populates='usuario', lazy='dynamic')
+    relatorios = db.relationship('Relatorio', back_populates='funcionario', lazy='dynamic')
+    solicitacoes = db.relationship('Solicitacao', back_populates='funcionario', lazy='dynamic')
 
     # Validadores
     @validates('nome')
