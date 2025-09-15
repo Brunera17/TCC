@@ -1,6 +1,5 @@
 from config import app, db
-import controllers
-import models
+from controllers import register_controllers
 
 
 if __name__ == "__main__":
