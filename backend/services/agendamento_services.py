@@ -1,3 +1,4 @@
+from datetime import datetime
 from models.agendamento import Agendamento
 from repositories.agendamento_repository import AgendamentoRepository
 
@@ -17,6 +18,8 @@ class AgendamentoService:
         return self.repo.get_by_funcionario(funcionario_id)
 
     def criar_agendamento(self, **data):
+        if 'data_fim' in data and isinstance(data['data_fim'], str):
+            data['data_fim'] = datetime.fromisoformat(data['data_fim'])
         agendamento = Agendamento(**data)
         return self.repo.create(agendamento)
     
