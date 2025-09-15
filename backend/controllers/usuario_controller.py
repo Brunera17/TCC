@@ -14,3 +14,4 @@ def get_usuarios():
 def get_usuario_by_id(usuario_id):
     usuario = service.get_by_id(usuario_id)
     if not usuario:
+        
