@@ -20,7 +20,8 @@ class Servico(db.Model, TimestampMixin, ActiveMixin):
     # Foreign Keys
     categoria_id = db.Column(db.Integer, db.ForeignKey('categorias_servicos.id', ondelete='SET NULL'), nullable=True)
     #Relationships
-    item_ordem_servicos = db.relationship('OrdemServico', back_populates='servico', lazy='joined')
+    item_ordem_servicos = db.relationship('ItemOrdemServico', back_populates='servico', lazy='joined')
+    item_propostas = db.relationship('ItemProposta', back_populates='servico', lazy='joined')
     categoria = db.relationship('CategoriaServico', back_populates='servicos', lazy='joined')
 
     # Validadores

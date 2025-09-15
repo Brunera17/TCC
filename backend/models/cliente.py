@@ -19,7 +19,9 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
     # Relacionamentos
     enderecos = db.relationship('Endereco', back_populates='cliente', lazy='joined', cascade='all, delete-orphan')
     entidades_juridicas = db.relationship('EntidadeJuridica', back_populates='cliente', lazy='joined', cascade='all, delete-orphan')
-    ordem_servicos = db.relationship('OrdemServico', back_populates='cliente', lazy='joined', cascade='all, delete-orphan')
+    ordens_servico = db.relationship('OrdemServico', back_populates='cliente', lazy='dynamic')
+    propostas = db.relationship('Proposta', back_populates='cliente', lazy='dynamic')
+    solicitacoes = db.relationship('Solicitacao', back_populates='cliente', lazy='dynamic')
 
     # Métodos
     def to_json(self):
