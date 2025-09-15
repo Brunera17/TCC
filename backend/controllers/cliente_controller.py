@@ -1,8 +1,8 @@
 import json
 from flask import Blueprint, request, jsonify
-from services.cliente_service import ClienteService
-from services.endereco_service import EnderecoService
-from services.entidade_juridica_service import EntidadeJuridicaService
+from backend.services.cliente_service import ClienteService
+from backend.services.endereco_service import EnderecoService
+from backend.services.entidade_juridica_service import EntidadeJuridicaService
 
 bp = Blueprint('cliente', __name__, url_prefix='/api/clientes')
 service_cliente = ClienteService()

@@ -1,6 +1,6 @@
 import json
 from flask import Blueprint, request, jsonify
-from services.ordemServico_service import OrdemServicoService
+from backend.services.ordemServico_service import OrdemServicoService
 
 bp = Blueprint('ordem_servico', __name__, url_prefix='/api/ordens_servico')
 service = OrdemServicoService()
