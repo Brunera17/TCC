@@ -14,6 +14,7 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
     nome = db.Column(db.String(100), nullable=False, index=True)
     cpf = db.Column(db.String(14), nullable=False, unique=True, index=True)
     email = db.Column(db.String(100), unique=True, index=True)
+    telefone = db.Column(db.String(15), nullable=True)
     abertura_empresa = db.Column(db.Boolean, default=False, nullable=False)
 
     # Relacionamentos
@@ -30,6 +31,7 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
             'nome': self.nome,
             'cpf': self.cpf,
             'email': self.email,
+            'telefone': self.telefone,
             'abertura_empresa': self.abertura_empresa,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
