@@ -1,4 +1,4 @@
-from backend.models.entidadeJuridica import EntidadeJuridica
+from models.entidadeJuridica import EntidadeJuridica
 from repositories.entidade_juridica_repository import EntidadeJuridicaRepository
 
 class EntidadeJuridicaService:
