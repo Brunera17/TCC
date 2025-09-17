@@ -1,7 +1,7 @@
 from .agendamento import Agendamento
 from .base import TimestampMixin, ActiveMixin
 from .cliente import Cliente
-from .empresa import EntidadeJuridica
+from .entidadeJuridica import EntidadeJuridica
 from .organizacional import Empresa, Departamento, Cargo, Usuario
 from .ordemServico import OrdemServico
 from .proposta import Proposta

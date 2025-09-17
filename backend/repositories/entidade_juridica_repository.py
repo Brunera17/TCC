@@ -1,5 +1,5 @@
 from config import db
-from models.empresa import EntidadeJuridica
+from backend.models.entidadeJuridica import EntidadeJuridica
 
 class EntidadeJuridicaRepository:
     def get_by_id(self, id: int):
