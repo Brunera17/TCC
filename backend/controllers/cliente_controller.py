@@ -32,15 +32,22 @@ def get_cliente_especifico(cliente_id):
 
 @bp.route('/', methods=['POST'])
 def criar_cliente():
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'Dados não fornecidos'}), 400
-    
     try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Dados não fornecidos'}), 400
+        
+        # Log dos dados recebidos (para debug)
+        print(f"DEBUG: Dados recebidos para criação de cliente: {data}")
+        
         cliente = service_cliente.criar_cliente(**data)
         return jsonify(cliente.to_json()), 201
     except ValueError as e:
+        print(f"DEBUG: Erro de validação: {str(e)}")
         return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        print(f"DEBUG: Erro interno: {str(e)}")
+        return jsonify({'error': f'Erro interno do servidor: {str(e)}'}), 500
 
 @bp.route('/<int:cliente_id>', methods=['PUT'])
 def altera_cliente(cliente_id):
@@ -49,13 +56,13 @@ def altera_cliente(cliente_id):
         return jsonify({'error': 'Dados para atualização não encontrados'}), 400
     
     try:
-        cliente = service_cliente.atualiza_cliente(cliente_id, **data)
+        cliente = service_cliente.atualizar_cliente(cliente_id, **data)
         return jsonify(cliente.to_json()), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<int:cliente_id>', methods=['DELETE'])
-def deleta_cliente(cliente_id):
+def deletar_cliente(cliente_id):
     try:
         cliente = service_cliente.deletar_cliente(cliente_id)
         return jsonify(cliente.to_json()), 200

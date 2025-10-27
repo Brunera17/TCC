@@ -41,15 +41,15 @@ def altera_agendamento(agendamento_id):
         return jsonify({'error': 'Dados para atualização não encontrados'}), 400
     
     try:
-        agendamento = service.atualiza_agendamento(agendamento_id, **data)
+        agendamento = service.atualizar_agendamento(agendamento_id, **data)
         return jsonify(agendamento.to_json()), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     
 @bp.route('/<int:agendamento_id>', methods=['DELETE'])
-def deleta_agendamento(agendamento_id):
+def deletar_agendamento(agendamento_id):
     try:
-        service.deleta_agendamento(agendamento_id)
+        service.deletar_agendamento(agendamento_id)
         return jsonify({'message': 'Agendamento deletado com sucesso'}), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400

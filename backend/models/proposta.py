@@ -100,6 +100,98 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
         if status not in status_permitidos:
             raise ValueError(f"O status deve ser um dos seguintes: {', '.join(status_permitidos)}")
         return status
+    
+    def calcular_totais(self):
+        """Calcula todos os totais da proposta baseado nos itens"""
+        if not self.itens:
+            return {
+                'subtotal': 0.0,
+                'desconto_percentual': self.porcentagem_desconto or 0,
+                'valor_desconto': 0.0,
+                'total': 0.0,
+                'quantidade_total_itens': 0
+            }
+        
+        # Calcular subtotal somando todos os itens
+        subtotal = sum(item.valor_total for item in self.itens if item.ativo)
+        
+        # Calcular desconto
+        desconto_percentual = self.porcentagem_desconto or 0
+        valor_desconto = (subtotal * desconto_percentual) / 100
+        
+        # Total final
+        total = subtotal - valor_desconto
+        
+        # Quantidade total de itens
+        quantidade_total = sum(item.quantidade for item in self.itens if item.ativo)
+        
+        # Atualizar valor_total no modelo se necessário
+        if self.valor_total != total:
+            self.valor_total = total
+        
+        return {
+            'subtotal': round(subtotal, 2),
+            'desconto_percentual': desconto_percentual,
+            'valor_desconto': round(valor_desconto, 2),
+            'total': round(total, 2),
+            'quantidade_total_itens': quantidade_total,
+            'valor_unitario_medio': round(subtotal / quantidade_total, 2) if quantidade_total > 0 else 0.0
+        }
+    
+    def validar_proposta(self):
+        """Valida se a proposta está completa e correta"""
+        erros = []
+        avisos = []
+        
+        # Validações obrigatórias
+        if not self.numero_proposta:
+            erros.append("Número da proposta é obrigatório")
+        
+        if not self.cliente_id and not self.entidade_juridica_id:
+            erros.append("Cliente ou Entidade Jurídica deve ser informado")
+        
+        if not self.itens or len([item for item in self.itens if item.ativo]) == 0:
+            erros.append("Proposta deve ter pelo menos um item")
+        
+        # Validações de negócio
+        if self.validade and self.validade < datetime.now():
+            avisos.append("Proposta com validade expirada")
+        
+        if self.porcentagem_desconto and self.porcentagem_desconto > 50:
+            avisos.append("Desconto superior a 50% - pode requerer aprovação")
+        
+        # Validar itens
+        for item in self.itens:
+            if item.ativo:
+                if item.quantidade <= 0:
+                    erros.append(f"Item {item.id}: quantidade deve ser positiva")
+                if item.valor_unitario <= 0:
+                    erros.append(f"Item {item.id}: valor unitário deve ser positivo")
+                if item.valor_total != (item.quantidade * item.valor_unitario):
+                    avisos.append(f"Item {item.id}: valor total inconsistente")
+        
+        # Verificar se requer aprovação
+        totais = self.calcular_totais()
+        if totais['total'] > 10000:  # Valores altos podem requerer aprovação
+            if not self.requer_aprovacao:
+                avisos.append("Proposta de valor alto - considere marcar como 'requer aprovação'")
+        
+        return {
+            'valida': len(erros) == 0,
+            'erros': erros,
+            'avisos': avisos,
+            'observacoes': f"{len(erros)} erro(s), {len(avisos)} aviso(s)"
+        }
+    
+    def atualizar_status_pdf(self, caminho_arquivo: str, sucesso: bool = True):
+        """Atualiza o status de geração do PDF"""
+        self.pdf_gerado = sucesso
+        if caminho_arquivo and sucesso:
+            self.pdf_caminho = caminho_arquivo
+        if sucesso:
+            self.pdf_gerado_em = datetime.now()
+        
+        # Salvar será feito pelo chamador para controlar transação
     def to_json(self):
         return{
             'id': self.id,

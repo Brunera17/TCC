@@ -111,7 +111,7 @@ class PropostaPDF:
         return None
         
     def gerar_pdf_proposta(self, proposta_id: int) -> str:
-        """Gera PDF de uma proposta específica"""
+        """Gera PDF de uma proposta específica e atualiza o modelo"""
         
         if not WEASYPRINT_AVAILABLE:
             raise ImportError("WeasyPrint não está disponível. Instale com: pip install weasyprint")
@@ -133,10 +133,18 @@ class PropostaPDF:
                 template = self.jinja_env.get_template('modelo_pdf.html')
                 html_content = template.render(**template_data)
                 
-                nome_arquivo = f"proposta_{proposta.numero}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                nome_arquivo = f"proposta_{proposta.numero_proposta}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                 caminho_arquivo = os.path.join(self.upload_dir, nome_arquivo)
                 
                 self._gerar_pdf_weasyprint(html_content, caminho_arquivo)
+                
+                # Atualizar modelo da proposta
+                proposta.pdf_gerado = True
+                proposta.pdf_caminho = caminho_arquivo
+                proposta.pdf_gerado_em = datetime.now()
+                
+                # Salvar mudanças no banco
+                db.session.commit()
                 
                 return caminho_arquivo
                 
@@ -159,6 +167,33 @@ class PropostaPDF:
         self._gerar_pdf_weasyprint(html_content, caminho_arquivo)
         
         return caminho_arquivo
+        
+    def atualizar_status_pdf_proposta(self, proposta_id: int, caminho_arquivo: str = None, status: bool = True):
+        """Atualiza status do PDF de uma proposta"""
+        try:
+            if not MODELS_AVAILABLE:
+                print(f"Modelos não disponíveis - simulando atualização para proposta {proposta_id}")
+                return
+            
+            from flask import current_app
+            
+            with current_app.app_context():
+                proposta = Proposta.query.filter_by(id=proposta_id, ativo=True).first()
+                if not proposta:
+                    raise ValueError(f"Proposta com ID {proposta_id} não encontrada")
+                
+                proposta.pdf_gerado = status
+                if caminho_arquivo:
+                    proposta.pdf_caminho = caminho_arquivo
+                if status:
+                    proposta.pdf_gerado_em = datetime.now()
+                
+                db.session.commit()
+                print(f"Status PDF atualizado para proposta {proposta_id}")
+                
+        except Exception as e:
+            print(f"Erro ao atualizar status PDF: {e}")
+            raise e
         
     def _criar_dados_mock(self, proposta_id: int) -> dict:
         """Cria dados mockados para teste"""
@@ -203,81 +238,93 @@ class PropostaPDF:
         }
             
     def _preparar_dados_proposta(self, proposta: 'Proposta') -> dict:
-        """Prepara dados da proposta para o template"""
+        """Prepara dados da proposta para o template usando os campos corretos do modelo"""
         logo_path = self._find_logo_path()
         
         itens_com_servicos = []
         subtotal_servicos = 0.0
         
+        # Processar itens da proposta
         for item in proposta.itens:
             if not item.ativo:
                 continue
                 
-            servico = Servico.query.filter_by(id=item.servico_id, ativo=True).first() if MODELS_AVAILABLE else None
+            # Buscar serviço se disponível
+            servico = item.servico if hasattr(item, 'servico') and item.servico else None
             
             valor_unitario = float(item.valor_unitario)
             valor_total_item = float(item.valor_total)
             valor_desconto = 0.0
             
-            # Calcular desconto se houver
-            if proposta.percentual_desconto and proposta.percentual_desconto > 0:
-                valor_desconto = valor_unitario * (proposta.percentual_desconto / 100)
+            # Calcular desconto usando o campo correto do modelo
+            if proposta.porcentagem_desconto and proposta.porcentagem_desconto > 0:
+                valor_desconto = valor_unitario * (proposta.porcentagem_desconto / 100)
             
             subtotal_servicos += valor_total_item
             
             item_data = {
-                'servico': servico or {'nome': f'Serviço {item.servico_id}', 'descricao': None},
+                'servico': {
+                    'nome': servico.nome if servico else f'Serviço {item.servico_id}',
+                    'descricao': servico.descricao if servico else None
+                },
                 'quantidade': item.quantidade,
                 'valor_unitario': valor_unitario,
                 'valor_total': valor_total_item,
                 'valor_desconto': valor_desconto,
             }
             itens_com_servicos.append(item_data)
-            
+        
         # Dados do cliente
         cliente_data = {
-            'nome': proposta.cliente.nome,
+            'nome': proposta.cliente.nome if proposta.cliente else 'Cliente não identificado',
             'is_pessoa_juridica': False
         }
         
-        if hasattr(proposta.cliente, 'cpf') and proposta.cliente.cpf:
-            cliente_data['cpf'] = proposta.cliente.cpf
+        if proposta.cliente:
+            # Se tem CPF, é pessoa física
+            if hasattr(proposta.cliente, 'cpf') and proposta.cliente.cpf:
+                cliente_data['cpf'] = proposta.cliente.cpf
             
-        # Verificar se é pessoa jurídica
-        if MODELS_AVAILABLE and hasattr(proposta.cliente, 'entidade_juridica') and proposta.cliente.entidade_juridica:
-            ej = proposta.cliente.entidade_juridica
-            cliente_data.update({
-                'is_pessoa_juridica': True,
-                'razao_social': ej.razao_social,
-                'nome_fantasia': ej.nome_fantasia,
-                'cnpj': ej.cnpj
-            })
+            # Se tem entidade jurídica associada, é pessoa jurídica
+            if proposta.entidade_juridica:
+                ej = proposta.entidade_juridica
+                cliente_data.update({
+                    'is_pessoa_juridica': True,
+                    'razao_social': ej.razao_social,
+                    'nome_fantasia': ej.nome_fantasia,
+                    'cnpj': ej.cnpj
+                })
         
-        # Dados tributários (se disponível)
-        dados_tributarios = None
-        if MODELS_AVAILABLE and hasattr(proposta, 'dados_tributarios'):
-            dados_tributarios = {
-                'regime_tributario': getattr(proposta.dados_tributarios, 'regime_tributario', None),
-                'faixa_faturamento': getattr(proposta.dados_tributarios, 'faixa_faturamento', None)
-            }
+        # Usar o valor_total já calculado do modelo
+        total_proposta = float(proposta.valor_total) if proposta.valor_total else subtotal_servicos
         
         return {
             'data_atual': datetime.now().strftime('%d/%m/%Y'),
             'cliente': cliente_data,
-            'proposta': proposta,
+            'proposta': {
+                'numero': proposta.numero_proposta,
+                'valor_total': total_proposta,
+                'porcentagem_desconto': proposta.porcentagem_desconto or 0,
+                'status': proposta.status,
+                'validade': proposta.validade.strftime('%d/%m/%Y') if proposta.validade else None,
+                'observacao': proposta.observacao
+            },
             'itens': itens_com_servicos,
-            'subtotal': subtotal_servicos + (proposta.valor_mensalidade or 0),
+            'subtotal': subtotal_servicos,
+            'total_geral': total_proposta,
             'condicoes': {
                 'forma_pagamento_parcelado': '3x sem juros',
                 'prazo_entrega': '15 dias úteis',
-                'termos_gerais': 'Esta proposta é válida pelos termos e condições apresentados. Qualquer alteração deverá ser comunicada e aprovada previamente.'
+                'termos_gerais': f'Esta proposta é válida até {proposta.validade.strftime("%d/%m/%Y") if proposta.validade else "data a definir"}. Qualquer alteração deverá ser comunicada e aprovada previamente.',
+                'validade': proposta.validade.strftime('%d/%m/%Y') if proposta.validade else '30 dias'
             },
-            'dados_tributarios': dados_tributarios,
             'observacoes_especiais': [
+                proposta.observacao if proposta.observacao else 'Sem observações especiais',
                 'Valores sujeitos a reajuste após o período de validade da proposta',
                 'Início dos trabalhos condicionado à documentação completa'
             ],
-            'logo_path': logo_path
+            'logo_path': logo_path,
+            'empresa': self.empresa
         }
         
     def _gerar_pdf_weasyprint(self, html_content: str, caminho_arquivo: str):

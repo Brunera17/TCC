@@ -1,11 +1,12 @@
-import '../style/Home.css'
 import Sidebar from '../components/Sidebar'
+import { Outlet } from 'react-router-dom'
 
 const Home = () => {
     return(
-        <div className='home'>
-            <div className='sidebar'>
-                <Sidebar/>
+        <div className="flex h-screen bg-gray-50">
+            <Sidebar />
+            <div className="flex-1 p-6">
+                <Outlet />
             </div>
         </div>
     )
