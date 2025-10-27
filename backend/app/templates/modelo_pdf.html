@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Proposta Comercial</title>
+    <style>
+        /* CSS SIMPLIFICADO PARA WEASYPRINT */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: white;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .page {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px 0;
+            background: white;
+        }
+
+        /* HEADER OTIMIZADO - AJUSTADO PARA CABER MELHOR */
+        .header-wrapper {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            background: #f0eeea;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .header-left {
+            flex: 2;
+            padding: 12px;
+            border-radius: 8px 0 0 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .header-right {
+            flex: 1;
+            background: transparent;
+            padding: 0;
+            text-align: center;
+        }
+
+        .header-date {
+            font-size: 11px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #000;
+        }
+
+        .header-box {
+            background: #fff;
+            padding: 6px 12px;
+            border-radius: 15px;
+            display: inline-block;
+            font-size: 11px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .header-description {
+            font-size: 10px;
+            line-height: 1.3;
+            color: #333;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .logo-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-container img {
+            width: 100%;
+            height: 100%;
+            border-radius: 0 8px 8px 0;
+            object-fit: contain;
+        }
+
+        /* CONTEÚDO */
+        .intro-box {
+            background: #f0eeea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 0 10px 0;
+            color: #000;
+            border-bottom: 2px solid #797878;
+            padding-bottom: 5px;
+        }
+
+        .company-description {
+            font-size: 12px;
+            line-height: 1.5;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .services-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            counter-reset: service-counter;
+        }
+
+        .services-list>li {
+            margin-bottom: 15px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .services-list>li::before {
+            content: counter(service-counter) ".";
+            counter-increment: service-counter;
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .services-list>li>strong {
+            font-weight: bold;
+            color: #000;
+        }
+
+        .services-list ul {
+            margin: 8px 0 0 0;
+            padding-left: 15px;
+        }
+
+        .services-list ul li {
+            margin-bottom: 3px;
+            font-size: 11px;
+        }
+
+        .service-subsection {
+            margin: 10px 0 0 15px;
+        }
+
+        .service-subsection h4 {
+            font-weight: bold;
+            margin: 8px 0 3px 0;
+            color: #000;
+            font-size: 12px;
+        }
+
+        .service-subsection ul {
+            margin: 3px 0 0 0;
+            padding-left: 15px;
+        }
+
+        /* TABELA SIMPLIFICADA */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0 20px 0;
+            font-size: 11px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background: #f5f5f5;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .table-total {
+            background: #eee;
+            font-weight: bold;
+        }
+
+        .table-subtotal {
+            font-weight: bold;
+        }
+
+        /* DETALHES */
+        .details-section {
+            margin-bottom: 15px;
+        }
+
+        .details-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #000;
+            font-size: 12px;
+        }
+
+        .details-content {
+            line-height: 1.4;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 11px;
+        }
+
+        .payment-options ul {
+            margin: 5px 0 0 0;
+            padding-left: 15px;
+        }
+
+        .payment-options li {
+            margin-bottom: 5px;
+            line-height: 1.3;
+            font-size: 11px;
+        }
+
+        .payment-options li strong {
+            font-weight: bold;
+            color: #000;
+        }
+
+        /* NOVAS SEÇÕES - SEGUIR ESTE PADRÃO */
+
+        /* Seção de informações do cliente */
+        .cliente-info-section {
+            margin-bottom: 15px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .cliente-info-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #000;
+            font-size: 12px;
+        }
+
+        .cliente-info-content {
+            line-height: 1.4;
+            color: #333;
+            font-size: 11px;
+        }
+
+        /* Layout em duas colunas para informações */
+        .info-duas-colunas {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+
+        .info-coluna {
+            flex: 1;
+            font-size: 11px;
+        }
+
+        /* Seção de contatos */
+        .contatos-section {
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+
+        .contatos-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #000;
+            font-size: 12px;
+        }
+
+        .contatos-content {
+            line-height: 1.4;
+            color: #333;
+            font-size: 11px;
+        }
+
+        /* Seção de condições comerciais */
+        .condicoes-section {
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+
+        .condicoes-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #000;
+            font-size: 12px;
+        }
+
+        .condicoes-content {
+            line-height: 1.4;
+            color: #333;
+            font-size: 11px;
+        }
+
+        /* Seção de observações */
+        .observacoes-section {
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+
+        .observacoes-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #000;
+            font-size: 12px;
+        }
+
+        .observacoes-content {
+            line-height: 1.4;
+            color: #333;
+            font-size: 11px;
+            background: #f9f9f9;
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #797878;
+        }
+
+        /* Tabela compacta para dados estruturados */
+        .tabela-compacta {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 10px;
+        }
+
+        .tabela-compacta th,
+        .tabela-compacta td {
+            border: 1px solid #ddd;
+            padding: 4px 6px;
+            text-align: left;
+        }
+
+        .tabela-compacta th {
+            background: #f5f5f5;
+            font-weight: bold;
+            color: #000;
+            font-size: 10px;
+        }
+
+        .tabela-compacta td {
+            font-size: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page">
+        <!-- HEADER OTIMIZADO -->
+        <div class="header-wrapper">
+            <div class="header-left">
+                <div class="header-date">{{ data_atual }}</div>
+                <div class="header-title">Proposta de Orçamento</div>
+                <div class="header-box">
+                    Preparado para: <strong>
+                        {%- if cliente.is_pessoa_juridica -%}
+                        {{ cliente.razao_social or cliente.nome_fantasia or cliente.nome }}
+                        {%- if cliente.cnpj %} - CNPJ: {{ cliente.cnpj }}{% endif -%}
+                        {%- else -%}
+                        {{ cliente.nome }}
+                        {%- if cliente.cpf %} - CPF: {{ cliente.cpf }}{% endif -%}
+                        {%- endif -%}
+                    </strong>
+                </div>
+                <div class="header-description">
+                    Atuamos com ética, qualidade e inovação, oferecendo serviços contábeis e consultoria empresarial.
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="logo-container">
+                    {% if logo_path %}
+                    <img src="assets/logo.png" alt="Logo Christino Consultoria" />
+                    {% else %}
+                    <div style="color: white; font-size: 24px; font-weight: bold;">LOGO</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- NOVA SEÇÃO: Dados Tributários (se aplicável) -->
+        {% if dados_tributarios %}
+        <div class="section-title">Informações Tributárias</div>
+
+        <div class="info-duas-colunas">
+            <div class="info-coluna">
+                {% if dados_tributarios.regime_tributario %}
+                <div class="cliente-info-section">
+                    <div class="cliente-info-title">Regime Tributário</div>
+                    <div class="cliente-info-content">
+                        {{ dados_tributarios.regime_tributario }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="info-coluna">
+                {% if dados_tributarios.faixa_faturamento %}
+                <div class="cliente-info-section">
+                    <div class="cliente-info-title">Faixa de Faturamento</div>
+                    <div class="cliente-info-content">
+                        {{ dados_tributarios.faixa_faturamento }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="section-title">Serviços</div>
+        <ol class="services-list">
+            {% for item in itens %}
+            <li>
+                <strong>{{ item.servico.nome }}</strong>
+                {% if item.servico.descricao %}
+                <ul>
+                    {% for descricao_item in item.servico.descricao.split('\\n') %}
+                    {% if descricao_item.strip() %}
+                    <li>{{ descricao_item.strip() }}</li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if item.servico.nome == "Regularização de CNPJ, o serviço compreende:" %}
+                <div class="service-subsection">
+                    <h4>1. Entrega das Obrigações Acessórias</h4>
+                    <ul>
+                        <li>Elaboração e transmissão da DCTF (Declaração de Débitos e Créditos Tributários Federais) dos
+                            exercícios de 2020 a 2024.</li>
+                        <li>Elaboração e transmissão da EFD-Contribuições (PIS/COFINS e CPRB) dos exercícios de 2020 a
+                            2025.</li>
+                    </ul>
+
+                    <h4>2. Reativação do CNPJ</h4>
+                    <ul>
+                        <li>Atendimento às exigências da Receita Federal.</li>
+                        <li>Adoção das medidas necessárias para voltar o CNPJ à condição de ativo, permitindo o pleno
+                            funcionamento da empresa.</li>
+                    </ul>
+
+                    <h4>3. Conformidade Fiscal e Tributária</h4>
+                    <ul>
+                        <li>Garantia de que a empresa esteja em situação regular, sem pendências impeditivas.</li>
+                        <li>Prevenção de multas e restrições futuras.</li>
+                    </ul>
+                </div>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+
+        <div class="section-title">Orçamento</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Serviço ou Produto</th>
+                    <th>Quantidade</th>
+                    <th>Preço Unitário</th>
+                    {% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}
+                    <th>Desconto</th>
+                    {% endif %}
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in itens %}
+                <tr>
+                    <td>{{ item.servico.nome }}</td>
+                    <td>{{ item.quantidade|int }}</td>
+                    <td>{{ item.valor_unitario|currency }}</td>
+                    {% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}
+                    <td>{{ item.valor_desconto|currency }}</td>
+                    {% endif %}
+                    <td>{{ item.valor_total|currency }}</td>
+                </tr>
+                {% endfor %}
+                {% if proposta.valor_mensalidade and proposta.valor_mensalidade > 0 %}
+                <tr>
+                    <td><strong>Mensalidade</strong></td>
+                    <td>1</td>
+                    <td>{{ proposta.valor_mensalidade|currency }}</td>
+                    {% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}
+                    <td>{{ 0|currency }}</td>
+                    {% endif %}
+                    <td>{{ proposta.valor_mensalidade|currency }}</td>
+                </tr>
+                {% elif proposta.valor_mensalidade == 0 %}
+                <tr>
+                    <td><strong>Mensalidade</strong></td>
+                    <td>1</td>
+                    <td><em>A combinar</em></td>
+                    {% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}
+                    <td>{{ 0|currency }}</td>
+                    {% endif %}
+                    <td><em>A combinar</em></td>
+                </tr>
+                {% endif %}
+                <tr class="table-subtotal">
+                    <td
+                        colspan="{% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}4{% else %}3{% endif %}">
+                        <strong>Subtotal</strong>
+                    </td>
+                    <td>{{ subtotal|currency }}</td>
+                </tr>
+                <tr class="table-total">
+                    <td
+                        colspan="{% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}4{% else %}3{% endif %}">
+                        <strong>Total</strong>
+                    </td>
+                    <td>{{ proposta.valor_total|currency }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="details-section">
+            <div class="details-title">Opções de Pagamento</div>
+            <div class="observacoes-content">
+                <ul>
+                    <li><strong>À vista:</strong>
+                        {% if proposta.valor_total > 0 %}
+                        {% if proposta.valor_mensalidade == 0 %}
+                        {{ proposta.valor_total|currency }} + <em>Mensalidade a combinar</em>
+                        {% else %}
+                        {{ proposta.valor_total|currency }}
+                        {% endif %}
+                        {% else %}
+                        <em>A combinar</em>
+                        {% endif %}
+                    </li>
+                    <li><strong>Parcelado:</strong>
+                        {% if proposta.valor_total > 0 %}
+                        {% if proposta.valor_mensalidade == 0 %}
+                        {{ proposta.valor_total|currency }} + <em>Mensalidade a combinar</em> em até <strong>{{
+                            condicoes.forma_pagamento_parcelado }}</strong>
+                        {% else %}
+                        {{ proposta.valor_total|currency }} em até <strong>{{ condicoes.forma_pagamento_parcelado
+                            }}</strong>
+                        {% endif %}
+                        {% else %}
+                        <em>A combinar</em>
+                        {% endif %}
+                    </li>
+                    <li>
+                        {% if observacoes_especiais %}
+                        {% for observacao in observacoes_especiais %}
+                        {{ observacao }}<br>
+                        {% endfor %}
+                        {% endif %}
+                    </li>
+                </ul>
+
+            </div>
+        </div>
+
+        <!-- NOVA SEÇÃO: Condições Comerciais -->
+        <div class="section-title">Termos e Condições</div>
+        <div class="condicoes-section">
+            <div class="condicoes-content">
+                {{ condicoes.termos_gerais }}<br>
+                Qualquer alteração deverá ser comunicada e aprovada previamente.
+            </div>
+        </div>
+        <div class="condicoes-section">
+            <div class="condicoes-title">Validade da Proposta</div>
+            <div class="condicoes-content">
+                Esta proposta é válida por <strong>30 dias</strong> a partir da data de emissão ({{ data_atual }}).
+                Após este período, os valores poderão ser reajustados.
+            </div>
+        </div>
+
+        <div class="section-title">Detalhes Adicionais</div>
+
+        <div class="details-section">
+            <div class="details-title">Previsão de Entrega</div>
+            <div class="details-content">
+                <!--<strong>Serviços Únicos:</strong> Conclusão em até <strong>{{ condicoes.prazo_entrega }}</strong>,
+                contados a partir da disponibilização completa da documentação necessária e certificado digital (quando
+                aplicável).<br><br>
+
+                <strong>Serviços Recorrentes:</strong>-->
+                Início imediato após aprovação da proposta, com cronograma
+                personalizado conforme a natureza dos serviços contratados.<br><br>
+
+                <strong>Fatores que podem influenciar o prazo:</strong><br>
+                • Disponibilidade de documentação completa do cliente<br>
+                • Tempo de resposta para esclarecimentos necessários<br>
+                • Complexidade específica dos serviços solicitados<br>
+                • Períodos de alta demanda (final de ano, fechamentos mensais)<br><br>
+
+                <strong>Observação:</strong> Todos os prazos são contados em dias úteis e podem depender
+                da disponibilização completa da documentação necessária ou da disponibiblidade de orgãos federais ou
+                estaduais.
+            </div>
+        </div>
+
+    </div>
+</body>
+
+</html>
