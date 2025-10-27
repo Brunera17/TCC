@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'; // 👈 Adicionado useMemo
-import { Plus, Trash2, Edit2, DollarSign, Eye } from 'lucide-react';
+// src/pages/ServicosPage.tsx
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Trash2, Edit2, DollarSign, Eye, Info, Tag, AlignLeft, Calendar, Hash, Type as IconType } from 'lucide-react'; // Adicionados ícones
 import { apiService, ApiError } from '../lib/api'; // Import ApiError
 import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
@@ -14,31 +15,51 @@ import {
   ModalPadrao,
   type Column
 } from '../components/ui';
+// IMPORTAR O NOVO MODAL E A INTERFACE FieldConfig (se ModalVisualizacaoPadrao for usado)
+import { ModalCadastroCategoria } from '../components/modals/ModalCadastroCategoria'; // Ajuste o caminho se necessário
+import { ModalVisualizacaoPadrao, FieldConfig } from '../components/ui/ModalVisualizacaoPadrao'; // Ajuste o caminho
 
+// --- Interfaces (Mantenha ou importe de types/index.ts) ---
 interface Servico {
   id: number;
   codigo: string;
   nome: string;
   descricao?: string;
   valor_unitario: number;
+  regras_cobranca?: string; // <-- Campo adicionado
   categoria_id?: number;
   ativo: boolean;
   created_at?: string;
+  updated_at?: string; // Adicionado para consistência
+  status?: string; // Adicionado para consistência (pode ser usado no lugar de 'ativo')
 }
 
 interface Categoria {
   id: number;
   nome: string;
+  // ativo: boolean; // Se existir no seu modelo Categoria
 }
 
+// Interface ajustada para incluir regras_cobranca
+// (Idealmente definida em types/index.ts)
 type ServicoCadastroPayload = {
-  codigo: string;
+  // codigo?: string; // Removido, gerado no backend
   nome: string;
   descricao?: string;
   valor_unitario: number;
+  regras_cobranca: string; // <-- Campo adicionado e obrigatório (?)
   categoria_id: number | null;
   ativo: boolean;
 };
+
+// --- Constantes ---
+const opcoesRegrasCobranca = [
+  { value: 'VALOR_UNICO', label: 'Valor Único' },
+  { value: 'MENSAL', label: 'Mensal' },
+  { value: 'POR_HORA', label: 'Por Hora' },
+  { value: 'PERCENTUAL', label: 'Percentual' },
+  // { value: 'POR_NF', label: 'Por NF' } // Adicione se necessário
+];
 
 export default function ServicosPage() {
   const { user } = useAuth();
@@ -55,12 +76,17 @@ export default function ServicosPage() {
   const [isCarregando, setIsCarregando] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Estado do Modal de Categoria
+  const [isModalCategoriaOpen, setIsModalCategoriaOpen] = useState(false);
+
+  // Estado do formulário atualizado
   const [formData, setFormData] = useState({
     nome: '',
     descricao: '',
     valor_unitario: '',
-    codigo: '',
+    // codigo: '', // Removido
     categoria_id: '',
+    regras_cobranca: opcoesRegrasCobranca[0].value, // Valor padrão
   });
 
   const isAdmin = true; // TODO: Voltar para Boolean(user?.gerente)
@@ -68,18 +94,15 @@ export default function ServicosPage() {
   // =============================
   // 🔹 FUNÇÕES AUXILIARES E MAPAS
   // =============================
-
-  // Mapa de categorias para otimizar busca de nome (O(1))
   const categoryMap = useMemo(() => {
     const map = new Map<number, string>();
     categorias.forEach(c => map.set(c.id, c.nome));
     return map;
   }, [categorias]);
 
-  // Filtra os serviços com base no termo de busca
   const filteredServicos = useMemo(() => {
     if (!searchTerm) {
-      return servicos; // Retorna todos se a busca estiver vazia
+      return servicos;
     }
     const lowerSearchTerm = searchTerm.toLowerCase();
     return servicos.filter(servico =>
@@ -87,7 +110,7 @@ export default function ServicosPage() {
       servico.codigo.toLowerCase().includes(lowerSearchTerm) ||
       (servico.categoria_id && categoryMap.get(servico.categoria_id)?.toLowerCase().includes(lowerSearchTerm))
     );
-  }, [servicos, searchTerm, categoryMap]); // Recalcula se dados, busca ou mapa mudarem
+  }, [servicos, searchTerm, categoryMap]);
 
   const handleVisualizarClick = (servico: Servico) => {
     setServicoParaVisualizar(servico);
@@ -104,7 +127,7 @@ export default function ServicosPage() {
     try {
       await apiService.deleteServico(servicoParaExcluir.id);
       setModalExclusaoOpen(false);
-      fetchServicos(); // Rebusca os dados
+      fetchServicos();
       setServicoParaExcluir(null);
     } catch (err) {
       console.error('Erro ao excluir serviço:', err);
@@ -116,11 +139,25 @@ export default function ServicosPage() {
     setSearchTerm(term);
   };
 
-  const formatarValor = (valor: number) => {
+  const formatarValor = (valor: number | string) => {
+    const num = typeof valor === 'string' ? parseFloat(valor) : valor;
+    if (isNaN(num)) return 'R$ -';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(valor);
+    }).format(num);
+  };
+
+  // Callback para o modal de categoria
+  const handleCategoriaCadastrada = (novaCategoria: Categoria) => {
+    setIsModalCategoriaOpen(false); // Fecha o modal de categoria
+    fetchCategorias(); // Atualiza a lista de categorias
+    // Seleciona automaticamente a nova categoria no formulário de serviço
+    if (novaCategoria?.id) {
+        setFormData(prev => ({ ...prev, categoria_id: novaCategoria.id.toString() }));
+    }
+    // Opcional: Mostrar notificação de sucesso
+    // showSuccess('Categoria Criada!', `A categoria "${novaCategoria.nome}" foi criada.`);
   };
 
   // =============================
@@ -128,17 +165,17 @@ export default function ServicosPage() {
   // =============================
   const columns: Column<Servico>[] = [
     {
-      key: 'codigo',
+      key: 'codigo', // Use string literal for key
       label: 'Código',
       render: (_, item) => item.codigo
     },
     {
-      key: 'nome',
+      key: 'nome', // Use string literal for key
       label: 'Nome',
       render: (_, item) => item.nome
     },
     {
-      key: 'valor_unitario',
+      key: 'valor_unitario', // Use string literal for key
       label: 'Valor',
       render: (_, item) => (
         <span className="inline-flex items-center text-green-600 font-medium">
@@ -148,10 +185,18 @@ export default function ServicosPage() {
       )
     },
     {
-      key: 'categoria_id',
+       key: 'regras_cobranca', // <-- Nova coluna
+       label: 'Cobrança',
+       render: (_, item) => (
+            <span className="text-sm text-gray-700">
+                {opcoesRegrasCobranca.find(o => o.value === item.regras_cobranca)?.label || item.regras_cobranca || '-'}
+            </span>
+       )
+    },
+    {
+      key: 'categoria_id', // Use string literal for key
       label: 'Categoria',
       render: (_, item) => {
-        // ⚡️ Otimizado: Busca O(1) no mapa
         return item.categoria_id ? categoryMap.get(item.categoria_id) || '-' : '-';
       }
     },
@@ -165,12 +210,15 @@ export default function ServicosPage() {
       console.log('🔍 Iniciando busca de serviços...');
       setIsCarregando(true);
       setError(null);
-      const data = await apiService.getServicos();
+      // Ajustar para buscar todos (ativos e inativos) se a lógica de reativação
+      // depender de encontrar inativos na lista principal, ou manter como está.
+      const data = await apiService.getServicos({ ativo_only: true }); // Exemplo: { ativo_only: true }
       console.log('✅ Serviços recebidos:', data);
-      setServicos(data || []);
+      setServicos(Array.isArray(data) ? data : []); // Garante que é um array
     } catch (err) {
       console.error('❌ Erro ao buscar serviços:', err);
       setError('Erro ao buscar serviços: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
+      setServicos([]); // Define como array vazio em caso de erro
     } finally {
       setIsCarregando(false);
       console.log('🏁 Busca de serviços finalizada.');
@@ -180,12 +228,13 @@ export default function ServicosPage() {
   const fetchCategorias = async () => {
     try {
       console.log('🔍 Iniciando busca de categorias...');
-      const data = await apiService.getCategorias();
+      const data = await apiService.getCategorias({ ativo_only: true }); // Exemplo: buscar apenas ativas
       console.log('✅ Categorias recebidas:', data);
-      setCategorias(data || []);
+      setCategorias(Array.isArray(data) ? data : []); // Garante que é um array
     } catch (err) {
       console.error('❌ Erro ao buscar categorias:', err);
-      // Pode adicionar um setError aqui se a falha for crítica
+      setCategorias([]); // Define como array vazio em caso de erro
+      // Considerar adicionar setError aqui se for crítico
     }
   };
 
@@ -193,7 +242,7 @@ export default function ServicosPage() {
     console.log('🔍 ServicosPage montado');
     fetchServicos();
     fetchCategorias();
-  }, [user]); // Dependência mantida para possível re-fetch se usuário mudar
+  }, [user]);
 
   // =============================
   // 🔹 CADASTRO
@@ -201,65 +250,42 @@ export default function ServicosPage() {
   const handleCadastroSubmit = async () => {
     setError(null);
 
+    // Validação frontend básica
+    if (!formData.nome.trim() || !formData.valor_unitario || !formData.regras_cobranca) {
+        setError('Nome, Valor Unitário e Tipo de Cobrança são obrigatórios.');
+        return;
+    }
+    const valorNum = parseFloat(formData.valor_unitario);
+    if (isNaN(valorNum) || valorNum < 0) {
+        setError('Valor Unitário inválido.');
+        return;
+    }
+
     const dados: ServicoCadastroPayload = {
-      codigo: formData.codigo || `SVC-${Date.now()}`,
-      nome: formData.nome,
-      descricao: formData.descricao || undefined,
-      valor_unitario: parseFloat(formData.valor_unitario) || 0,
+      nome: formData.nome.trim(), // Garante que não há espaços extras
+      descricao: formData.descricao.trim() || undefined,
+      valor_unitario: valorNum,
+      regras_cobranca: formData.regras_cobranca, // <-- Incluído
       categoria_id: formData.categoria_id ? parseInt(formData.categoria_id) : null,
       ativo: true,
+      // codigo: '', // Enviar vazio ou null se backend esperar mas for ignorar
     };
 
     try {
+      // A lógica de reativação agora está no backend (ServicoService.criar_servico)
       await apiService.createServico(dados);
       handleCadastroClose();
-      fetchServicos(); // Rebusca os dados
-      return; // Importante para sair da função
+      fetchServicos(); // Rebusca os dados para incluir o novo ou reativado
     } catch (err) {
       console.error('Erro ao cadastrar serviço:', err);
-
-      // Tratamento de erro detalhado
-      if (err instanceof ApiError) {
-        const details = err.details;
-        if (details && typeof details === 'object') {
-          const serverMessage = typeof details.error === 'string' ? details.error : JSON.stringify(details);
-
-          if (serverMessage.includes('UNIQUE constraint failed')) {
-            const match = serverMessage.match(/UNIQUE constraint failed: ([\w.]+)/);
-            const campo = match?.[1]?.split('.').pop();
-
-            if (campo === 'nome' || campo === 'codigo') {
-              const valorDuplicado = campo === 'nome' ? dados.nome : dados.codigo;
-              const reativado = await tentarReativarServicoInativo(campo as 'nome' | 'codigo', valorDuplicado, dados);
-
-              if (reativado) {
-                handleCadastroClose();
-                fetchServicos(); // Rebusca os dados
-                return; // Serviço reativado, sair da função
-              }
-            }
-
-            const campoTraduzido = campo === 'codigo' ? 'código' : campo === 'nome' ? 'nome do serviço' : campo;
-            setError(`Já existe um serviço cadastrado com esse ${campoTraduzido ?? 'valor'}. Ajuste os dados ou reative o registro arquivado antes de tentar novamente.`);
-            return;
-          }
-
-          setError(serverMessage);
-          return;
-        }
-
-        if (typeof details === 'string' && details.trim()) {
-          setError(details);
-          return;
-        }
-      }
-
-      if (err instanceof Error) {
+      if (err instanceof ApiError && err.details) {
+         setError(typeof err.details === 'string' ? err.details : err.details.error || JSON.stringify(err.details));
+      } else if (err instanceof Error) {
         setError(err.message);
-        return;
+      } else {
+        setError('Erro desconhecido ao cadastrar serviço.');
       }
-
-      setError('Erro ao cadastrar serviço');
+      // Não precisa mais da lógica 'tentarReativarServicoInativo' aqui
     }
   };
 
@@ -270,72 +296,55 @@ export default function ServicosPage() {
     if (!servicoParaEditar) return;
     setError(null);
 
+    // Validação frontend básica
+    if (!formData.nome.trim() || !formData.valor_unitario || !formData.regras_cobranca) {
+        setError('Nome, Valor Unitário e Tipo de Cobrança são obrigatórios.');
+        return;
+    }
+    const valorNum = parseFloat(formData.valor_unitario);
+    if (isNaN(valorNum) || valorNum < 0) {
+        setError('Valor Unitário inválido.');
+        return;
+    }
+
     try {
       const dados = {
-        nome: formData.nome,
-        descricao: formData.descricao || undefined,
-        valor_unitario: parseFloat(formData.valor_unitario) || 0,
+        nome: formData.nome.trim(),
+        descricao: formData.descricao.trim() || undefined,
+        valor_unitario: valorNum,
+        regras_cobranca: formData.regras_cobranca, // <-- Incluído
         categoria_id: formData.categoria_id ? parseInt(formData.categoria_id) : null,
-        // O campo 'ativo' geralmente não é editado aqui, mas sim em uma ação separada (ativar/desativar)
+        // 'ativo' geralmente não é editado aqui
       };
 
       await apiService.updateServico(servicoParaEditar.id, dados);
       handleEdicaoClose();
-      fetchServicos(); // Rebusca os dados
+      fetchServicos();
     } catch (err: unknown) {
       console.error('Erro ao editar serviço:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      setError(`Erro ao editar serviço: ${errorMessage}`);
+      if (err instanceof ApiError && err.details) {
+         setError(typeof err.details === 'string' ? err.details : err.details.error || JSON.stringify(err.details));
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Erro desconhecido ao editar serviço.');
+      }
     }
   };
 
   // =============================
   // 🔹 UTILITÁRIOS
   // =============================
-  const tentarReativarServicoInativo = async (
-    campo: 'nome' | 'codigo',
-    valor: string,
-    dados: ServicoCadastroPayload
-  ): Promise<boolean> => {
-    if (!valor) return false;
-
-    try {
-      const existente = campo === 'nome'
-        ? await apiService.getServicoPorNome(valor)
-        : await apiService.getServicoPorCodigo(valor);
-
-      // Se não existe ou se o erro não foi 404, não tentar reativar
-      if (!existente) {
-        return false;
-      }
-
-      // Se existe e está inativo, tenta reativar com os novos dados
-      if (existente && existente.ativo === false) {
-        await apiService.updateServico(existente.id, {
-          ...dados, // Usa os novos dados do formulário
-          ativo: true, // Garante que será reativado
-        });
-        console.info('🔁 Serviço reativado automaticamente:', existente.id);
-        return true;
-      }
-    } catch (erroReativacao) {
-      // Ignorar erro 404 (significa que realmente não existe)
-      if (erroReativacao instanceof ApiError && erroReativacao.status === 404) {
-        return false;
-      }
-      // Logar outros erros mas continuar (o erro original será mostrado)
-      console.warn('⚠️ Não foi possível reativar serviço inativo automaticamente:', erroReativacao);
-    }
-    return false;
-  };
+  // Remover tentarReativarServicoInativo se a lógica foi movida para o backend
 
   const resetForm = () => {
     setFormData({
       nome: '',
       descricao: '',
       valor_unitario: '',
-      codigo: '',
+      // codigo: '', // Removido
       categoria_id: '',
+      regras_cobranca: opcoesRegrasCobranca[0].value, // Reset para o padrão
     });
   };
 
@@ -346,15 +355,17 @@ export default function ServicosPage() {
       nome: servico.nome,
       descricao: servico.descricao || '',
       valor_unitario: servico.valor_unitario.toString(),
-      codigo: servico.codigo, // Geralmente o código não é editável, mas preenchemos
+      // codigo: servico.codigo, // Não é mais editável no form
       categoria_id: servico.categoria_id?.toString() || '',
+      regras_cobranca: servico.regras_cobranca || opcoesRegrasCobranca[0].value, // Preenche
     });
+    setError(null); // Limpa erros ao abrir
     setIsModalEdicaoOpen(true);
   };
 
   const handleCadastroOpen = () => {
     resetForm();
-    setError(null); // Limpa erros ao abrir o modal
+    setError(null);
     setIsModalCadastroOpen(true);
   };
 
@@ -370,6 +381,32 @@ export default function ServicosPage() {
     setError(null);
     setServicoParaEditar(null);
   };
+
+  // Configuração para o ModalVisualizacaoPadrao (opcional)
+  const servicoViewConfig: FieldConfig[] = useMemo(() => [
+        { key: 'codigo', label: 'Código', icon: Hash, section: 'Identificação' },
+        { key: 'nome', label: 'Nome', icon: Info, section: 'Identificação' },
+        { key: 'categoria_id', label: 'Categoria', icon: Tag, section: 'Identificação',
+            render: (value, data) => (
+                <p className="text-sm text-gray-900">{categoryMap.get(data.categoria_id || 0) || <span className="italic text-gray-400">Não informada</span>}</p>
+            )
+        },
+        { key: 'valor_unitario', label: 'Valor Unitário', icon: DollarSign, section: 'Valores' },
+        {
+            key: 'regras_cobranca',
+            label: 'Tipo de Cobrança',
+            icon: IconType,
+            section: 'Valores',
+            formatter: (value) => opcoesRegrasCobranca.find(o => o.value === value)?.label || String(value)
+        },
+        { key: 'descricao', label: 'Descrição', icon: AlignLeft, section: 'Detalhes', hidden: !servicoParaVisualizar?.descricao }, // Oculta se não houver descrição
+        { key: 'created_at', label: 'Data de Criação', icon: Calendar, section: 'Datas' },
+        // Ocultar campos não relevantes
+        { key: 'id', hidden: true },
+        { key: 'ativo', hidden: true },
+        { key: 'updated_at', hidden: true },
+        { key: 'status', hidden: true },
+  ], [categoryMap, servicoParaVisualizar]); // Dependências do useMemo
 
   // =============================
   // 🔹 INTERFACE (JSX)
@@ -393,36 +430,43 @@ export default function ServicosPage() {
         <div className="p-6 border-b border-gray-200">
           <SearchBar
             value={searchTerm}
-            onChange={handleSearch} // A função handleSearch atualiza o estado searchTerm
+            onChange={handleSearch}
             placeholder="Buscar por nome, código ou categoria..."
           />
         </div>
 
         <StateHandler
           loading={isCarregando}
-          error={error || undefined} // Mostra o erro aqui se houver
-          onErrorDismiss={() => setError(null)} // Permite fechar a mensagem de erro
-          isEmpty={filteredServicos.length === 0 && !searchTerm} // Condição de vazio
+          error={error || undefined}
+          onErrorDismiss={() => setError(null)}
+          isEmpty={filteredServicos.length === 0 && !isCarregando} // Melhor condição de vazio
           emptyState={
-            <div className="text-center py-10">
-              <p className="text-gray-500">
+            <div className="text-center py-10 px-6">
+               <Package className="mx-auto h-12 w-12 text-gray-400 mb-4" /> {/* Ícone Package */}
+              <p className="text-gray-500 font-medium">
                 {searchTerm
                   ? `Nenhum serviço encontrado para "${searchTerm}"`
                   : "Nenhum serviço cadastrado ainda."}
               </p>
+               {!searchTerm && isAdmin && (
+                 <button onClick={handleCadastroOpen} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                   + Cadastrar Novo Serviço
+                 </button>
+               )}
             </div>
           }
         >
           <DataTable
-            data={filteredServicos} // 👈 USA OS DADOS FILTRADOS
+            data={filteredServicos}
             columns={columns}
             actions={(item) => (
-              <div className="flex space-x-2">
+              <div className="flex space-x-1"> {/* Reduzir espaço se necessário */}
                 <IconButton
                   icon={Eye}
                   size="sm"
                   variant="outline"
                   onClick={() => handleVisualizarClick(item)}
+                  title="Visualizar" // Adicionar title para acessibilidade
                 />
                 {isAdmin && (
                   <>
@@ -431,12 +475,14 @@ export default function ServicosPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleEditClick(item)}
+                      title="Editar"
                     />
                     <IconButton
                       icon={Trash2}
                       size="sm"
                       variant="danger"
                       onClick={() => handleExcluirClick(item)}
+                      title="Excluir"
                     />
                   </>
                 )}
@@ -446,50 +492,15 @@ export default function ServicosPage() {
         </StateHandler>
       </div>
 
-      {/* Modal de Visualização */}
-      <ModalPadrao
+      {/* Modal de Visualização com Componente Genérico */}
+      <ModalVisualizacaoPadrao
         isOpen={isModalVisualizacaoOpen}
         onClose={() => setIsModalVisualizacaoOpen(false)}
         title="Detalhes do Serviço"
-        confirmLabel="Fechar"
-        onConfirm={() => setIsModalVisualizacaoOpen(false)} // Apenas fecha
-        showFooter={true} // Mostrar o botão Fechar
-        size="md"
-      >
-        {servicoParaVisualizar && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Código</label>
-              <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded">{servicoParaVisualizar.codigo}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Nome</label>
-              <p className="text-sm text-gray-900">{servicoParaVisualizar.nome}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Valor Unitário</label>
-              <p className="text-sm text-gray-900 font-semibold text-green-700">{formatarValor(servicoParaVisualizar.valor_unitario)}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Descrição</label>
-              <p className="text-sm text-gray-900">{servicoParaVisualizar.descricao || <span className="italic text-gray-400">Não informado</span>}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Categoria</label>
-              <p className="text-sm text-gray-900">{categoryMap.get(servicoParaVisualizar.categoria_id || 0) || <span className="italic text-gray-400">Não informado</span>}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Data de Criação</label>
-              <p className="text-sm text-gray-900">
-                {servicoParaVisualizar.created_at
-                  ? format(new Date(servicoParaVisualizar.created_at), 'dd/MM/yyyy HH:mm')
-                  : <span className="italic text-gray-400">Não informado</span>
-                }
-              </p>
-            </div>
-          </div>
-        )}
-      </ModalPadrao>
+        data={servicoParaVisualizar}
+        config={servicoViewConfig}
+        size="lg"
+      />
 
       {/* Modal de Confirmação de Exclusão */}
       <ConfirmDialog
@@ -497,8 +508,8 @@ export default function ServicosPage() {
         onCancel={() => setModalExclusaoOpen(false)}
         onConfirm={handleExcluirConfirm}
         title="Excluir Serviço"
-        message={`Tem certeza que deseja excluir o serviço "${servicoParaExcluir?.nome}" (Código: ${servicoParaExcluir?.codigo})? Esta ação não pode ser desfeita.`}
-        confirmLabel="Excluir Permanentemente"
+        message={`Tem certeza que deseja excluir o serviço "${servicoParaExcluir?.nome}" (Código: ${servicoParaExcluir?.codigo})? Esta ação marcará o serviço como inativo.`}
+        confirmLabel="Sim, Excluir"
         variant="danger"
       />
 
@@ -507,16 +518,15 @@ export default function ServicosPage() {
         isOpen={isModalCadastroOpen}
         onClose={handleCadastroClose}
         title="Cadastrar Novo Serviço"
-        confirmLabel="Cadastrar"
-        onConfirm={handleCadastroSubmit} // A função de confirmação chama o submit
-        size="lg"
+        confirmLabel={isCarregando ? 'Cadastrando...' : 'Cadastrar'} // Feedback visual
+        onConfirm={handleCadastroSubmit}
+        size="lg" // Ajustado para 'lg'
       >
+        {/* Conteúdo do formulário */}
         <div className="space-y-4">
-          {/* Mostra erro específico do modal aqui */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-              <strong className="font-bold">Erro: </strong>
-              <span className="block sm:inline">{error}</span>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative text-sm" role="alert">
+              {error}
             </div>
           )}
           <input
@@ -526,13 +536,7 @@ export default function ServicosPage() {
             value={formData.nome}
             onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
           />
-          <input
-            type="text"
-            placeholder="Código (opcional, ex: SVC-001)"
-            className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
-            value={formData.codigo}
-            onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toUpperCase() })}
-          />
+          {/* Campo Código removido do cadastro */}
           <textarea
             placeholder="Descrição (opcional)"
             className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
@@ -540,31 +544,72 @@ export default function ServicosPage() {
             onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
             rows={3}
           />
-          <div className="flex items-center space-x-2">
-            <span className="text-gray-500">R$</span>
-            <input
-              type="number"
-              placeholder="Valor unitário *"
-              step="0.01"
-              min="0"
-              className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
-              value={formData.valor_unitario}
-              onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                  <label htmlFor="valor_unitario_cad" className="block text-sm font-medium text-gray-700 mb-1">
+                    Valor Unitário *
+                  </label>
+                  <div className="flex items-center space-x-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 px-3">
+                     <span className="text-gray-500">R$</span>
+                     <input
+                       type="number"
+                       id="valor_unitario_cad"
+                       placeholder="0.00"
+                       step="0.01"
+                       min="0"
+                       className="flex-grow py-2 border-0 focus:ring-0" // Input sem borda interna
+                       value={formData.valor_unitario}
+                       onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })}
+                     />
+                  </div>
+              </div>
+              <div>
+                  <label htmlFor="regras_cobranca_cad" className="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo de Cobrança *
+                  </label>
+                  <select
+                    id="regras_cobranca_cad"
+                    title="Tipo de Cobrança"
+                    className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
+                    value={formData.regras_cobranca}
+                    onChange={(e) => setFormData({ ...formData, regras_cobranca: e.target.value })}
+                  >
+                    {opcoesRegrasCobranca.map((opcao) => (
+                      <option key={opcao.value} value={opcao.value}>
+                        {opcao.label}
+                      </option>
+                    ))}
+                  </select>
+               </div>
           </div>
-          <select
-            title="Categoria do serviço"
-            className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
-            value={formData.categoria_id}
-            onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
-          >
-            <option value="">Selecione uma categoria (opcional)</option>
-            {categorias.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
+          <div>
+            <label htmlFor="categoria_id_cad" className="block text-sm font-medium text-gray-700 mb-1">
+              Categoria (opcional)
+            </label>
+            <div className="flex items-center space-x-2">
+              <select
+                id="categoria_id_cad"
+                title="Categoria do serviço"
+                className="flex-grow border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
+                value={formData.categoria_id}
+                onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
+              >
+                <option value="">Selecione uma categoria</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+              <IconButton
+                icon={Plus}
+                onClick={() => setIsModalCategoriaOpen(true)}
+                variant="outline"
+                size="md"
+                title="Adicionar Nova Categoria"
+              />
+            </div>
+          </div>
         </div>
       </ModalPadrao>
 
@@ -573,22 +618,20 @@ export default function ServicosPage() {
         isOpen={isModalEdicaoOpen}
         onClose={handleEdicaoClose}
         title={`Editar Serviço: ${servicoParaEditar?.nome || ''}`}
-        confirmLabel="Salvar Alterações"
-        onConfirm={handleEdicaoSubmit} // A função de confirmação chama o submit
-        size="lg"
+        confirmLabel={isCarregando ? 'Salvando...' : 'Salvar Alterações'} // Feedback visual
+        onConfirm={handleEdicaoSubmit}
+        size="lg" // Ajustado para 'lg'
       >
-        <div className="space-y-4">
-          {/* Mostra erro específico do modal aqui */}
+        {/* Conteúdo do formulário */}
+         <div className="space-y-4">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-              <strong className="font-bold">Erro: </strong>
-              <span className="block sm:inline">{error}</span>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative text-sm" role="alert">
+              {error}
             </div>
           )}
-          {/* Código não editável */}
           <div>
             <label className="block text-sm font-medium text-gray-500 mb-1">Código</label>
-            <p className="text-sm text-gray-900 bg-gray-100 p-2 rounded">{formData.codigo}</p>
+            <p className="text-sm text-gray-900 bg-gray-100 p-2 rounded">{servicoParaEditar?.codigo}</p>
           </div>
           <input
             type="text"
@@ -604,33 +647,82 @@ export default function ServicosPage() {
             onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
             rows={3}
           />
-          <div className="flex items-center space-x-2">
-            <span className="text-gray-500">R$</span>
-            <input
-              type="number"
-              placeholder="Valor unitário *"
-              step="0.01"
-              min="0"
-              className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
-              value={formData.valor_unitario}
-              onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                  <label htmlFor="valor_unitario_edit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Valor Unitário *
+                  </label>
+                  <div className="flex items-center space-x-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 px-3">
+                     <span className="text-gray-500">R$</span>
+                     <input
+                       type="number"
+                       id="valor_unitario_edit"
+                       placeholder="0.00"
+                       step="0.01"
+                       min="0"
+                       className="flex-grow py-2 border-0 focus:ring-0"
+                       value={formData.valor_unitario}
+                       onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })}
+                     />
+                  </div>
+              </div>
+              <div>
+                  <label htmlFor="regras_cobranca_edit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo de Cobrança *
+                  </label>
+                  <select
+                    id="regras_cobranca_edit"
+                    title="Tipo de Cobrança"
+                    className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
+                    value={formData.regras_cobranca}
+                    onChange={(e) => setFormData({ ...formData, regras_cobranca: e.target.value })}
+                  >
+                    {opcoesRegrasCobranca.map((opcao) => (
+                      <option key={opcao.value} value={opcao.value}>
+                        {opcao.label}
+                      </option>
+                    ))}
+                  </select>
+               </div>
           </div>
-          <select
-            title="Categoria do serviço"
-            className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
-            value={formData.categoria_id}
-            onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
-          >
-            <option value="">Selecione uma categoria (opcional)</option>
-            {categorias.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
+          <div>
+            <label htmlFor="categoria_id_edit" className="block text-sm font-medium text-gray-700 mb-1">
+              Categoria (opcional)
+            </label>
+            <div className="flex items-center space-x-2">
+              <select
+                id="categoria_id_edit"
+                title="Categoria do serviço"
+                className="flex-grow border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
+                value={formData.categoria_id}
+                onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
+              >
+                <option value="">Selecione uma categoria</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+              <IconButton
+                icon={Plus}
+                onClick={() => setIsModalCategoriaOpen(true)}
+                variant="outline"
+                size="md"
+                title="Adicionar Nova Categoria"
+              />
+            </div>
+          </div>
         </div>
       </ModalPadrao>
+
+      {/* Modal de Cadastro de Categoria */}
+      <ModalCadastroCategoria
+        isOpen={isModalCategoriaOpen}
+        onClose={() => setIsModalCategoriaOpen(false)}
+        onCategoriaCadastrada={handleCategoriaCadastrada}
+      />
+
     </PageLayout>
   );
 }
