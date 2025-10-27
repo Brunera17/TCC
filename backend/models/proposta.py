@@ -12,7 +12,6 @@ class ItemProposta(db.Model, TimestampMixin, ActiveMixin):
     quantidade = db.Column(db.Integer, nullable=False, default=1)
     valor_unitario = db.Column(db.Float, nullable=False)
     valor_total = db.Column(db.Float, nullable=False)
-    desconto = db.Column(db.Integer, nullable=True, default=0)
 
     # Foreign Keys
     proposta_id = db.Column(db.Integer, db.ForeignKey('propostas.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -41,13 +40,6 @@ class ItemProposta(db.Model, TimestampMixin, ActiveMixin):
             raise ValueError("O valor total não pode ser negativo")
         return valor_total
     
-    @validates('desconto')
-    def validando_desconto(self, key, desconto):
-        if desconto < 0:
-            raise ValueError("O desconto não pode ser negativo")
-        elif desconto > 100:
-            raise ValueError("O desconto não pode ser maior que 100%")
-        return desconto
 
     def to_json(self):
         return{
@@ -57,7 +49,6 @@ class ItemProposta(db.Model, TimestampMixin, ActiveMixin):
             'quantidade': self.quantidade,
             'valor_unitario': self.valor_unitario,
             'valor_total': self.valor_total,
-            'desconto': self.desconto,
             'ativo': self.ativo,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
@@ -74,6 +65,17 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
     validade = db.Column(db.DateTime, nullable=True)
     observacao = db.Column(db.String(255), nullable=True)
     status = db.Column(db.String(50), default='rascunho')
+    porcentagem_desconto = db.Column(db.Integer, nullable=True, default=0)
+    valor_total = db.Column(db.Float, nullable=True, default=0.0)
+    requer_aprovacao = db.Column(db.Boolean, default=False)
+    aprovado_por = db.Column(db.String(100), nullable=True)
+    data_aprovacao = db.Column(db.DateTime, nullable=True)
+    motivo_rejeicao = db.Column(db.String(255), nullable=True)
+    
+    # Campos para PDF gerado
+    pdf_gerado = db.Column(db.Boolean, default=False)
+    pdf_caminho = db.Column(db.String(255), nullable=True)
+    pdf_gerado_em = db.Column(db.DateTime, nullable=True)
     
     # Foreign Keys
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='SET NULL'), nullable=True, index=True)
@@ -105,6 +107,15 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
             'validade': self.validade.isoformat() if self.validade else None,
             'observacao': self.observacao,
             'status': self.status,
+            'porcentagem_desconto': self.porcentagem_desconto,
+            'valor_total': self.valor_total,
+            'requer_aprovacao': self.requer_aprovacao,
+            'aprovado_por': self.aprovado_por,
+            'data_aprovacao': self.data_aprovacao.isoformat() if self.data_aprovacao else None,
+            'motivo_rejeicao': self.motivo_rejeicao,
+            'pdf_gerado': self.pdf_gerado,
+            'pdf_caminho': self.pdf_caminho,
+            'pdf_gerado_em': self.pdf_gerado_em.isoformat() if self.pdf_gerado_em else None,
             'cliente': self.cliente.to_json() if self.cliente else None,
             'entidade_juridica': self.entidade_juridica.to_json() if self.entidade_juridica else None,
             'usuario': self.usuario.to_json() if self.usuario else None,
