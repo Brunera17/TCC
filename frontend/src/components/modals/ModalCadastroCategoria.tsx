@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { ModalPadrao } from '../ui/ModalPadrao'; // Ajuste o caminho conforme sua estrutura
 import { apiService, ApiError } from '../../lib/api'; // Ajuste o caminho e importe ApiError
-import type { Categoria } from '../../pages/ServicosPage'; // Importe a interface Categoria (ajuste caminho)
+// Ajuste o caminho para importar a interface Categoria corretamente
+import type { Categoria } from '../../pages/ServicosPage'; // Ou de 'types/index.ts' se movido
 import { Tag } from 'lucide-react'; // Ícone opcional
 
 interface ModalCadastroCategoriaProps {
@@ -28,15 +29,13 @@ export const ModalCadastroCategoria: React.FC<ModalCadastroCategoriaProps> = ({
     setLoading(true);
     setError(null);
     try {
-      // Assumindo que a API espera { nome: 'Nome Categoria', ativo: true }
-      // A lógica de reativação deve estar no backend agora
+      // A lógica de reativação está no backend agora
       const novaCategoria = await apiService.createCategoria({ nome: nomeCategoria.trim(), ativo: true });
-      onCategoriaCadastrada(novaCategoria); // Chama o callback passando a nova categoria
-      handleClose(); // Fecha o modal e reseta o estado interno
+      onCategoriaCadastrada(novaCategoria);
+      handleClose();
     } catch (err) {
       console.error("Erro ao criar categoria:", err);
       if (err instanceof ApiError && err.details) {
-         // Tenta pegar a mensagem de erro específica do backend
          setError(typeof err.details === 'string' ? err.details : err.details.error || JSON.stringify(err.details));
       } else if (err instanceof Error) {
         setError(err.message);
@@ -48,7 +47,6 @@ export const ModalCadastroCategoria: React.FC<ModalCadastroCategoriaProps> = ({
     }
   };
 
-  // Reseta o estado ao fechar
   const handleClose = () => {
     setNomeCategoria('');
     setError(null);
@@ -63,7 +61,7 @@ export const ModalCadastroCategoria: React.FC<ModalCadastroCategoriaProps> = ({
       title="Nova Categoria de Serviço"
       confirmLabel={loading ? 'Salvando...' : 'Salvar Categoria'}
       onConfirm={handleSalvar}
-      size="sm" // Modal menor para cadastro simples
+      size="sm"
     >
       <div className="space-y-4">
         {error && (
