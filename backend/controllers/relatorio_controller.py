@@ -65,9 +65,9 @@ def get_relatorio_especifico(relatorio_id):
         return jsonify({'error': 'Relatório não encontrado'}), 404
     return jsonify(relatorio.to_json())
 @bp.route('/<int:relatorio_id>', methods=['DELETE'])
-def deleta_relatorio(relatorio_id):
+def deletar_relatorio(relatorio_id):
     try:
-        service.deleta_relatorio(relatorio_id)
+        service.deletar_relatorio(relatorio_id)
         return jsonify({'message': 'Relatório deletado com sucesso'}), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -87,13 +87,13 @@ def criar_relatorio():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400  
 @bp.route('/<int:relatorio_id>', methods=['PUT'])
-def altera_relatorio(relatorio_id):
+def alterar_relatorio(relatorio_id):
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Dados para atualização não encontrados'}), 400
     
     try:
-        relatorio = service.atualiza_relatorio(relatorio_id, **data)
+        relatorio = service.atualizar_relatorio(relatorio_id, **data)
         return jsonify(relatorio.to_json()), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400

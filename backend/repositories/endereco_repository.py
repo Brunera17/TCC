@@ -4,6 +4,14 @@ from models.cliente import Endereco
 class EnderecoRepository:
     """ Repositório para gerenciar endereços """
 
+    def get_all(self):
+        """Retorna todos os endereços ativos"""
+        return Endereco.query.filter_by(ativo=True).all()
+    
+    def get_by_id(self, endereco_id: int):
+        """Retorna endereço por ID"""
+        return Endereco.query.filter_by(id=endereco_id, ativo=True).first()
+
     def get_by_cliente(self, cliente_id: int):
         return Endereco.query.filter_by(cliente_id=cliente_id, ativo=True).all()
     def get_by_cidade(self, cidade: str):

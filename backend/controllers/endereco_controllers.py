@@ -29,7 +29,7 @@ def criar_endereco():
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<int:endereco_id>', methods=['PUT'])
-def atualiza_endereco(endereco_id):
+def atualizar_endereco(endereco_id):
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Dados para atualização incompletos'}), 400

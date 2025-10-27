@@ -43,15 +43,15 @@ def altera_proposta(proposta_id):
         return jsonify({'error': 'Dados para atualização não encontrados'}), 400
     
     try:
-        proposta = service.atualiza_proposta(proposta_id, **data)
+        proposta = service.atualizar_proposta(proposta_id, **data)
         return jsonify(proposta.to_json()), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     
 @bp.route('/<int:proposta_id>', methods=['DELETE'])
-def deleta_proposta(proposta_id):
+def deletar_proposta(proposta_id):
     try:
-        service.deleta_proposta(proposta_id)
+        service.deletar_proposta(proposta_id)
         return jsonify({'message': 'Proposta deletada com sucesso'}), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400

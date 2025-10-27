@@ -41,15 +41,15 @@ def altera_ordem_servico(ordem_id):
         return jsonify({'error': 'Dados para atualização não encontrados'}), 400
     
     try:
-        ordem = service.atualiza_ordem_servico(ordem_id, **data)
+        ordem = service.atualizar_ordem_servico(ordem_id, **data)
         return jsonify(ordem.to_json()), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     
 @bp.route('/<int:ordem_id>', methods=['DELETE'])
-def deleta_ordem_servico(ordem_id):
+def deletar_ordem_servico(ordem_id):
     try:
-        service.deleta_ordem_servico(ordem_id)
+        service.deletar_ordem_servico(ordem_id)
         return jsonify({'message': 'Ordem de Serviço deletada com sucesso'}), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400

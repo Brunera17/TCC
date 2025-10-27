@@ -8,7 +8,7 @@ class EmpresaRepository:
         return Empresa.query.filter_by(ativo=True).all()
     
     def get_by_id(self, empresa_id: int):
-        return Empresa.query.get(empresa_id, ativo=True).first()
+        return Empresa.query.filter_by(id=empresa_id, ativo=True).first()
     
     def get_by_cnpj(self, cnpj: str):
         return Empresa.query.filter_by(cnpj=cnpj, ativo=True).first()

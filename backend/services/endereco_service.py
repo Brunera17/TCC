@@ -7,6 +7,14 @@ class EnderecoService:
     def __init__(self):
         self.repo = EnderecoRepository()
     
+    def get_all(self):
+        """Retorna todos os endereços"""
+        return self.repo.get_all()
+    
+    def get_by_id(self, endereco_id: int):
+        """Retorna endereço por ID"""
+        return self.repo.get_by_id(endereco_id)
+    
     def get_by_cliente(self, cliente_id: int):
         return self.repo.get_by_cliente(cliente_id)
     def get_by_cidade(self, cidade: str):
@@ -24,7 +32,7 @@ class EnderecoService:
         
         return self.repo.create(endereco)
 
-    def Atualiza_endereco(self, cliente_id: int, **dado):
+    def atualizar_endereco(self, cliente_id: int, **dado):
         endereco = self.repo.get_by_cliente(cliente_id)
 
         if not endereco:
