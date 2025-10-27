@@ -1,6 +1,6 @@
 // src/pages/ServicosPage.tsx
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Trash2, Edit2, DollarSign, Eye, Info, Tag, AlignLeft, Calendar, Hash, Type as IconType } from 'lucide-react'; // Ícones adicionados/mantidos
+import { Plus, Trash2, Edit2, DollarSign, Eye, Info, Tag, AlignLeft, Calendar, Type as IconType } from 'lucide-react'; // Ícones adicionados/mantidos
 import { apiService, ApiError } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
