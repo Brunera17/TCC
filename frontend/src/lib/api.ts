@@ -6,11 +6,12 @@
  */
 
 // Em desenvolvimento, usa o proxy do Vite. Em produção, usa a URL completa
-export const API_URL = import.meta.env.DEV 
+export const API_URL = import.meta.env.DEV
   ? "/api"  // Usa proxy do Vite em desenvolvimento
   : (import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:5000/api");
 
-console.log(`🌍 API base: ${API_URL}`);
+// 🟢 CONSOLE.LOG ADICIONADO (Passo 1 do debug)
+console.log(`[api.ts] API base URL: ${API_URL}`);
 
 //
 // 🔹 Tipos e utilitários base
@@ -79,7 +80,7 @@ async function refreshAccessToken(): Promise<boolean> {
   try {
     // Tentar diferentes endpoints de refresh
     const endpoints = ["usuarios/refresh/", "auth/refresh/", "refresh/"];
-    
+
     for (const endpoint of endpoints) {
       try {
         const res = await fetch(normalizeUrl(endpoint), {
@@ -101,7 +102,7 @@ async function refreshAccessToken(): Promise<boolean> {
         continue;
       }
     }
-    
+
     console.error("🚫 Todos os endpoints de refresh falharam");
     return false;
   } catch (err) {
@@ -124,40 +125,46 @@ async function fetchJSON<T>(
   const config: RequestInit = { ...options, headers };
   const method = (options.method || "GET").toUpperCase();
 
+  // 🟢 CONSOLE.LOG ADICIONADO (Passo 2 do debug)
+  console.log(`[fetchJSON] Requesting: ${method} ${url}`);
+
   log(`➡️ ${method} ${url}`);
 
   try {
     const res = await fetch(url, config);
 
-  // Tentativa de refresh automático se 401
-  if (res.status === 401 && retry) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      return fetchJSON<T>(path, options, false);
-    } else {
-      // Se refresh falhou, limpar tokens e redirecionar para login
-      console.warn("🚫 Token expirado e refresh falhou. Redirecionando para login...");
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("jwt_token");
-      localStorage.removeItem("token");
-      localStorage.removeItem("refresh_token");
-      sessionStorage.removeItem("access_token");
-      
-      // Redirecionar para login se não estiver já lá
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
-      
-      throw new ApiError(401, "Token expirado - redirecionando para login");
-    }
-  }
+    // Tentativa de refresh automático se 401
+    if (res.status === 401 && retry) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        // Recria os headers com o novo token antes de tentar novamente
+        const newHeaders = buildHeaders(options.headers as Record<string, string>);
+        const newConfig = { ...options, headers: newHeaders };
+        return fetchJSON<T>(path, newConfig, false); // Passa false para não tentar refresh novamente
+      } else {
+        // Se refresh falhou, limpar tokens e redirecionar para login
+        console.warn("🚫 Token expirado e refresh falhou. Redirecionando para login...");
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("jwt_token");
+        localStorage.removeItem("token");
+        localStorage.removeItem("refresh_token");
+        sessionStorage.removeItem("access_token");
 
-  let parsed: any = null;
+        // Redirecionar para login se não estiver já lá
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+
+        throw new ApiError(401, "Token expirado - redirecionando para login");
+      }
+    }
+
+    let parsed: any = null;
     const text = await res.text();
     try {
       parsed = text ? JSON.parse(text) : null;
     } catch {
-      parsed = text;
+      parsed = text; // Se não for JSON, mantenha o texto (útil para erros HTML)
     }
 
     if (!res.ok) {
@@ -173,20 +180,28 @@ async function fetchJSON<T>(
     console.error("❌ Erro de rede ou CORS:", error);
     console.error("❌ URL:", url);
     console.error("❌ Método:", method);
-    
+
+    // Se for erro de TypeError (rede, CORS), dar mensagem mais clara
     if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
       throw new Error('Erro de conectividade - verifique se o backend está rodando e configuração CORS');
     }
-    
-    throw error;
+
+    // Se já for um ApiError, apenas relance
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    // Para outros erros, encapsule
+    throw new Error(`Erro desconhecido na requisição: ${error.message}`);
   }
 }
 
 //
 // 🔹 Métodos genéricos (GET, POST, PUT, DELETE)
 //
-async function getJSON<T>(path: string): Promise<T> {
-  return fetchJSON<T>(path, { method: "GET" });
+async function getJSON<T>(path: string, params?: Record<string, any>): Promise<T> {
+  const query = params ? '?' + new URLSearchParams(params).toString() : '';
+  return fetchJSON<T>(path + query, { method: "GET" });
 }
 
 async function postJSON<T>(path: string, body: any): Promise<T> {
@@ -203,8 +218,12 @@ async function putJSON<T>(path: string, body: any): Promise<T> {
   });
 }
 
-async function deleteJSON<T>(path: string): Promise<T> {
-  return fetchJSON<T>(path, { method: "DELETE" });
+async function deleteJSON<T>(path: string, body?: any): Promise<T> {
+  const options: RequestInit = { method: "DELETE" };
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+  return fetchJSON<T>(path, options);
 }
 
 //
@@ -212,8 +231,8 @@ async function deleteJSON<T>(path: string): Promise<T> {
 //
 export const apiService = {
   // ---------- Usuário ----------
-  async login(credentials: { email: string; senha: string }) {
-    return postJSON<{ access_token: string; refresh_token: string }>(
+  async login(credentials: { identificador: string; senha: string }) { // Atualizado para identificador
+    return postJSON<{ access_token: string; refresh_token: string, user: any }>( // Retorna user também
       "usuarios/login/",
       credentials
     );
@@ -224,9 +243,8 @@ export const apiService = {
   },
 
   // ---------- Funcionários/Usuários ----------
-  async getFuncionarios(params?: any): Promise<any> {
-    const query = params ? '?' + new URLSearchParams(params).toString() : '';
-    return getJSON<any>(`usuarios/${query}`);
+  async getFuncionarios(params?: any): Promise<any> { // Mantido any por flexibilidade, idealmente Funcionario[]
+    return getJSON<any>("usuarios/", params);
   },
 
   async getFuncionario(id: number) {
@@ -246,32 +264,28 @@ export const apiService = {
   },
 
   // ---------- Serviços ----------
-  async getServicos(): Promise<any[]> {
-    return getJSON<any[]>("servicos/");
+  async getServicos(params?: any): Promise<any[]> { // Pode retornar PaginatedResponse se backend suportar
+    return getJSON<any[]>("servicos/", params);
   },
 
   async getServico(id: number) {
     return getJSON<any>(`servicos/${id}`);
   },
 
-  async getServicoPorCodigo(codigo: string) {
+  async getServicoPorCodigo(codigo: string): Promise<any | null> { // Retorna null se 404
     try {
       return await getJSON<any>(`servicos/codigo/${encodeURIComponent(codigo)}`);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
-        return null;
-      }
+      if (error instanceof ApiError && error.status === 404) return null;
       throw error;
     }
   },
 
-  async getServicoPorNome(nome: string) {
+  async getServicoPorNome(nome: string): Promise<any | null> { // Retorna null se 404
     try {
       return await getJSON<any>(`servicos/nome/${encodeURIComponent(nome)}`);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
-        return null;
-      }
+      if (error instanceof ApiError && error.status === 404) return null;
       throw error;
     }
   },
@@ -281,16 +295,16 @@ export const apiService = {
   },
 
   async updateServico(id: number, data: any) {
-    return putJSON(`servicos/${id}`, data);
+    return putJSON(`servicos/${id}`, data); // Adicionado / no final
   },
 
   async deleteServico(id: number) {
-    return deleteJSON(`servicos/${id}`);
+    return deleteJSON(`servicos/${id}`); // Adicionado / no final
   },
 
   // ---------- Categorias ----------
-  async getCategorias(): Promise<any[]> {
-    return getJSON<any[]>("categorias-servicos/");
+  async getCategorias(params?: any): Promise<any[]> { // Adicionado params
+    return getJSON<any[]>("categorias-servicos/", params);
   },
 
   async createCategoria(data: any) {
@@ -298,8 +312,12 @@ export const apiService = {
   },
 
   // ---------- Clientes ----------
-  async getClientes(): Promise<any[]> {
-    return getJSON<any[]>("clientes/");
+  async getClientes(params?: any): Promise<any> { // Pode retornar PaginatedResponse
+    return getJSON<any>("clientes/", params);
+  },
+
+  async getCliente(id: number): Promise<any> { // Adicionado
+    return getJSON<any>(`clientes/${id}/`);
   },
 
   async createCliente(data: any) {
@@ -315,8 +333,12 @@ export const apiService = {
   },
 
   // ---------- Propostas ----------
-  async getPropostas(): Promise<any[]> {
-    return getJSON<any[]>("propostas/");
+  async getPropostas(params?: any): Promise<any> { // Pode retornar PaginatedResponse
+    return getJSON<any>("propostas/", params);
+  },
+
+  async getProposta(id: number): Promise<any> { // Adicionado
+    return getJSON<any>(`propostas/${id}/`);
   },
 
   async createProposta(data: any) {
@@ -327,11 +349,126 @@ export const apiService = {
     return putJSON(`propostas/${id}/`, data);
   },
 
-  async deleteProposta(id: number) {
-    return deleteJSON(`propostas/${id}/`);
+  async deleteProposta(id: number, observacao?: string): Promise<any> { // Adicionado observacao
+    return deleteJSON(`propostas/${id}/`, observacao ? { observacao } : undefined);
   },
 
-  // ---------- Relatórios ----------
+  async gerarPDFProposta(id: number): Promise<any> { // Adicionado
+    return postJSON(`propostas/${id}/gerar-pdf/`, {});
+  },
+
+  async visualizarPDFProposta(id: number): Promise<Blob> { // Adicionado - retorna Blob
+    const url = normalizeUrl(`propostas/${id}/pdf/`);
+    const headers = buildHeaders();
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new ApiError(res.status, await res.text());
+    return res.blob();
+  },
+
+  async getLogsPropostas(id: number): Promise<any> { // Adicionado
+    return getJSON(`propostas/${id}/logs/`);
+  },
+
+  // ---------- Regimes Tributários ----------
+  async getRegimesTributarios(params?: any): Promise<any> { // Adicionado
+    return getJSON("regimes-tributarios/", params);
+  },
+  async getRegimeTributario(id: number): Promise<any> { // Adicionado
+    return getJSON(`regimes-tributarios/${id}/`);
+  },
+  async createRegime(data: any): Promise<any> { // Adicionado
+    return postJSON("regimes-tributarios/", data);
+  },
+  async updateRegime(id: number, data: any): Promise<any> { // Adicionado
+    return putJSON(`regimes-tributarios/${id}/`, data);
+  },
+  async deleteRegimeTributario(id: number): Promise<any> { // Adicionado
+    return deleteJSON(`regimes-tributarios/${id}/`);
+  },
+
+  // ---------- Tipos de Atividade ----------
+  async getTiposAtividade(params?: any): Promise<any> { // Adicionado
+    return getJSON("tipos-atividade/", params);
+  },
+  async deleteTipoAtividade(id: number): Promise<any> { // Adicionado
+    return deleteJSON(`tipos-atividade/${id}/`);
+  },
+
+  // ---------- Faixas de Faturamento ----------
+  async getFaixasFaturamento(params?: any): Promise<any> { // Adicionado
+    return getJSON("faixas-faturamento/", params);
+  },
+
+  // ---------- Cargos ----------
+  async getCargos(params?: any): Promise<any> { // Adicionado
+    return getJSON("cargos/", params);
+  },
+  async createCargo(data: any): Promise<any> { // Adicionado
+    return postJSON("cargos/", data);
+  },
+  async updateCargo(id: number, data: any): Promise<any> { // Adicionado
+    return putJSON(`cargos/${id}/`, data);
+  },
+  async deleteCargo(id: number): Promise<any> { // Adicionado
+    return deleteJSON(`cargos/${id}/`);
+  },
+
+  // ---------- Empresas ----------
+  async getEmpresas(params?: any): Promise<any> { // Adicionado
+    return getJSON("empresas/", params);
+  },
+
+  // ---------- Mensalidade Automática ----------
+  async buscarMensalidadeAutomatica(config: { // Adicionado
+    tipo_atividade_id: number;
+    regime_tributario_id: number;
+    faixa_faturamento_id?: number;
+  }): Promise<any> {
+    return postJSON("mensalidades/buscar/", config);
+  },
+
+  // ---------- Notificações ----------
+  async getNotificacoes(): Promise<any> { // Adicionado
+    return getJSON("notificacoes/");
+  },
+  async marcarNotificacaoComoLida(id: number): Promise<any> { // Adicionado
+    return postJSON(`notificacoes/${id}/ler/`, {});
+  },
+  async marcarTodasNotificacoesComoLidas(): Promise<any> { // Adicionado
+    return postJSON("notificacoes/ler-todas/", {});
+  },
+
+  // ---------- Ordens de Serviço ----------
+  async getOrdensServico(params?: any): Promise<any> { // Adicionado
+    return getJSON("ordens-servico/", params);
+  },
+  async createOrdemServico(data: any): Promise<any> { // Adicionado
+    return postJSON("ordens-servico/", data);
+  },
+  async updateOrdemServico(id: number, data: any): Promise<any> { // Adicionado
+    return putJSON(`ordens-servico/${id}/`, data);
+  },
+  async deleteOrdemServico(id: number): Promise<any> { // Adicionado
+    return deleteJSON(`ordens-servico/${id}/`);
+  },
+
+  // ---------- Departamentos ----------
+  async getDepartamentos(params?: any): Promise<any> { // Adicionado
+    return getJSON("departamentos/", params);
+  },
+
+  // ---------- Chat ----------
+  async getChatMessages(sessionId: string): Promise<any> { // Adicionado
+    return getJSON(`chat/${sessionId}/messages/`);
+  },
+  async sendChatMessage(message: string, sessionId: string): Promise<any> { // Adicionado
+    return postJSON(`chat/${sessionId}/send/`, { message });
+  },
+  async clearChatSession(sessionId: string): Promise<any> { // Adicionado
+    return postJSON(`chat/${sessionId}/clear/`, {});
+  },
+
+  // ---------- Relatórios (mantido genérico) ----------
   async getRelatorios(): Promise<any[]> {
     return getJSON<any[]>("relatorios/");
   },
@@ -340,4 +477,3 @@ export const apiService = {
   getValidToken,
   normalizeUrl,
 };
-

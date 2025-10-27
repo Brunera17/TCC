@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react'; // 👈 Adicionado useMemo
 import { Plus, Trash2, Edit2, DollarSign, Eye } from 'lucide-react';
-import { apiService, ApiError } from '../lib/api';
+import { apiService, ApiError } from '../lib/api'; // Import ApiError
 import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
-import { 
-  PageLayout, 
-  PageHeader, 
-  SearchBar, 
-  IconButton, 
-  DataTable, 
-  ConfirmDialog, 
+import {
+  PageLayout,
+  PageHeader,
+  SearchBar,
+  IconButton,
+  DataTable,
+  ConfirmDialog,
   StateHandler,
   ModalPadrao,
   type Column
@@ -63,12 +63,32 @@ export default function ServicosPage() {
     categoria_id: '',
   });
 
-  // Verificação de admin - temporariamente true para debug
   const isAdmin = true; // TODO: Voltar para Boolean(user?.gerente)
 
   // =============================
-  // 🔹 FUNÇÕES AUXILIARES
+  // 🔹 FUNÇÕES AUXILIARES E MAPAS
   // =============================
+
+  // Mapa de categorias para otimizar busca de nome (O(1))
+  const categoryMap = useMemo(() => {
+    const map = new Map<number, string>();
+    categorias.forEach(c => map.set(c.id, c.nome));
+    return map;
+  }, [categorias]);
+
+  // Filtra os serviços com base no termo de busca
+  const filteredServicos = useMemo(() => {
+    if (!searchTerm) {
+      return servicos; // Retorna todos se a busca estiver vazia
+    }
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return servicos.filter(servico =>
+      servico.nome.toLowerCase().includes(lowerSearchTerm) ||
+      servico.codigo.toLowerCase().includes(lowerSearchTerm) ||
+      (servico.categoria_id && categoryMap.get(servico.categoria_id)?.toLowerCase().includes(lowerSearchTerm))
+    );
+  }, [servicos, searchTerm, categoryMap]); // Recalcula se dados, busca ou mapa mudarem
+
   const handleVisualizarClick = (servico: Servico) => {
     setServicoParaVisualizar(servico);
     setIsModalVisualizacaoOpen(true);
@@ -81,11 +101,10 @@ export default function ServicosPage() {
 
   const handleExcluirConfirm = async () => {
     if (!servicoParaExcluir) return;
-
     try {
       await apiService.deleteServico(servicoParaExcluir.id);
       setModalExclusaoOpen(false);
-      fetchServicos();
+      fetchServicos(); // Rebusca os dados
       setServicoParaExcluir(null);
     } catch (err) {
       console.error('Erro ao excluir serviço:', err);
@@ -95,7 +114,6 @@ export default function ServicosPage() {
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    // Aqui você pode implementar filtro se necessário
   };
 
   const formatarValor = (valor: number) => {
@@ -133,8 +151,8 @@ export default function ServicosPage() {
       key: 'categoria_id',
       label: 'Categoria',
       render: (_, item) => {
-        const categoria = categorias.find((c) => c.id === item.categoria_id);
-        return categoria?.nome || '-';
+        // ⚡️ Otimizado: Busca O(1) no mapa
+        return item.categoria_id ? categoryMap.get(item.categoria_id) || '-' : '-';
       }
     },
   ];
@@ -147,18 +165,15 @@ export default function ServicosPage() {
       console.log('🔍 Iniciando busca de serviços...');
       setIsCarregando(true);
       setError(null);
-      
       const data = await apiService.getServicos();
       console.log('✅ Serviços recebidos:', data);
-      console.log('📊 Quantidade:', data?.length || 0);
-      
       setServicos(data || []);
     } catch (err) {
       console.error('❌ Erro ao buscar serviços:', err);
       setError('Erro ao buscar serviços: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
     } finally {
       setIsCarregando(false);
-      console.log('🏁 Busca finalizada. Carregando:', false);
+      console.log('🏁 Busca de serviços finalizada.');
     }
   };
 
@@ -170,18 +185,15 @@ export default function ServicosPage() {
       setCategorias(data || []);
     } catch (err) {
       console.error('❌ Erro ao buscar categorias:', err);
+      // Pode adicionar um setError aqui se a falha for crítica
     }
   };
 
   useEffect(() => {
     console.log('🔍 ServicosPage montado');
-    console.log('👤 Usuário autenticado:', !!user);
-    console.log('👤 Dados do usuário:', user);
-    console.log('🔑 Token no localStorage:', !!localStorage.getItem('access_token'));
-    
     fetchServicos();
     fetchCategorias();
-  }, [user]);
+  }, [user]); // Dependência mantida para possível re-fetch se usuário mudar
 
   // =============================
   // 🔹 CADASTRO
@@ -194,18 +206,19 @@ export default function ServicosPage() {
       nome: formData.nome,
       descricao: formData.descricao || undefined,
       valor_unitario: parseFloat(formData.valor_unitario) || 0,
-      categoria_id: parseInt(formData.categoria_id) || null,
+      categoria_id: formData.categoria_id ? parseInt(formData.categoria_id) : null,
       ativo: true,
     };
 
     try {
       await apiService.createServico(dados);
       handleCadastroClose();
-      fetchServicos();
-      return;
+      fetchServicos(); // Rebusca os dados
+      return; // Importante para sair da função
     } catch (err) {
       console.error('Erro ao cadastrar serviço:', err);
 
+      // Tratamento de erro detalhado
       if (err instanceof ApiError) {
         const details = err.details;
         if (details && typeof details === 'object') {
@@ -217,12 +230,12 @@ export default function ServicosPage() {
 
             if (campo === 'nome' || campo === 'codigo') {
               const valorDuplicado = campo === 'nome' ? dados.nome : dados.codigo;
-              const reativado = await tentarReativarServicoInativo(campo, valorDuplicado, dados);
+              const reativado = await tentarReativarServicoInativo(campo as 'nome' | 'codigo', valorDuplicado, dados);
 
               if (reativado) {
                 handleCadastroClose();
-                fetchServicos();
-                return;
+                fetchServicos(); // Rebusca os dados
+                return; // Serviço reativado, sair da função
               }
             }
 
@@ -255,21 +268,20 @@ export default function ServicosPage() {
   // =============================
   const handleEdicaoSubmit = async () => {
     if (!servicoParaEditar) return;
+    setError(null);
 
     try {
       const dados = {
         nome: formData.nome,
         descricao: formData.descricao || undefined,
         valor_unitario: parseFloat(formData.valor_unitario) || 0,
-        categoria_id: parseInt(formData.categoria_id) || null,
+        categoria_id: formData.categoria_id ? parseInt(formData.categoria_id) : null,
+        // O campo 'ativo' geralmente não é editado aqui, mas sim em uma ação separada (ativar/desativar)
       };
 
-      console.log('📝 Dados para edição:', dados);
-      console.log('🆔 ID do serviço:', servicoParaEditar.id);
-      
       await apiService.updateServico(servicoParaEditar.id, dados);
       handleEdicaoClose();
-      fetchServicos();
+      fetchServicos(); // Rebusca os dados
     } catch (err: unknown) {
       console.error('Erro ao editar serviço:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
@@ -292,29 +304,28 @@ export default function ServicosPage() {
         ? await apiService.getServicoPorNome(valor)
         : await apiService.getServicoPorCodigo(valor);
 
+      // Se não existe ou se o erro não foi 404, não tentar reativar
       if (!existente) {
         return false;
       }
 
+      // Se existe e está inativo, tenta reativar com os novos dados
       if (existente && existente.ativo === false) {
         await apiService.updateServico(existente.id, {
-          nome: dados.nome,
-          descricao: dados.descricao,
-          valor_unitario: dados.valor_unitario,
-          categoria_id: dados.categoria_id,
-          ativo: true,
+          ...dados, // Usa os novos dados do formulário
+          ativo: true, // Garante que será reativado
         });
         console.info('🔁 Serviço reativado automaticamente:', existente.id);
         return true;
       }
     } catch (erroReativacao) {
+      // Ignorar erro 404 (significa que realmente não existe)
       if (erroReativacao instanceof ApiError && erroReativacao.status === 404) {
         return false;
       }
-
+      // Logar outros erros mas continuar (o erro original será mostrado)
       console.warn('⚠️ Não foi possível reativar serviço inativo automaticamente:', erroReativacao);
     }
-
     return false;
   };
 
@@ -329,45 +340,43 @@ export default function ServicosPage() {
   };
 
   const handleEditClick = (servico: Servico) => {
-    resetForm(); // Limpa o formulário primeiro
+    resetForm();
     setServicoParaEditar(servico);
     setFormData({
       nome: servico.nome,
       descricao: servico.descricao || '',
       valor_unitario: servico.valor_unitario.toString(),
-      codigo: servico.codigo,
+      codigo: servico.codigo, // Geralmente o código não é editável, mas preenchemos
       categoria_id: servico.categoria_id?.toString() || '',
     });
     setIsModalEdicaoOpen(true);
   };
 
-  // Função para abrir modal de cadastro
   const handleCadastroOpen = () => {
     resetForm();
-    setServicoParaEditar(null);
+    setError(null); // Limpa erros ao abrir o modal
     setIsModalCadastroOpen(true);
   };
 
-  // Função para fechar modal de cadastro
   const handleCadastroClose = () => {
     setIsModalCadastroOpen(false);
     resetForm();
-    setServicoParaEditar(null);
+    setError(null);
   };
 
-  // Função para fechar modal de edição
   const handleEdicaoClose = () => {
     setIsModalEdicaoOpen(false);
     resetForm();
+    setError(null);
     setServicoParaEditar(null);
   };
 
   // =============================
-  // 🔹 INTERFACE
+  // 🔹 INTERFACE (JSX)
   // =============================
   return (
     <PageLayout>
-      <PageHeader 
+      <PageHeader
         title="Serviços"
         subtitle="Gerenciar serviços oferecidos"
       >
@@ -384,51 +393,55 @@ export default function ServicosPage() {
         <div className="p-6 border-b border-gray-200">
           <SearchBar
             value={searchTerm}
-            onChange={handleSearch}
-            placeholder="Buscar serviços..."
+            onChange={handleSearch} // A função handleSearch atualiza o estado searchTerm
+            placeholder="Buscar por nome, código ou categoria..."
           />
         </div>
 
         <StateHandler
           loading={isCarregando}
-          error={error || undefined}
-          isEmpty={servicos.length === 0}
+          error={error || undefined} // Mostra o erro aqui se houver
+          onErrorDismiss={() => setError(null)} // Permite fechar a mensagem de erro
+          isEmpty={filteredServicos.length === 0 && !searchTerm} // Condição de vazio
+          emptyState={
+            <div className="text-center py-10">
+              <p className="text-gray-500">
+                {searchTerm
+                  ? `Nenhum serviço encontrado para "${searchTerm}"`
+                  : "Nenhum serviço cadastrado ainda."}
+              </p>
+            </div>
+          }
         >
           <DataTable
-            data={servicos}
+            data={filteredServicos} // 👈 USA OS DADOS FILTRADOS
             columns={columns}
-            actions={(item) => {
-              console.log('🔍 Renderizando ações para item:', item.id, 'isAdmin:', isAdmin);
-              return (
-                <div className="flex space-x-2">
-                  <IconButton
-                    icon={Eye}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleVisualizarClick(item)}
-                    label="Visualizar"
-                  />
-                  {isAdmin && (
-                    <>
-                      <IconButton
-                        icon={Edit2}
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEditClick(item)}
-                        label="Editar"
-                      />
-                      <IconButton
-                        icon={Trash2}
-                        size="sm"
-                        variant="danger"
-                        onClick={() => handleExcluirClick(item)}
-                        label="Excluir"
-                      />
-                    </>
-                  )}
-                </div>
-              );
-            }}
+            actions={(item) => (
+              <div className="flex space-x-2">
+                <IconButton
+                  icon={Eye}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleVisualizarClick(item)}
+                />
+                {isAdmin && (
+                  <>
+                    <IconButton
+                      icon={Edit2}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEditClick(item)}
+                    />
+                    <IconButton
+                      icon={Trash2}
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleExcluirClick(item)}
+                    />
+                  </>
+                )}
+              </div>
+            )}
           />
         </StateHandler>
       </div>
@@ -438,39 +451,39 @@ export default function ServicosPage() {
         isOpen={isModalVisualizacaoOpen}
         onClose={() => setIsModalVisualizacaoOpen(false)}
         title="Detalhes do Serviço"
-        onConfirm={() => setIsModalVisualizacaoOpen(false)}
         confirmLabel="Fechar"
+        onConfirm={() => setIsModalVisualizacaoOpen(false)} // Apenas fecha
+        showFooter={true} // Mostrar o botão Fechar
+        size="md"
       >
         {servicoParaVisualizar && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
-              <p className="text-sm text-gray-900">{servicoParaVisualizar.codigo}</p>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Código</label>
+              <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded">{servicoParaVisualizar.codigo}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Nome</label>
               <p className="text-sm text-gray-900">{servicoParaVisualizar.nome}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Valor Unitário</label>
-              <p className="text-sm text-gray-900">{formatarValor(servicoParaVisualizar.valor_unitario)}</p>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Valor Unitário</label>
+              <p className="text-sm text-gray-900 font-semibold text-green-700">{formatarValor(servicoParaVisualizar.valor_unitario)}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-              <p className="text-sm text-gray-900">{servicoParaVisualizar.descricao || 'Não informado'}</p>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Descrição</label>
+              <p className="text-sm text-gray-900">{servicoParaVisualizar.descricao || <span className="italic text-gray-400">Não informado</span>}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Categoria</label>
+              <p className="text-sm text-gray-900">{categoryMap.get(servicoParaVisualizar.categoria_id || 0) || <span className="italic text-gray-400">Não informado</span>}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Data de Criação</label>
               <p className="text-sm text-gray-900">
-                {categorias.find(c => c.id === servicoParaVisualizar.categoria_id)?.nome || 'Não informado'}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data de Criação</label>
-              <p className="text-sm text-gray-900">
-                {servicoParaVisualizar.created_at 
-                  ? format(new Date(servicoParaVisualizar.created_at), 'dd/MM/yyyy')
-                  : 'Não informado'
+                {servicoParaVisualizar.created_at
+                  ? format(new Date(servicoParaVisualizar.created_at), 'dd/MM/yyyy HH:mm')
+                  : <span className="italic text-gray-400">Não informado</span>
                 }
               </p>
             </div>
@@ -484,126 +497,140 @@ export default function ServicosPage() {
         onCancel={() => setModalExclusaoOpen(false)}
         onConfirm={handleExcluirConfirm}
         title="Excluir Serviço"
-        message={`Tem certeza que deseja excluir o serviço "${servicoParaExcluir?.nome}"?`}
-        confirmLabel="Excluir"
+        message={`Tem certeza que deseja excluir o serviço "${servicoParaExcluir?.nome}" (Código: ${servicoParaExcluir?.codigo})? Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir Permanentemente"
         variant="danger"
       />
 
       {/* ==================== MODAL DE CADASTRO ==================== */}
-      {isModalCadastroOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-            <h2 className="text-xl font-semibold mb-4">Cadastrar Serviço</h2>
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Nome"
-                className="w-full border px-3 py-2 rounded-md"
-                value={formData.nome}
-                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-              />
-              <textarea
-                placeholder="Descrição"
-                className="w-full border px-3 py-2 rounded-md"
-                value={formData.descricao}
-                onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-              />
-              <input
-                type="number"
-                placeholder="Valor unitário"
-                className="w-full border px-3 py-2 rounded-md"
-                value={formData.valor_unitario}
-                onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })}
-              />
-              <select
-                title="Categoria do serviço"
-                className="w-full border px-3 py-2 rounded-md"
-                value={formData.categoria_id}
-                onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
-              >
-                <option value="">Selecione uma categoria</option>
-                {categorias.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
-                ))}
-              </select>
+      <ModalPadrao
+        isOpen={isModalCadastroOpen}
+        onClose={handleCadastroClose}
+        title="Cadastrar Novo Serviço"
+        confirmLabel="Cadastrar"
+        onConfirm={handleCadastroSubmit} // A função de confirmação chama o submit
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* Mostra erro específico do modal aqui */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <strong className="font-bold">Erro: </strong>
+              <span className="block sm:inline">{error}</span>
             </div>
-            <div className="flex justify-end gap-3 mt-5">
-              <button
-                onClick={handleCadastroClose}
-                className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCadastroSubmit}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Salvar
-              </button>
-            </div>
+          )}
+          <input
+            type="text"
+            placeholder="Nome do Serviço *"
+            className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+            value={formData.nome}
+            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="Código (opcional, ex: SVC-001)"
+            className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+            value={formData.codigo}
+            onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toUpperCase() })}
+          />
+          <textarea
+            placeholder="Descrição (opcional)"
+            className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+            value={formData.descricao}
+            onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+            rows={3}
+          />
+          <div className="flex items-center space-x-2">
+            <span className="text-gray-500">R$</span>
+            <input
+              type="number"
+              placeholder="Valor unitário *"
+              step="0.01"
+              min="0"
+              className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+              value={formData.valor_unitario}
+              onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })}
+            />
           </div>
+          <select
+            title="Categoria do serviço"
+            className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
+            value={formData.categoria_id}
+            onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
+          >
+            <option value="">Selecione uma categoria (opcional)</option>
+            {categorias.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
         </div>
-      )}
+      </ModalPadrao>
 
       {/* ==================== MODAL DE EDIÇÃO ==================== */}
-      {isModalEdicaoOpen && servicoParaEditar && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-            <h2 className="text-xl font-semibold mb-4">Editar Serviço</h2>
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Nome"
-                className="w-full border px-3 py-2 rounded-md"
-                value={formData.nome}
-                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-              />
-              <textarea
-                placeholder="Descrição"
-                className="w-full border px-3 py-2 rounded-md"
-                value={formData.descricao}
-                onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-              />
-              <input
-                type="number"
-                placeholder="Valor unitário"
-                className="w-full border px-3 py-2 rounded-md"
-                value={formData.valor_unitario}
-                onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })}
-              />
-              <select
-                title="Categoria do serviço"
-                className="w-full border px-3 py-2 rounded-md"
-                value={formData.categoria_id}
-                onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
-              >
-                <option value="">Selecione uma categoria</option>
-                {categorias.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
-                ))}
-              </select>
+      <ModalPadrao
+        isOpen={isModalEdicaoOpen}
+        onClose={handleEdicaoClose}
+        title={`Editar Serviço: ${servicoParaEditar?.nome || ''}`}
+        confirmLabel="Salvar Alterações"
+        onConfirm={handleEdicaoSubmit} // A função de confirmação chama o submit
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* Mostra erro específico do modal aqui */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <strong className="font-bold">Erro: </strong>
+              <span className="block sm:inline">{error}</span>
             </div>
-            <div className="flex justify-end gap-3 mt-5">
-              <button
-                onClick={handleEdicaoClose}
-                className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleEdicaoSubmit}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Salvar Alterações
-              </button>
-            </div>
+          )}
+          {/* Código não editável */}
+          <div>
+            <label className="block text-sm font-medium text-gray-500 mb-1">Código</label>
+            <p className="text-sm text-gray-900 bg-gray-100 p-2 rounded">{formData.codigo}</p>
           </div>
+          <input
+            type="text"
+            placeholder="Nome do Serviço *"
+            className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+            value={formData.nome}
+            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+          />
+          <textarea
+            placeholder="Descrição (opcional)"
+            className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+            value={formData.descricao}
+            onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+            rows={3}
+          />
+          <div className="flex items-center space-x-2">
+            <span className="text-gray-500">R$</span>
+            <input
+              type="number"
+              placeholder="Valor unitário *"
+              step="0.01"
+              min="0"
+              className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+              value={formData.valor_unitario}
+              onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })}
+            />
+          </div>
+          <select
+            title="Categoria do serviço"
+            className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
+            value={formData.categoria_id}
+            onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
+          >
+            <option value="">Selecione uma categoria (opcional)</option>
+            {categorias.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
         </div>
-      )}
+      </ModalPadrao>
     </PageLayout>
   );
 }
