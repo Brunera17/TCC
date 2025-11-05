@@ -1,25 +1,57 @@
+import type { ReactNode } from 'react';
+
 import {
   X, User, Mail, Hash, Calendar, MapPin, Building, Shield,
-  Phone, Globe, Fingerprint, Home, FileText, CreditCard,
-  UserCheck, TrendingUp, Briefcase, Package, DollarSign, Tag
+  Phone,
+  Globe, Fingerprint, Home, FileText, CreditCard,
+  UserCheck, TrendingUp, Briefcase,
+  Package, DollarSign, Tag
 } from 'lucide-react';
+
+type ServicoDetalhe = {
+  id?: number;
+  nome?: string | null;
+  codigo?: string | null;
+  categoria?: string | null;
+  tipo_cobranca?: string | null;
+  valor_base?: number | null;
+  descricao?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  ativo?: boolean | null;
+};
+
+type RegimeDetalhe = {
+  id?: number;
+  nome?: string | null;
+  codigo?: string | null;
+  descricao?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  aplicavel_pf?: boolean | null;
+  aplicavel_pj?: boolean | null;
+  ativo?: boolean | null;
+};
+
+type ModalData = ClienteDetalhe | FuncionarioDetalhe | CargoDetalhe | ServicoDetalhe | RegimeDetalhe;
 
 interface ModalVisualizacaoProps {
   isOpen: boolean;
   onClose: () => void;
-  data: any;
+  data: ModalData;
   type: 'cliente' | 'funcionario' | 'cargo' | 'servico' | 'regime';
 }
 
-export const ModalVisualizacao: React.FC<ModalVisualizacaoProps> = ({
+export function ModalVisualizacao({
   isOpen,
   onClose,
   data,
   type
-}) => {
+}: ModalVisualizacaoProps) {
   if (!isOpen) return null;
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -54,9 +86,16 @@ export const ModalVisualizacao: React.FC<ModalVisualizacaoProps> = ({
     return value; // Retorna sem formatação se não for CPF nem CNPJ
   };
 
+  const formatCEP = (value?: string) => {
+    if (!value) return '-';
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length !== 8) return value;
+    return numbers.replace(/(\d{5})(\d{3})/, '$1-$2');
+  };
+
   // Mapeamento de ícones temáticos
-  const getIconForField = (fieldType: string) => {
-    const iconMap: { [key: string]: any } = {
+  const getIconForField = (fieldType: string): IconComponent => {
+    const iconMap: Record<string, IconComponent> = {
       'cpf': Fingerprint, // Ícone de digital para CPF/CNPJ
       'cnpj': CreditCard, // Usando CreditCard como substituto para IdCard
       'nome': User,
@@ -79,32 +118,36 @@ export const ModalVisualizacao: React.FC<ModalVisualizacaoProps> = ({
       'descricao': FileText,
       'servico': Package
     };
-    return iconMap[fieldType] || FileText;
+    return iconMap[fieldType] ?? FileText;
   };
 
-  const InfoCard = ({ icon: Icon, title, children, color = "blue" }: any) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
-      <div className={`bg-gradient-to-r from-${color}-50 to-${color}-100 px-6 py-4`}>
-        <div className="flex items-center space-x-3">
-          <div className={`p-2 bg-${color}-500 rounded-lg shadow-md`}>
-            <Icon className="w-5 h-5 text-white" />
+  const InfoCard = ({ icon: Icon, title, children, color = 'blue' }: { icon: IconComponent; title: string; children: ReactNode; color?: ColorKey; }) => {
+    const preset = getColorStyles(color);
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+        <div className={`bg-gradient-to-r ${preset.gradient} px-6 py-4`}>
+          <div className="flex items-center space-x-3">
+            <div className={`${preset.iconBg} p-2 rounded-lg shadow-md`}>
+              <Icon className="w-5 h-5 text-white" />
+            </div>
+            <h3 className={`text-lg font-semibold ${preset.title}`}>{title}</h3>
           </div>
-          <h3 className={`text-lg font-semibold text-${color}-800`}>{title}</h3>
+        </div>
+        <div className="p-6">
+          {children}
         </div>
       </div>
-      <div className="p-6">
-        {children}
-      </div>
-    </div>
-  );
+    );
+  };
 
-  const InfoField = ({ iconType, label, value, color = "gray" }: any) => {
+  const InfoField = ({ iconType, label, value, color = 'gray' }: { iconType: string; label: string; value?: string | number | null; color?: ColorKey; }) => {
     const IconComponent = getIconForField(iconType);
+    const preset = getColorStyles(color);
 
     return (
       <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200">
-        <div className={`p-2 bg-${color}-100 rounded-lg`}>
-          <IconComponent className={`w-4 h-4 text-${color}-600`} />
+        <div className={`${preset.fieldBg} p-2 rounded-lg`}>
+          <IconComponent className={`w-4 h-4 ${preset.fieldText}`} />
         </div>
         <div className="flex-1">
           <p className="text-sm font-medium text-gray-500 mb-1">{label}</p>
@@ -114,7 +157,7 @@ export const ModalVisualizacao: React.FC<ModalVisualizacaoProps> = ({
     );
   };
 
-  const StatusBadge = ({ active, label }: any) => (
+  const StatusBadge = ({ active = false, label }: { active?: boolean | null; label: string; }) => (
     <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium shadow-sm ${active
       ? 'bg-green-100 text-green-800 border border-green-200'
       : 'bg-red-100 text-red-800 border border-red-200'
@@ -149,7 +192,7 @@ export const ModalVisualizacao: React.FC<ModalVisualizacaoProps> = ({
               <InfoField
                 iconType="data"
                 label="Data de Cadastro"
-                value={data.created_at ? formatDate(data.created_at) : '-'}
+                value={formatDate(data.created_at)}
                 color="orange"
               />
             </div>
@@ -170,7 +213,7 @@ export const ModalVisualizacao: React.FC<ModalVisualizacaoProps> = ({
               <InfoField
                 iconType="data"
                 label="Última Atualização"
-                value={data.updated_at ? formatDate(data.updated_at) : '-'}
+                value={formatDate(data.updated_at)}
                 color="indigo"
               />
             </div>
@@ -184,14 +227,14 @@ export const ModalVisualizacao: React.FC<ModalVisualizacaoProps> = ({
                   <InfoField
                     iconType="logradouro"
                     label="Logradouro"
-                    value={`${data.enderecos[0].rua}, ${data.enderecos[0].numero}`}
+                      value={`${data.enderecos[0].logradouro ?? data.enderecos[0].rua}, ${data.enderecos[0].numero}`}
                     color="emerald"
                   />
                 </div>
                 <InfoField
                   iconType="cep"
                   label="CEP"
-                  value={data.enderecos[0].cep}
+                  value={formatCEP(data.enderecos[0].cep)}
                   color="emerald"
                 />
                 <InfoField
@@ -289,8 +332,8 @@ export const ModalVisualizacao: React.FC<ModalVisualizacaoProps> = ({
               <InfoField iconType="cargo" label="Cargo" value={data.cargo?.nome} color="blue" />
               <InfoField
                 iconType="data"
-                label="Data de Cadastro"
-                value={data.created_at ? formatDate(data.created_at) : '-'}
+                  label="Data de Cadastro"
+                  value={formatDate(data.created_at)}
                 color="orange"
               />
             </div>
@@ -385,8 +428,8 @@ export const ModalVisualizacao: React.FC<ModalVisualizacaoProps> = ({
               <InfoField iconType="codigo" label="Código" value={data.codigo} color="green" />
               <InfoField
                 iconType="data"
-                label="Data de Cadastro"
-                value={data.created_at ? formatDate(data.created_at) : '-'}
+                  label="Data de Cadastro"
+                  value={formatDate(data.created_at)}
                 color="orange"
               />
             </div>
@@ -403,8 +446,8 @@ export const ModalVisualizacao: React.FC<ModalVisualizacaoProps> = ({
               </div>
               <InfoField
                 iconType="data"
-                label="Última Atualização"
-                value={data.updated_at ? formatDate(data.updated_at) : '-'}
+                  label="Última Atualização"
+                  value={formatDate(data.updated_at)}
                 color="blue"
               />
             </div>

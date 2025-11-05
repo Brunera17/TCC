@@ -98,15 +98,14 @@ const Sidebar: React.FC = () => {
 
     return(
         <div className="w-64 bg-white text-gray-900 border-r border-gray-200 flex flex-col h-screen">
-            {/* Header */}
             <div className="flex items-center p-4 border-b border-gray-200">
                 <div className="flex items-center">
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                         <span className="text-white font-bold text-sm">P</span>
                     </div>
                     <div className="ml-3">
-                        <h1 className="text-lg font-bold">Propostas</h1>
-                        <p className="text-xs text-gray-500">Sistema Contábil</p>
+                        <h1 className="text-lg font-bold">ContaGest</h1>
+                        <p className="text-xs text-gray-500">Sistema Gerenciador</p>
                     </div>
                 </div>
             </div>

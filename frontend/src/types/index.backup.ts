@@ -117,18 +117,22 @@ export interface Servico {
   categoria: string;
   tipo_cobranca: string;
   valor_base: number;
-  descricao?: string;
-  tipo_atividade_id?: number;
-  ativo: boolean;
-  regimes_tributarios?: Array<{
-    id: number;
-    codigo: string;
-    nome: string;
-  }>;
-  created_at: string;
-  updated_at: string;
 }
 
+export interface Endereco {
+  id: number;
+  logradouro: string;
+  numero: string;
+  bairro: string;
+  complemento?: string;
+  cidade: string;
+  estado: string;
+  cep: string;
+  rua?: string;
+  cliente_id: number;
+  created_at?: string;
+  updated_at?: string;
+}
 export interface Proposta {
   id: number;
   numero: string;
@@ -497,7 +501,7 @@ export interface ServicoCreateData {
   ativo?: boolean;
 }
 
-export interface ServicoUpdateData extends Partial<ServicoCreateData> {}
+export type ServicoUpdateData = Partial<ServicoCreateData>;
 
 export interface FuncionarioCreateData {
   nome: string;

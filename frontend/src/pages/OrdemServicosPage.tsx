@@ -1,811 +1,545 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Trash2, Eye, Edit2, Clock, CheckCircle, XCircle, Users, History } from 'lucide-react';
-import { apiService } from '../lib/api';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  Plus,
+  Search,
+  Trash2,
+  Eye,
+  Edit2,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Building,
+  User,
+  History,
+  DollarSign,
+  Package,
+  List,
+  Calendar,
+  Loader2,
+  AlertTriangle,
+  PauseCircle,
+  FileText,
+  Handshake
+} from 'lucide-react';
+import { format } from 'date-fns';
+
+import { apiService, ApiError } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import {
+  PageLayout,
+  PageHeader,
+  SearchBar,
+  IconButton,
+  DataTable,
+  ConfirmDialog,
+  StatusBadge,
+  StateHandler,
+  Pagination,
+  ModalPadrao, // <-- O componente correto está importado aqui
+  type Column
+} from '../components/ui';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { Modal } from '../components/modals/Modal';
-import { Button } from '../components/forms/Button';
-import { Input } from '../components/forms/Input';
-import { Select } from '../components/forms/Select';
-import { Textarea } from '../components/forms/Textarea';
-import { PageHeader } from '../components/layout/PageHeader';
-import { Card } from '../components/layout/Card';
-import { DataTable } from '../components/layout/DataTable';
 import { NotificacoesVencimento } from '../components/common/NotificacoesVencimento';
 import { HistoricoAlteracoes } from '../components/common/HistoricoAlteracoes';
-import type { OrdemServico, OrdemServicoCreateData, Cliente, Departamento } from '../types';
+import { formatarMoeda } from '../utils/formatters';
 
-const statusOptions = [
+import { ModalCadastroOrdemServico } from '../components/modals/ModalCadastroOrdemServico';
+import { ModalEdicaoOrdemServico } from '../components/modals/ModalEdicaoOrdemServico';
+
+import type {
+  Cliente,
+  Departamento,
+  Usuario,
+  Servico,
+  OrdemServico, 
+  ItemOrdemServico 
+} from '../types';
+
+// --- Interfaces Baseadas no Backend Model ---
+
+type OrdemServicoStatus = 'aberta' | 'em_andamento' | 'pausada' | 'concluida' | 'cancelada';
+
+interface OrdemServicoEditFormData {
+  status: OrdemServicoStatus;
+  vencimento: string;
+  departamento_id: string;
+  observacao: string;
+}
+
+// --- Constantes de Status ---
+
+const STATUS_OPTIONS: { value: OrdemServicoStatus; label: string }[] = [
   { value: 'aberta', label: 'Aberta' },
   { value: 'em_andamento', label: 'Em Andamento' },
-  { value: 'finalizada', label: 'Finalizada' },
-  { value: 'cancelada', label: 'Cancelada' }
+  { value: 'pausada', label: 'Pausada' },
+  { value: 'concluida', label: 'Concluída' },
+  { value: 'cancelada', label: 'Cancelada' },
 ];
 
-const statusColors = {
-  aberta: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  em_andamento: 'bg-blue-100 text-blue-800 border-blue-300',
-  finalizada: 'bg-green-100 text-green-800 border-green-300',
-  cancelada: 'bg-red-100 text-red-800 border-red-300'
+const STATUS_ICONS: Record<OrdemServicoStatus, React.ElementType> = {
+  aberta: Clock,
+  em_andamento: Loader2,
+  pausada: PauseCircle,
+  concluida: CheckCircle,
+  cancelada: XCircle,
 };
 
-const statusIcons = {
-  aberta: Clock,
-  em_andamento: Users,
-  finalizada: CheckCircle,
-  cancelada: XCircle
-};
+// --- Componente Principal ---
 
 export const OrdemServicosPage: React.FC = () => {
-  const [ordensServico, setOrdensServico] = useState<OrdemServico[]>([]);
+  const { user } = useAuth();
+  const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [todosServicos, setTodosServicos] = useState<Servico[]>([]); 
+
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState<OrdemServicoStatus | ''>('');
+  const itemsPerPage = 10;
 
-  // Modals
+  // Estados de modal
   const [isModalCadastroOpen, setIsModalCadastroOpen] = useState(false);
   const [isModalVisualizacaoOpen, setIsModalVisualizacaoOpen] = useState(false);
   const [isModalEdicaoOpen, setIsModalEdicaoOpen] = useState(false);
-  const [isModalExclusaoOpen, setIsModalExclusaoOpen] = useState(false);
-  const [isModalHistoricoOpen, setIsModalHistoricoOpen] = useState(false);
-  
-  // Estados dos formulários
+  const [modalExclusaoOpen, setModalExclusaoOpen] = useState(false);
+  const [modalHistoricoOpen, setModalHistoricoOpen] = useState(false);
+
+  // Estados de item selecionado
   const [ordemParaVisualizar, setOrdemParaVisualizar] = useState<OrdemServico | null>(null);
   const [ordemParaEditar, setOrdemParaEditar] = useState<OrdemServico | null>(null);
   const [ordemParaDeletar, setOrdemParaDeletar] = useState<OrdemServico | null>(null);
   const [ordemParaHistorico, setOrdemParaHistorico] = useState<OrdemServico | null>(null);
-  
-  // Formulário de cadastro/edição
-  const [formData, setFormData] = useState<OrdemServicoCreateData>({
-    protocolo: '',
-    cliente_id: 0,
-    usuario_id: 1, // Assumindo usuário logado
-    departamento_id: undefined,
-    vencimento: '',
-    observacao: '',
-    status: 'aberta'
-  });
 
-  // Buscar dados iniciais
-  const fetchOrdensServico = useCallback(async () => {
+  // Permissão
+  const isAdmin = Boolean(user?.gerente);
+
+  // --- Mapas de Consulta ---
+  const clienteMap = useMemo(() => {
+    const map = new Map<number, string>();
+    clientes.forEach(c => map.set(c.id, c.nome));
+    return map;
+  }, [clientes]);
+
+  const departamentoMap = useMemo(() => {
+    const map = new Map<number, string>();
+    departamentos.forEach(d => map.set(d.id, d.nome));
+    return map;
+  }, [departamentos]);
+
+  // --- Funções de Busca de Dados ---
+  const fetchOrdens = useCallback(async (page = currentPage, search = searchTerm, status = filtroStatus) => {
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      setError('');
-      
-      const params = {
-        page: currentPage,
-        per_page: 10,
-        ...(searchTerm && { search: searchTerm }),
-        ...(statusFilter && { status: statusFilter })
+      const params: any = {
+        page,
+        per_page: itemsPerPage,
+        search: search || undefined,
+        status: status || undefined,
       };
 
       const response = await apiService.getOrdensServico(params);
-      setOrdensServico(response.data);
-      setTotalPages(Math.ceil(response.total / response.per_page));
+
+      if (response && response.data && typeof response.total === 'number' && typeof response.per_page === 'number') {
+        setOrdens(response.data);
+        setTotalPages(Math.ceil(response.total / response.per_page) || 1);
+      } else if (Array.isArray(response)) {
+        setOrdens(response); 
+        setTotalPages(1);
+      } else {
+        throw new Error("Formato de resposta inesperado da API");
+      }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      setError('Erro ao carregar ordens de serviço: ' + errorMessage);
-      console.error('Erro ao buscar ordens de serviço:', err);
+      const errorMsg = err instanceof ApiError ? `Erro ${err.status}: ${JSON.stringify(err.details)}` : (err instanceof Error ? err.message : 'Erro desconhecido');
+      setError(errorMsg);
+      setOrdens([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, statusFilter]);
+  }, [currentPage, searchTerm, filtroStatus]);
+
+  const fetchDependencies = useCallback(async () => {
+    try {
+      const [clientesRes, deptosRes, servicosRes] = await Promise.all([
+        apiService.getClientes({ per_page: 1000, ativo: true }),
+        apiService.getDepartamentos({ per_page: 1000, ativo: true }),
+        apiService.getServicos({ per_page: 1000, ativo: true }) 
+      ]);
+      
+      setClientes(clientesRes.data || (Array.isArray(clientesRes) ? clientesRes : []));
+      setDepartamentos(deptosRes.data || (Array.isArray(deptosRes) ? deptosRes : []));
+      
+      const servicosData = servicosRes.data || (Array.isArray(servicosRes) ? servicosRes : []);
+      const servicosFormatados = servicosData.map((s: any) => ({
+        ...s,
+        valor_base: s.valor_unitario || s.valor_base || s.preco_base || 0
+      }));
+      setTodosServicos(servicosFormatados);
+
+    } catch (err) {
+      console.error("Erro ao carregar dependências:", err);
+      setError("Falha ao carregar clientes, departamentos ou serviços.");
+    }
+  }, []);
 
   useEffect(() => {
-    fetchOrdensServico();
-    fetchClientes();
-    fetchDepartamentos();
-  }, [fetchOrdensServico]);
+    fetchOrdens(currentPage, searchTerm, filtroStatus);
+  }, [fetchOrdens, currentPage, searchTerm, filtroStatus]);
 
-  const fetchClientes = async () => {
+  useEffect(() => {
+    fetchDependencies();
+  }, [fetchDependencies]);
+
+  // --- Funções Auxiliares ---
+  const formatarData = (dataStr: string) => {
     try {
-      const response = await apiService.getClientes({ per_page: 1000 });
-      setClientes(response.data);
-    } catch (err) {
-      console.error('Erro ao buscar clientes:', err);
+      // Adiciona 'T00:00:00' se a data for apenas YYYY-MM-DD para evitar problemas de fuso
+      const dateObj = new Date(dataStr.includes('T') ? dataStr : `${dataStr}T00:00:00`);
+      return format(dateObj, 'dd/MM/yyyy');
+    } catch {
+      return 'Data inválida';
     }
   };
 
-  const fetchDepartamentos = async () => {
-    try {
-      const response = await apiService.getDepartamentos();
-      setDepartamentos(response.data);
-    } catch (err) {
-      console.error('Erro ao buscar departamentos:', err);
-    }
+  const getBadgeStatus = (status: OrdemServicoStatus) => {
+    return <StatusBadge status={status} />;
   };
 
+  // --- Colunas da Tabela ---
+  const columns: Column<OrdemServico>[] = [
+    {
+      key: 'protocolo',
+      label: 'Protocolo',
+      render: (_, os) => (
+        <div className="flex items-center">
+          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+            <Handshake className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <div className="text-sm font-medium text-gray-900">{os.protocolo}</div>
+            <div className="text-sm text-gray-500">ID: {os.id}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'cliente',
+      label: 'Cliente',
+      render: (_, os) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">
+            {os.cliente?.nome || clienteMap.get(os.cliente_id) || 'Cliente não encontrado'}
+          </div>
+          <div className="text-sm text-gray-500">
+            {os.cliente?.email || 'Email não disponível'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'departamento',
+      label: 'Departamento',
+      render: (_, os) => (
+        <span className="text-sm text-gray-700">
+          {os.departamento?.nome || departamentoMap.get(os.departamento_id || 0) || 'N/A'}
+        </span>
+      ),
+    },
+    {
+      key: 'vencimento',
+      label: 'Vencimento',
+      render: (_, os) => (
+        <span className="text-sm text-gray-700">{formatarData(os.vencimento)}</span>
+      ),
+    },
+    {
+      key: 'valor_total_os',
+      label: 'Valor Total',
+      render: (_, os) => (
+        <span className="text-sm font-medium text-green-700">
+          {formatarMoeda(os.valor_total_os)}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (_, os) => getBadgeStatus(os.status),
+    },
+  ];
+
+  // --- Handlers de Ação ---
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     setCurrentPage(1);
   };
-
-  const handleStatusFilter = (status: string) => {
-    setStatusFilter(status);
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+  const handleFiltroStatus = (status: string) => {
+    setFiltroStatus(status as OrdemServicoStatus | '');
     setCurrentPage(1);
   };
 
-  const generateProtocolo = () => {
-    const ano = new Date().getFullYear();
-    const timestamp = Date.now().toString().slice(-6);
-    return `OS-${ano}-${timestamp}`;
-  };
-
+  // Handlers de Modais
   const openModalCadastro = () => {
-    setFormData({
-      protocolo: generateProtocolo(),
-      cliente_id: 0,
-      usuario_id: 1,
-      departamento_id: undefined,
-      vencimento: '',
-      observacao: '',
-      status: 'aberta'
-    });
     setIsModalCadastroOpen(true);
   };
-
-  const openModalVisualizacao = (ordem: OrdemServico) => {
-    setOrdemParaVisualizar(ordem);
+  
+  const handleVisualizar = (os: OrdemServico) => {
+    setOrdemParaVisualizar(os);
     setIsModalVisualizacaoOpen(true);
   };
 
-  const openModalEdicao = (ordem: OrdemServico) => {
-    setOrdemParaEditar(ordem);
-    setFormData({
-      protocolo: ordem.protocolo,
-      cliente_id: ordem.cliente_id,
-      usuario_id: ordem.usuario_id,
-      departamento_id: ordem.departamento_id,
-      vencimento: ordem.vencimento.split('T')[0], // Formato para input date
-      observacao: ordem.observacao || '',
-      status: ordem.status
-    });
+  const handleEditar = (os: OrdemServico) => {
+    setOrdemParaEditar(os);
     setIsModalEdicaoOpen(true);
   };
 
-  const openModalExclusao = (ordem: OrdemServico) => {
-    setOrdemParaDeletar(ordem);
-    setIsModalExclusaoOpen(true);
+  const handleHistorico = (os: OrdemServico) => {
+    setOrdemParaHistorico(os);
+    setModalHistoricoOpen(true);
   };
 
-  const openModalHistorico = (ordem: OrdemServico) => {
-    setOrdemParaHistorico(ordem);
-    setIsModalHistoricoOpen(true);
+  const handleExcluirClick = (os: OrdemServico) => {
+    setOrdemParaDeletar(os);
+    setModalExclusaoOpen(true);
   };
 
-  const handleNotificacaoClick = (ordem: OrdemServico) => {
-    // Abrir modal de visualização quando clicar em uma notificação
-    openModalVisualizacao(ordem);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.cliente_id || !formData.vencimento) {
-      setError('Cliente e data de vencimento são obrigatórios');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError('');
-
-      // Ajustar formato da data para ISO
-      const dadosFormatados = {
-        ...formData,
-        vencimento: new Date(formData.vencimento + 'T23:59:59').toISOString()
-      };
-
-      if (ordemParaEditar) {
-        await apiService.updateOrdemServico(ordemParaEditar.id, dadosFormatados);
-        setIsModalEdicaoOpen(false);
-        setOrdemParaEditar(null);
-      } else {
-        await apiService.createOrdemServico(dadosFormatados);
-        setIsModalCadastroOpen(false);
-      }
-
-      await fetchOrdensServico();
-      
-      // Reset form
-      setFormData({
-        protocolo: '',
-        cliente_id: 0,
-        usuario_id: 1,
-        departamento_id: undefined,
-        vencimento: '',
-        observacao: '',
-        status: 'aberta'
-      });
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      setError('Erro ao salvar ordem de serviço: ' + errorMessage);
-      console.error('Erro ao salvar ordem de serviço:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
+  // Handlers de CRUD
+  const confirmarDeletar = async () => {
     if (!ordemParaDeletar) return;
-
+    setLoading(true);
     try {
-      setLoading(true);
       await apiService.deleteOrdemServico(ordemParaDeletar.id);
-      setIsModalExclusaoOpen(false);
+      setModalExclusaoOpen(false);
       setOrdemParaDeletar(null);
-      await fetchOrdensServico();
+      fetchOrdens(1); 
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      setError('Erro ao excluir ordem de serviço: ' + errorMessage);
-      console.error('Erro ao excluir ordem de serviço:', err);
+      const errorMsg = err instanceof ApiError ? `Erro ${err.status}: ${JSON.stringify(err.details)}` : (err instanceof Error ? err.message : 'Erro desconhecido');
+      setError(errorMsg); 
+      setModalExclusaoOpen(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('pt-BR');
-  };
-
-  const getStatusBadge = (status: OrdemServico['status']) => {
-    const Icon = statusIcons[status];
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${statusColors[status]}`}>
-        <Icon className="w-3 h-3" />
-        {statusOptions.find(opt => opt.value === status)?.label || status}
-      </span>
-    );
-  };
-
-  const columns = [
-    {
-      key: 'protocolo',
-      header: 'Protocolo',
-      render: (ordem: OrdemServico) => (
-        <div className="font-medium text-gray-900">{ordem.protocolo}</div>
-      )
-    },
-    {
-      key: 'cliente',
-      header: 'Cliente',
-      render: (ordem: OrdemServico) => (
-        <div>
-          <div className="font-medium text-gray-900">{ordem.cliente?.nome || 'N/A'}</div>
-          <div className="text-sm text-gray-500">{ordem.cliente?.email}</div>
-        </div>
-      )
-    },
-    {
-      key: 'departamento',
-      header: 'Departamento',
-      render: (ordem: OrdemServico) => (
-        <div className="text-gray-900">{ordem.departamento?.nome || 'Não atribuído'}</div>
-      )
-    },
-    {
-      key: 'vencimento',
-      header: 'Vencimento',
-      render: (ordem: OrdemServico) => (
-        <div className="text-gray-900">{formatDate(ordem.vencimento)}</div>
-      )
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (ordem: OrdemServico) => getStatusBadge(ordem.status)
-    },
-    {
-      key: 'created_at',
-      header: 'Criado em',
-      render: (ordem: OrdemServico) => (
-        <div className="text-sm text-gray-500">{formatDateTime(ordem.created_at)}</div>
-      )
-    },
-    {
-      key: 'acoes',
-      header: 'Ações',
-      render: (ordem: OrdemServico) => (
-        <div className="flex space-x-2">
-          <button
-            onClick={() => openModalVisualizacao(ordem)}
-            className="text-blue-600 hover:text-blue-800 p-1"
-            title="Visualizar"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => openModalEdicao(ordem)}
-            className="text-green-600 hover:text-green-800 p-1"
-            title="Editar"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => openModalHistorico(ordem)}
-            className="text-purple-600 hover:text-purple-800 p-1"
-            title="Ver Histórico"
-          >
-            <History className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => openModalExclusao(ordem)}
-            className="text-red-600 hover:text-red-800 p-1"
-            title="Excluir"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      )
-    }
-  ];
-
+  // --- Renderização ---
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <PageHeader
-          title="Ordens de Serviço"
-          subtitle="Gerencie as ordens de serviço e acompanhe o progresso dos trabalhos"
-        />
-        <NotificacoesVencimento
-          onNotificacaoClick={handleNotificacaoClick}
-        />
-      </div>
-
-      {/* Filtros e Ações */}
-      <Card>
-        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1">
-            {/* Busca */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Buscar por protocolo, cliente..."
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Filtro de Status */}
-            <div className="w-full sm:w-48">
-              <Select
-                options={[
-                  { value: '', label: 'Todos os Status' },
-                  ...statusOptions
-                ]}
-                value={statusFilter}
-                onChange={handleStatusFilter}
-                placeholder="Filtrar por status"
-              />
-            </div>
-          </div>
-
-          {/* Botão Novo */}
-          <Button
-            onClick={openModalCadastro}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Ordem de Serviço
-          </Button>
-        </div>
-      </Card>
-
-      {/* Mensagem de Erro */}
-      {error && (
-        <Card className="border-red-200 bg-red-50">
-          <div className="text-red-600">{error}</div>
-        </Card>
-      )}
-
-      {/* Tabela */}
-      <Card>
-        {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <LoadingSpinner />
-          </div>
-        ) : (
-          <DataTable
-            data={ordensServico}
-            columns={columns}
-            loading={loading}
-            emptyMessage="Nenhuma ordem de serviço encontrada"
-          />
-        )}
-
-        {/* Paginação */}
-        {totalPages > 1 && (
-          <div className="flex justify-center mt-6 gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
-              Anterior
-            </Button>
-            
-            <span className="flex items-center px-4 py-2 text-sm text-gray-600">
-              Página {currentPage} de {totalPages}
-            </span>
-            
-            <Button
-              variant="outline"
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Próxima
-            </Button>
-          </div>
-        )}
-      </Card>
-
-      {/* Modal de Cadastro */}
-      <Modal
-        isOpen={isModalCadastroOpen}
-        onClose={() => setIsModalCadastroOpen(false)}
-        title="Nova Ordem de Serviço"
-        size="lg"
+    <PageLayout>
+      <PageHeader
+        title="Ordens de Serviço"
+        subtitle="Gerencie e acompanhe o progresso das ordens de serviço"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Protocolo *
-              </label>
-              <Input
-                value={formData.protocolo}
-                onChange={(e) => setFormData({ ...formData, protocolo: e.target.value })}
-                required
-                placeholder="Ex: OS-2025-001"
-              />
-            </div>
+        <div className="flex items-center space-x-2">
+          <NotificacoesVencimento onNotificacaoClick={handleVisualizar} />
+          {isAdmin && (
+            <IconButton icon={Plus} onClick={openModalCadastro} label="Nova OS" />
+          )}
+        </div>
+      </PageHeader>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cliente *
-              </label>
-              <Select
-                options={[
-                  { value: '', label: 'Selecione um cliente' },
-                  ...(clientes || []).map(cliente => ({
-                    value: cliente.id.toString(),
-                    label: cliente.nome
-                  }))
-                ]}
-                value={formData.cliente_id.toString()}
-                onChange={(value) => setFormData({ ...formData, cliente_id: Number(value) })}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Departamento
-              </label>
-              <Select
-                options={[
-                  { value: '', label: 'Selecione um departamento' },
-                  ...(departamentos || []).map(dept => ({
-                    value: dept.id.toString(),
-                    label: dept.nome
-                  }))
-                ]}
-                value={formData.departamento_id?.toString() || ''}
-                onChange={(value) => setFormData({ 
-                  ...formData, 
-                  departamento_id: value ? Number(value) : undefined 
-                })}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Data de Vencimento *
-              </label>
-              <Input
-                type="date"
-                value={formData.vencimento}
-                onChange={(e) => setFormData({ ...formData, vencimento: e.target.value })}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <Select
-                options={statusOptions}
-                value={formData.status || 'aberta'}
-                onChange={(value) => setFormData({ 
-                  ...formData, 
-                  status: value as OrdemServico['status']
-                })}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Observações
-            </label>
-            <Textarea
-              value={formData.observacao}
-              onChange={(e) => setFormData({ ...formData, observacao: e.target.value })}
-              placeholder="Descreva os detalhes do serviço..."
-              rows={4}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <SearchBar
+              value={searchTerm}
+              onChange={handleSearch}
+              placeholder="Buscar por protocolo, cliente ou departamento..."
             />
           </div>
+          <select
+            value={filtroStatus}
+            onChange={(e) => handleFiltroStatus(e.target.value)}
+            className="w-full md:w-56 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+          >
+            <option value="">Todos os Status</option>
+            {STATUS_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsModalCadastroOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {loading ? 'Salvando...' : 'Criar Ordem de Serviço'}
-            </Button>
+      <StateHandler
+        loading={loading}
+        error={error}
+        onErrorDismiss={() => setError('')}
+        isEmpty={ordens.length === 0 && !loading}
+        emptyState={
+          <div className="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-200">
+            <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 font-medium">
+              {searchTerm || filtroStatus ? `Nenhuma OS encontrada para os filtros aplicados` : "Nenhuma Ordem de Serviço cadastrada."}
+            </p>
+            {!searchTerm && !filtroStatus && (
+               <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                 + Cadastrar Nova OS
+               </button>
+             )}
           </div>
-        </form>
-      </Modal>
+        }
+      >
+        <DataTable
+          data={ordens}
+          columns={columns}
+          actions={(os) => (
+            <div className="flex items-center justify-end space-x-1">
+              <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(os)} title="Visualizar"/>
+              <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => handleEditar(os)} title="Editar"/>
+              <IconButton icon={History} size="sm" variant="outline" onClick={() => handleHistorico(os)} title="Histórico"/>
+              <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleExcluirClick(os)} title="Excluir"/>
+            </div>
+          )}
+        />
+        {totalPages > 1 && (
+          <div className="bg-white px-4 py-3 border-t border-gray-200 rounded-b-lg">
+             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
+          </div>
+        )}
+      </StateHandler>
 
-      {/* Modal de Visualização */}
-      <Modal
+      {/* --- Modais --- */}
+
+      <ModalCadastroOrdemServico
+        isOpen={isModalCadastroOpen}
+        onClose={() => setIsModalCadastroOpen(false)}
+        onCreated={() => {
+          setIsModalCadastroOpen(false);
+          fetchOrdens(1); 
+        }}
+        clientes={clientes}
+        departamentos={departamentos}
+        servicos={todosServicos} 
+        usuarioId={user?.id || 0} 
+      />
+
+      {/* --- CORREÇÃO AQUI --- */}
+      {/* Trocado <ModalVisualizacao> por <ModalPadrao> */}
+      <ModalPadrao
         isOpen={isModalVisualizacaoOpen}
         onClose={() => setIsModalVisualizacaoOpen(false)}
         title="Detalhes da Ordem de Serviço"
+        confirmLabel="Fechar"
+        onConfirm={() => setIsModalVisualizacaoOpen(false)}
         size="lg"
       >
         {ordemParaVisualizar && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-500">Protocolo</label>
-                <p className="text-gray-900 font-medium">{ordemParaVisualizar.protocolo}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500">Status</label>
-                <div className="mt-1">{getStatusBadge(ordemParaVisualizar.status)}</div>
-              </div>
+           <div className="space-y-6">
+             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+               <div className="flex items-center justify-between mb-3">
+                 <div className="flex items-center">
+                   <FileText className="w-5 h-5 text-blue-600 mr-2" />
+                   <h3 className="text-lg font-semibold text-gray-800">Protocolo: {ordemParaVisualizar.protocolo}</h3>
+                 </div>
+                 {getBadgeStatus(ordemParaVisualizar.status)}
+               </div>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                 <div>
+                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><User className="w-3 h-3 mr-1" /> Cliente</label>
+                   <p className="text-gray-900 font-semibold">{ordemParaVisualizar.cliente?.nome || clienteMap.get(ordemParaVisualizar.cliente_id) || 'N/A'}</p>
+                 </div>
+                 <div>
+                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Building className="w-3 h-3 mr-1" /> Departamento</label>
+                   <p className="text-gray-900">{ordemParaVisualizar.departamento?.nome || departamentoMap.get(ordemParaVisualizar.departamento_id || 0) || 'N/A'}</p>
+                 </div>
+                 <div>
+                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Calendar className="w-3 h-3 mr-1" /> Abertura</label>
+                   <p className="text-gray-900">{formatarData(ordemParaVisualizar.data_abertura)}</p>
+                 </div>
+                 <div>
+                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Clock className="w-3 h-3 mr-1" /> Vencimento</label>
+                   <p className="text-gray-900 font-medium">{formatarData(ordemParaVisualizar.vencimento)}</p>
+                 </div>
+               </div>
+             </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-500">Cliente</label>
-                <p className="text-gray-900">{ordemParaVisualizar.cliente?.nome || 'N/A'}</p>
-                <p className="text-sm text-gray-500">{ordemParaVisualizar.cliente?.email}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-500">Departamento</label>
-                <p className="text-gray-900">{ordemParaVisualizar.departamento?.nome || 'Não atribuído'}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-500">Data de Vencimento</label>
-                <p className="text-gray-900">{formatDate(ordemParaVisualizar.vencimento)}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-500">Criado em</label>
-                <p className="text-gray-900">{formatDateTime(ordemParaVisualizar.created_at)}</p>
-              </div>
-            </div>
-
-            {ordemParaVisualizar.observacao && (
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-2">Observações</label>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-gray-900 whitespace-pre-wrap">{ordemParaVisualizar.observacao}</p>
+             {ordemParaVisualizar.observacao && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Observações</label>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{ordemParaVisualizar.observacao}</p>
                 </div>
-              </div>
-            )}
+             )}
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                onClick={() => openModalEdicao(ordemParaVisualizar)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Edit2 className="w-4 h-4 mr-2" />
-                Editar
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setIsModalVisualizacaoOpen(false)}
-              >
-                Fechar
-              </Button>
-            </div>
-          </div>
+             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between mb-3">
+                   <div className="flex items-center">
+                     <List className="w-5 h-5 text-green-600 mr-2" />
+                     <h3 className="text-lg font-semibold text-gray-800">Itens da OS</h3>
+                   </div>
+                   <div className="text-right">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Valor Total</label>
+                      <p className="text-xl font-bold text-green-700">{formatarMoeda(ordemParaVisualizar.valor_total_os)}</p>
+                   </div>
+                </div>
+                
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {ordemParaVisualizar.itens.length > 0 ? (
+                    ordemParaVisualizar.itens.map(item => (
+                      <div key={item.id} className="flex justify-between items-center p-2 bg-white border rounded-md">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{item.servico?.nome || `Serviço ID: ${item.servico_id}`}</p>
+                          <p className="text-xs text-gray-600">
+                            {item.quantidade}x {formatarMoeda(item.valor_unitario)}
+                            {item.desconto > 0 && <span className="text-red-600 ml-1">(-{item.desconto}%)</span>}
+                          </p>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">{formatarMoeda(item.valor_total)}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 italic text-center">Nenhum item adicionado a esta OS.</p>
+                  )}
+                </div>
+             </div>
+           </div>
         )}
-      </Modal>
+      </ModalPadrao>
+      {/* --- FIM DA CORREÇÃO --- */}
 
-      {/* Modal de Edição */}
-      <Modal
+      <ModalEdicaoOrdemServico
         isOpen={isModalEdicaoOpen}
-        onClose={() => setIsModalEdicaoOpen(false)}
-        title="Editar Ordem de Serviço"
-        size="lg"
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Protocolo *
-              </label>
-              <Input
-                value={formData.protocolo}
-                onChange={(e) => setFormData({ ...formData, protocolo: e.target.value })}
-                required
-                placeholder="Ex: OS-2025-001"
-              />
-            </div>
+        onClose={() => {
+          setIsModalEdicaoOpen(false);
+          setOrdemParaEditar(null);
+          setError(''); 
+        }}
+        onSaved={() => {
+          setIsModalEdicaoOpen(false);
+          setOrdemParaEditar(null);
+          fetchOrdens(currentPage); 
+        }}
+        ordemParaEditar={ordemParaEditar}
+        clientes={clientes}
+        departamentos={departamentos}
+        servicos={todosServicos}
+      />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cliente *
-              </label>
-              <Select
-                options={[
-                  { value: '', label: 'Selecione um cliente' },
-                  ...(clientes || []).map(cliente => ({
-                    value: cliente.id.toString(),
-                    label: cliente.nome
-                  }))
-                ]}
-                value={formData.cliente_id.toString()}
-                onChange={(value) => setFormData({ ...formData, cliente_id: Number(value) })}
-                required
-              />
-            </div>
+      <ConfirmDialog
+        open={modalExclusaoOpen}
+        title="Confirmar Exclusão"
+        message={`Tem certeza que deseja excluir a Ordem de Serviço "${ordemParaDeletar?.protocolo}"? Esta ação não pode ser desfeita.`}
+        onConfirm={confirmarDeletar}
+        onCancel={() => setModalExclusaoOpen(false)}
+        confirmLabel="Sim, Excluir"
+        cancelLabel="Cancelar"
+        variant="danger"
+      />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Departamento
-              </label>
-              <Select
-                options={[
-                  { value: '', label: 'Selecione um departamento' },
-                  ...(departamentos || []).map(dept => ({
-                    value: dept.id.toString(),
-                    label: dept.nome
-                  }))
-                ]}
-                value={formData.departamento_id?.toString() || ''}
-                onChange={(value) => setFormData({ 
-                  ...formData, 
-                  departamento_id: value ? Number(value) : undefined 
-                })}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Data de Vencimento *
-              </label>
-              <Input
-                type="date"
-                value={formData.vencimento}
-                onChange={(e) => setFormData({ ...formData, vencimento: e.target.value })}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <Select
-                options={statusOptions}
-                value={formData.status || 'aberta'}
-                onChange={(value) => setFormData({ 
-                  ...formData, 
-                  status: value as OrdemServico['status']
-                })}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Observações
-            </label>
-            <Textarea
-              value={formData.observacao}
-              onChange={(e) => setFormData({ ...formData, observacao: e.target.value })}
-              placeholder="Descreva os detalhes do serviço..."
-              rows={4}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsModalEdicaoOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {loading ? 'Salvando...' : 'Salvar Alterações'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Modal de Exclusão */}
-      <Modal
-        isOpen={isModalExclusaoOpen}
-        onClose={() => setIsModalExclusaoOpen(false)}
-        title="Excluir Ordem de Serviço"
-        size="md"
-      >
-        {ordemParaDeletar && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg">
-              <Trash2 className="w-6 h-6 text-red-600" />
-              <div>
-                <p className="font-medium text-red-900">Tem certeza que deseja excluir esta ordem de serviço?</p>
-                <p className="text-sm text-red-700">
-                  Protocolo: <strong>{ordemParaDeletar.protocolo}</strong>
-                </p>
-                <p className="text-sm text-red-700">
-                  Cliente: <strong>{ordemParaDeletar.cliente?.nome}</strong>
-                </p>
-              </div>
-            </div>
-
-            <p className="text-sm text-gray-600">
-              Esta ação não pode ser desfeita. Todos os dados relacionados a esta ordem de serviço serão permanentemente removidos.
-            </p>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsModalExclusaoOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleDelete}
-                disabled={loading}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {loading ? 'Excluindo...' : 'Excluir Ordem de Serviço'}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Modal Histórico */}
       {ordemParaHistorico && (
         <HistoricoAlteracoes
-          isOpen={isModalHistoricoOpen}
-          onClose={() => setIsModalHistoricoOpen(false)}
+          isOpen={modalHistoricoOpen}
+          onClose={() => setModalHistoricoOpen(false)}
           ordemServico={ordemParaHistorico}
         />
       )}
-    </div>
+    </PageLayout>
   );
 };
+
+export default OrdemServicosPage;

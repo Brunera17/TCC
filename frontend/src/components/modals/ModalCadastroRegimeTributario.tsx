@@ -1,7 +1,11 @@
-import { useState, useEffect } from 'react';
-import { X, Building, Check, AlertCircle } from 'lucide-react';
-import type { RegimeTributarioPage } from '../../types';
-import { apiService } from '../../lib/api';
+import React, { useState, useEffect } from 'react';
+import { ModalPadrao } from '../ui/ModalPadrao'; // Importa o componente base
+import { apiService, ApiError } from '../../lib/api';
+// Importa ícones
+import { X, Tag, Hash, FileText, User, Building, Power, AlertCircle } from 'lucide-react';
+// Ajuste o caminho se a interface estiver em types/index.ts
+// Assumindo que a interface está na página, mas idealmente estaria em 'types'
+import type { RegimeTributarioPage } from '../../pages/RegimesTributariosPage';
 
 interface ModalCadastroRegimeTributarioProps {
   isOpen: boolean;
@@ -16,9 +20,10 @@ export const ModalCadastroRegimeTributario: React.FC<ModalCadastroRegimeTributar
   onRegimeCadastrado,
   regimeParaEditar,
 }) => {
+  // Estado do formulário SEM o campo 'codigo'
   const [formData, setFormData] = useState({
     nome: '',
-    codigo: '',
+    // codigo: '', // REMOVIDO
     descricao: '',
     aplicavel_pf: false,
     aplicavel_pj: false,
@@ -30,131 +35,160 @@ export const ModalCadastroRegimeTributario: React.FC<ModalCadastroRegimeTributar
 
   const isEditing = Boolean(regimeParaEditar);
 
+  // Preenche/Reseta o formulário
   useEffect(() => {
-    if (regimeParaEditar) {
-      setFormData({
-        nome: regimeParaEditar.nome,
-        codigo: regimeParaEditar.codigo,
-        descricao: regimeParaEditar.descricao || '',
-        aplicavel_pf: regimeParaEditar.aplicavel_pf,
-        aplicavel_pj: regimeParaEditar.aplicavel_pj,
-        ativo: regimeParaEditar.ativo,
-      });
-    } else {
-      setFormData({
-        nome: '',
-        codigo: '',
-        descricao: '',
-        aplicavel_pf: false,
-        aplicavel_pj: false,
-        ativo: true,
-      });
+    if (isOpen) {
+        if (regimeParaEditar) {
+        // Preenche para edição (sem 'codigo')
+        setFormData({
+            nome: regimeParaEditar.nome,
+            // codigo: regimeParaEditar.codigo, // REMOVIDO
+            descricao: regimeParaEditar.descricao || '',
+            aplicavel_pf: regimeParaEditar.aplicavel_pf,
+            aplicavel_pj: regimeParaEditar.aplicavel_pj,
+            ativo: regimeParaEditar.ativo,
+        });
+        } else {
+        // Reset para novo (sem 'codigo')
+        setFormData({
+            nome: '', /*codigo: '',*/ descricao: '',
+            aplicavel_pf: false, aplicavel_pj: false, ativo: true,
+        });
+        }
+        setError('');
     }
-    setError('');
   }, [regimeParaEditar, isOpen]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     setLoading(true);
     setError('');
 
-    try {
-      if (isEditing && regimeParaEditar) {
-        await apiService.updateRegime(regimeParaEditar.id, formData);
-      } else {
-        await apiService.createRegime(formData);
-      }
+    // Validação básica (sem 'codigo')
+    if (!formData.nome.trim()) {
+        setError('Nome é obrigatório.');
+        setLoading(false);
+        return;
+    }
+    // O backend agora exige 'codigo' na rota, mas o 'service' o ignora.
+    // Vamos enviar um placeholder ou string vazia para passar na validação da ROTA.
+    // O ideal seria a ROTA não validar o 'codigo' na criação.
+    const dadosParaApi = {
+        ...formData,
+        codigo: regimeParaEditar ? regimeParaEditar.codigo : 'TEMP', // Envia o código antigo na edição, ou 'TEMP' na criação
+    };
 
-      onRegimeCadastrado(formData as RegimeTributarioPage);
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Erro ao salvar regime');
+    // Se a lógica do service (criar_servico) foi atualizada para POP 'codigo',
+    // podemos enviar os dados do formulário diretamente
+    const dadosParaApiCorreto = { ...formData };
+
+
+    try {
+        let regimeSalvo: RegimeTributarioPage;
+        
+        if (isEditing && regimeParaEditar) {
+            // Na atualização, o backend ignora o 'codigo' se tentarmos mudar
+            regimeSalvo = await apiService.updateRegime(regimeParaEditar.id, dadosParaApiCorreto);
+        } else {
+            // Na criação, o backend gera o 'codigo'
+            regimeSalvo = await apiService.createRegime(dadosParaApiCorreto);
+        }
+
+        onRegimeCadastrado(regimeSalvo);
+        handleClose();
+
+    } catch (err: unknown) {
+        console.error('Erro ao salvar regime:', err);
+         if (err instanceof ApiError && err.details) {
+             setError(typeof err.details === 'string' ? err.details : err.details.error || JSON.stringify(err.details));
+         } else if (err instanceof Error) {
+            setError(err.message);
+         } else {
+            setError('Erro desconhecido ao salvar regime.');
+         }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleInputChange = (field: keyof typeof formData, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+     if(error) setError('');
   };
 
-  if (!isOpen) return null;
+  const handleClose = () => {
+     setFormData({ nome: '', /*codigo: '',*/ descricao: '', aplicavel_pf: false, aplicavel_pj: false, ativo: true });
+     setError('');
+     setLoading(false);
+     onClose();
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-      <div className="rounded-lg overflow-hidden shadow-xl w-full max-w-md mx-4">
-        {/* Header - CORREÇÃO: SEM rounded-t-lg */}
-        <div className="bg-white flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {isEditing ? 'Editar Regime' : 'Novo Regime'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <ModalPadrao
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={isEditing ? 'Editar Regime Tributário' : 'Novo Regime Tributário'}
+      confirmLabel={loading ? 'Salvando...' : (isEditing ? 'Salvar Alterações' : 'Criar Regime')}
+      onConfirm={handleSubmit}
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start space-x-2" role="alert">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-400" />
+                <span>{error}</span>
+            </div>
+        )}
+
+        {/* Nome */}
+        <div>
+          <label htmlFor="regime-nome" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+            <Tag className="w-4 h-4 mr-2 text-gray-400" /> Nome *
+          </label>
+          <input
+            id="regime-nome"
+            type="text"
+            value={formData.nome}
+            onChange={(e) => handleInputChange('nome', e.target.value)}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent text-sm transition-colors ${error && !formData.nome.trim() ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
+            required
+            disabled={loading}
+          />
         </div>
 
-        {/* Form - CORREÇÃO: COM bg-white */}
-        <form onSubmit={handleSubmit} className="bg-white p-6 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
+        {/* Código (REMOVIDO DO FORMULÁRIO DE CADASTRO/EDIÇÃO) */}
+        {/* Se for edição, pode ser útil mostrar o código (mas não editável) */}
+        {isEditing && regimeParaEditar?.codigo && (
+             <div>
+                <label className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                    <Hash className="w-4 h-4 mr-2 text-gray-400" /> Código (Gerado automaticamente)
+                </label>
+                <p className="text-sm text-gray-900 bg-gray-100 p-2 rounded">{regimeParaEditar.codigo}</p>
+             </div>
+        )}
 
-          {/* Nome */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nome *
-            </label>
-            <input
-              type="text"
-              value={formData.nome}
-              onChange={(e) => handleInputChange('nome', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            />
-          </div>
 
-          {/* Código */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Código *
-            </label>
-            <input
-              type="text"
-              value={formData.codigo}
-              onChange={(e) => handleInputChange('codigo', e.target.value)}
-              placeholder="Ex: SN, LP, LR, MEI"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            />
-          </div>
+        {/* Descrição */}
+        <div>
+          <label htmlFor="regime-descricao" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+            <FileText className="w-4 h-4 mr-2 text-gray-400" /> Descrição (Opcional)
+          </label>
+          <textarea
+            id="regime-descricao"
+            value={formData.descricao}
+            onChange={(e) => handleInputChange('descricao', e.target.value)}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-colors"
+            disabled={loading}
+          />
+        </div>
 
-          {/* Descrição */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Descrição
-            </label>
-            <textarea
-              value={formData.descricao}
-              onChange={(e) => handleInputChange('descricao', e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Aplicabilidade */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Aplicabilidade
-            </label>
-
+        {/* Aplicabilidade */}
+        <fieldset className="space-y-3 pt-2">
+          <legend className="block text-sm font-medium text-gray-700 mb-2">
+            Aplicabilidade
+          </legend>
+          <div className="flex items-center space-x-6">
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -162,59 +196,43 @@ export const ModalCadastroRegimeTributario: React.FC<ModalCadastroRegimeTributar
                 checked={formData.aplicavel_pf}
                 onChange={(e) => handleInputChange('aplicavel_pf', e.target.checked)}
                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                disabled={loading}
               />
-              <label htmlFor="aplicavel_pf" className="ml-2 text-sm text-gray-700">
-                Aplicável para Pessoa Física
+              <label htmlFor="aplicavel_pf" className="ml-2 text-sm text-gray-700 flex items-center cursor-pointer">
+                <User className="w-4 h-4 mr-1.5 text-blue-500" /> Pessoa Física
               </label>
             </div>
-
             <div className="flex items-center">
               <input
                 type="checkbox"
                 id="aplicavel_pj"
                 checked={formData.aplicavel_pj}
                 onChange={(e) => handleInputChange('aplicavel_pj', e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                disabled={loading}
               />
-              <label htmlFor="aplicavel_pj" className="ml-2 text-sm text-gray-700">
-                Aplicável para Pessoa Jurídica
+              <label htmlFor="aplicavel_pj" className="ml-2 text-sm text-gray-700 flex items-center cursor-pointer">
+                <Building className="w-4 h-4 mr-1.5 text-green-500" /> Pessoa Jurídica
               </label>
             </div>
           </div>
+        </fieldset>
 
-          {/* Ativo */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="ativo"
-              checked={formData.ativo}
-              onChange={(e) => handleInputChange('ativo', e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="ativo" className="ml-2 text-sm text-gray-700">
-              Ativo
-            </label>
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-white bg-custom-blue rounded-lg hover:bg-custom-blue-light disabled:opacity-50"
-            >
-              {loading ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Criar')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {/* Ativo */}
+        <div className="flex items-center pt-2">
+          <input
+            type="checkbox"
+            id="ativo"
+            checked={formData.ativo}
+            onChange={(e) => handleInputChange('ativo', e.target.checked)}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            disabled={loading}
+          />
+          <label htmlFor="ativo" className="ml-2 text-sm text-gray-700 flex items-center cursor-pointer">
+            <Power className="w-4 h-4 mr-1.5 text-gray-400" /> Manter Ativo
+          </label>
+        </div>
+      </form>
+    </ModalPadrao>
   );
 };

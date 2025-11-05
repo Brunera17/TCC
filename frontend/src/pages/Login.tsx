@@ -1,15 +1,30 @@
-import { API_URL } from "../lib/api";
 import { useState } from 'react'
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
     const navigate = useNavigate()
+    const { login } = useAuth();
     const [identificador, setIdentificador] = useState('')
     const [senha, setSenha] = useState('')
     const [erro, setErro] = useState('')
     const [carregando, setCarregando] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
+    const [, setIsAdmin] = useState(false)
+
+    const resolveAdminStatus = (rawUser: unknown): boolean => {
+        if (!rawUser || typeof rawUser !== 'object') return false;
+        const userObj = rawUser as Record<string, unknown>;
+        if (typeof userObj.gerente === 'boolean') return userObj.gerente;
+        if (typeof userObj.is_admin === 'boolean') return userObj.is_admin;
+        if (typeof userObj.admin === 'boolean') return userObj.admin;
+        if (typeof userObj.tipo_usuario === 'string') {
+            const tipo = userObj.tipo_usuario.toLowerCase();
+            return tipo === 'admin' || tipo === 'administrador' || tipo === 'gerente';
+        }
+        return false;
+    };
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -17,36 +32,15 @@ const Login = () => {
         setCarregando(true)
 
         try {
-            const response = await fetch(`${API_URL}/usuarios/login`, {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                },
-                body: JSON.stringify({
-                    identificador: identificador,
-                    senha: senha
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                setErro(data.error || "Credenciais inválidas");
-                return;
-            }
-            
-            // Salvar tokens e dados do usuário no localStorage
-            localStorage.setItem('access_token', data.access_token);
-            localStorage.setItem('refresh_token', data.refresh_token);
-            localStorage.setItem('token', data.access_token); // Para compatibilidade com sua lib/api
-            localStorage.setItem('user', JSON.stringify(data.user));
-            localStorage.setItem('autenticado', 'true');
-            
-            navigate('/home')
-        } catch (err: any) {
-            console.error('Erro de login:', err);
-            setErro("Erro ao conectar com o servidor. Verifique se o backend está rodando.");
+            const usuarioLogado = await login(identificador, senha);
+            const admin = resolveAdminStatus(usuarioLogado);
+            setIsAdmin(admin);
+            localStorage.setItem('is_admin', JSON.stringify(admin));
+            navigate('/home', { replace: true })
+        } catch (error) {
+            console.error('Erro de login:', error);
+            const mensagem = error instanceof Error ? error.message : 'Erro ao conectar com o servidor. Verifique se o backend está rodando.';
+            setErro(mensagem || 'Credenciais inválidas');
         } finally {
             setCarregando(false)
         }
@@ -57,7 +51,7 @@ const Login = () => {
             <div className="w-full max-w-md">
                 <div className="bg-white rounded-lg shadow-xl p-8">
                     <div className="text-center mb-8">
-                        <h1 className="text-2xl font-bold text-gray-900">Sistema</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">ContaGest</h1>
                         <p className="text-gray-600 mt-2">Faça login para continuar</p>
                     </div>
                     

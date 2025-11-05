@@ -1,147 +1,280 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, UserCheck, Eye, Edit2, Shield } from 'lucide-react';
-import { apiService } from '../lib/api';
-import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { Modal } from '../components/modals/Modal';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  Plus,
+  Trash2,
+  Eye,
+  Edit2,
+  Briefcase,
+  FileText,
+  TrendingUp,
+  AlertTriangle,
+  Building,
+  Calendar
+} from 'lucide-react';
+import { apiService, ApiError } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { 
-  pageStyles, 
-  tableStyles, 
-  buttonStyles, 
-  formStyles 
-} from '../styles';
+import {
+  PageLayout,
+  PageHeader,
+  SearchBar,
+  IconButton,
+  DataTable,
+  ConfirmDialog,
+  StatusBadge,
+  StateHandler,
+  Pagination,
+  ModalPadrao, // Usar ModalPadrao
+  type Column
+} from '../components/ui';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { ModalCadastroDepartamento } from '../components/modals/ModalCadastroDepartamento';
+import { format } from 'date-fns'; // Para o modal de visualização
+import type { Cargo as CargoBase, Departamento } from '../types';
 
-interface Cargo {
-  id: number;
-  codigo: string;
+// --- Interfaces ---
+
+type Cargo = CargoBase & { tipo?: string };
+
+// Interface para o formulário (sem código)
+interface CargoFormData {
   nome: string;
-  descricao?: string;
-  nivel?: string;
-  empresa_id: number;
-  ativo: boolean;
-  created_at: string;
-  updated_at: string;
-  empresa?: {
-    nome: string;
-    cnpj: string;
-  };
+  descricao: string;
+  tipo: string;
+  departamento_id: string; // Usar string para o select
 }
 
-interface CargosPageProps {
-  openModalOnLoad?: boolean;
-}
+// Opções de Nível/Tipo (se 'tipo' for um dropdown)
+// Se 'tipo' for texto livre, remova esta constante e mude o <select> para <input>
+const tiposCargo = [
+  "Operacional",
+  "Técnico",
+  "Estratégico",
+  "Gestão",
+  "N/A"
+];
 
-export const CargosPage: React.FC<CargosPageProps> = ({ openModalOnLoad = false }) => {
+export const CargosPage: React.FC = () => {
   const { user } = useAuth();
   const [cargos, setCargos] = useState<Cargo[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([]); // Estado para departamentos
+  const empresaUsuarioId = useMemo(() => user?.empresa_id ?? user?.empresa?.id ?? null, [user]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 10;
 
-  // Estados para os modais
+  // Estados dos modais
+  const [isModalCadastroOpen, setIsModalCadastroOpen] = useState(false);
+  const [isModalEdicaoOpen, setIsModalEdicaoOpen] = useState(false);
+  const [modalExclusaoOpen, setModalExclusaoOpen] = useState(false);
+
+  // Dados para os modais
   const [cargoParaVisualizar, setCargoParaVisualizar] = useState<Cargo | null>(null);
   const [cargoParaEditar, setCargoParaEditar] = useState<Cargo | null>(null);
   const [cargoParaDeletar, setCargoParaDeletar] = useState<Cargo | null>(null);
-  const [isModalEdicaoOpen, setIsModalEdicaoOpen] = useState(false);
+  const [isModalDepartamentoOpen, setIsModalDepartamentoOpen] = useState(false);
 
-  // Estados do formulário
-  const [formData, setFormData] = useState({
+  // Estado do formulário (atualizado)
+  const [formData, setFormData] = useState<CargoFormData>({
     nome: '',
     descricao: '',
-    nivel: ''
+    tipo: '',
+    departamento_id: '',
   });
 
-  // Verificar se o usuário é admin
-  const [isAdmin, setIsAdmin] = useState(false);
+  // Permissão de admin
+  const isAdmin = Boolean(user?.gerente);
   const [verificandoPermissao, setVerificandoPermissao] = useState(true);
 
-  // Verificar permissão de admin
   useEffect(() => {
-    const isAdminUser = Boolean(user?.gerente);
-    setIsAdmin(isAdminUser);
     setVerificandoPermissao(false);
-    
-    if (isAdminUser) {
-      fetchCargos();
-    }
   }, [user]);
 
-  const fetchCargos = async (page = 1, search = '') => {
-    try {
-      setLoading(true);
-      const response = await apiService.getCargos({
-        page,
-        per_page: 10,
-        search: search || undefined
-      });
-      setCargos(response.data || []);
-      setTotalPages(Math.ceil(response.total / (response.per_page || 10)));
-      setCurrentPage(page);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // --- Funções ---
 
+  // Mapa de Departamentos para exibição na tabela
+  const departamentoMap = useMemo(() => {
+    const map = new Map<number, string>();
+    departamentos.forEach(d => map.set(d.id, d.nome));
+    return map;
+  }, [departamentos]);
 
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchCargos(1, searchTerm);
-  };
-
-  const handlePageChange = (page: number) => {
-    fetchCargos(page, searchTerm);
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleSalvar = async () => {
-    if (!formData.nome.trim()) {
-      setError('Nome do cargo é obrigatório');
+  // Busca Departamentos (necessário para o <select> do formulário)
+  const fetchDepartamentos = useCallback(async () => {
+    if (!isAdmin) return;
+    if (!empresaUsuarioId) {
+      setDepartamentos([]);
+      setError('Seu usuário não está vinculado a uma empresa. Entre em contato com o administrador.');
       return;
     }
 
     try {
-      setLoading(true);
-      const response = await apiService.createCargo(formData);
-      setCargos(prev => [response, ...prev]);
-      setIsModalOpen(false);
-      setFormData({ nome: '', descricao: '', nivel: '' });
-      setError('');
-    } catch (err: any) {
+      const response = await apiService.getDepartamentos({ per_page: 1000, ativo: true, empresa_id: empresaUsuarioId });
+      if (response && response.data) {
+        setDepartamentos(response.data);
+      } else if (Array.isArray(response)) {
+        setDepartamentos(response);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar departamentos:', err);
+      if (err instanceof ApiError && err.status === 403) {
+        setError('Seu usuário não está vinculado a uma empresa. Entre em contato com o administrador.');
+        setDepartamentos([]);
+        return;
+      }
+      setError('Falha ao carregar lista de departamentos. O cadastro pode não funcionar.');
+    }
+  }, [isAdmin, empresaUsuarioId]);
+
+  const fetchCargos = useCallback(async (page = currentPage, search = searchTerm) => {
+    if (!isAdmin) {
+      setLoading(false);
+      setCargos([]);
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const response = await apiService.getCargos({
+        page,
+        per_page: itemsPerPage,
+        search: search || undefined
+      });
+      
+      if (response && response.data && typeof response.total === 'number' && typeof response.per_page === 'number') {
+        setCargos(response.data);
+        setTotalPages(Math.ceil(response.total / response.per_page) || 1);
+      } else if (Array.isArray(response)) {
+        setCargos(response);
+        setTotalPages(1);
+      } else {
+         throw new Error("Formato de resposta inesperado da API");
+      }
+    } catch (err: unknown) {
+      console.error('Erro ao buscar cargos:', err);
+      const errorMsg = err instanceof ApiError ? `Erro ${err.status}: ${JSON.stringify(err.details)}` : (err instanceof Error ? err.message : 'Erro desconhecido');
+      setError(errorMsg);
+      setCargos([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
+  }, [isAdmin, currentPage, searchTerm]);
+
+  // Busca inicial (Cargos e Departamentos)
+  useEffect(() => {
+    if(isAdmin) {
+        fetchCargos(currentPage, searchTerm);
+        fetchDepartamentos();
+    }
+  }, [fetchCargos, fetchDepartamentos, currentPage, searchTerm, isAdmin]);
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
+  const handleInputChange = (field: keyof CargoFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if(error) setError('');
+  };
+
+  const resetForm = () => {
+    setFormData({ nome: '', descricao: '', tipo: '', departamento_id: '' });
+    setError('');
+  };
+
+  // Handlers de Modal
+  const openModalCadastro = () => { resetForm(); setIsModalCadastroOpen(true); };
+  const handleVisualizar = (cargo: Cargo) => { setCargoParaVisualizar(cargo); };
+  const handleExcluirClick = (cargo: Cargo) => { setCargoParaDeletar(cargo); setModalExclusaoOpen(true); };
+  
+  const abrirModalEdicao = (cargo: Cargo) => {
+    setCargoParaEditar(cargo);
+    setFormData({
+      nome: cargo.nome,
+      descricao: cargo.descricao || '',
+      tipo: cargo.tipo || '',
+      departamento_id: cargo.departamento_id?.toString() || ''
+    });
+    setError('');
+    setIsModalEdicaoOpen(true);
+  };
+  
+  const handleCadastroClose = () => { setIsModalCadastroOpen(false); resetForm(); };
+  const handleEdicaoClose = () => { setIsModalEdicaoOpen(false); setCargoParaEditar(null); resetForm(); };
+
+  const handleDepartamentoCadastrado = (novoDepartamento: Departamento) => {
+    if (!novoDepartamento || typeof novoDepartamento.id === 'undefined') {
+      console.error('Departamento retornado sem ID válido:', novoDepartamento);
+      setError('Departamento criado sem identificador válido. Atualize a página e tente novamente.');
+      return;
+    }
+    setDepartamentos(prev => {
+      const exists = prev.some(depto => depto.id === novoDepartamento.id);
+      return exists
+        ? prev.map(depto => (depto.id === novoDepartamento.id ? novoDepartamento : depto))
+        : [...prev, novoDepartamento];
+    });
+    setFormData(prev => ({ ...prev, departamento_id: novoDepartamento.id.toString() }));
+    setIsModalDepartamentoOpen(false);
+  };
+
+  const handleSalvar = async () => {
+    if (!formData.nome.trim() || !formData.departamento_id) {
+      setError('Nome e Departamento são obrigatórios');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const dadosParaApi = {
+         ...formData,
+         departamento_id: parseInt(formData.departamento_id),
+         ativo: true // Assumindo que sempre é criado como ativo
+      };
+      await apiService.createCargo(dadosParaApi);
+      handleCadastroClose();
+      fetchCargos(1); // Volta para a pág 1
+    } catch (err: unknown) {
       console.error('Erro ao criar cargo:', err);
-      setError(err.message);
+      if (err instanceof ApiError && err.details) { setError(typeof err.details === 'string' ? err.details : err.details.error || JSON.stringify(err.details)); }
+      else if (err instanceof Error) { setError(err.message); }
+      else { setError('Erro desconhecido ao criar cargo.'); }
     } finally {
       setLoading(false);
     }
   };
 
   const handleEditar = async () => {
-    if (!cargoParaEditar || !formData.nome.trim()) {
-      setError('Nome do cargo é obrigatório');
+    if (!cargoParaEditar || !formData.nome.trim() || !formData.departamento_id) {
+      setError('Nome e Departamento são obrigatórios');
       return;
     }
-
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      const response = await apiService.updateCargo(cargoParaEditar.id, formData);
-      setCargos(prev => prev.map(c => c.id === cargoParaEditar.id ? response : c));
-      setIsModalEdicaoOpen(false);
-      setCargoParaEditar(null);
-      setFormData({ nome: '', descricao: '', nivel: '' });
-      setError('');
-    } catch (err: any) {
-      setError(err.message);
+      const dadosParaApi = {
+        nome: formData.nome,
+        descricao: formData.descricao,
+        tipo: formData.tipo,
+        departamento_id: parseInt(formData.departamento_id)
+      };
+      await apiService.updateCargo(cargoParaEditar.id, dadosParaApi);
+      handleEdicaoClose();
+      fetchCargos(); // Recarrega a página atual
+    } catch (err: unknown) {
+      console.error('Erro ao editar cargo:', err);
+      if (err instanceof ApiError && err.details) { setError(typeof err.details === 'string' ? err.details : err.details.error || JSON.stringify(err.details)); }
+      else if (err instanceof Error) { setError(err.message); }
+      else { setError('Erro desconhecido ao editar cargo.'); }
     } finally {
       setLoading(false);
     }
@@ -149,484 +282,395 @@ export const CargosPage: React.FC<CargosPageProps> = ({ openModalOnLoad = false 
 
   const confirmarDeletar = async () => {
     if (!cargoParaDeletar) return;
-
+    setLoading(true);
     try {
       await apiService.deleteCargo(cargoParaDeletar.id);
-      setCargos(cargos.filter(c => c.id !== cargoParaDeletar.id));
+      setModalExclusaoOpen(false);
       setCargoParaDeletar(null);
-    } catch (err: any) {
-      setError(err.message);
+      fetchCargos(1); // Volta para pág 1
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao excluir';
+      setError(message);
+      setModalExclusaoOpen(false);
+      setCargoParaDeletar(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const abrirModalEdicao = (cargo: Cargo) => {
-    setCargoParaEditar(cargo);
-    setFormData({
-      nome: cargo.nome,
-      descricao: cargo.descricao || '',
-      nivel: cargo.nivel || ''
-    });
-    setIsModalEdicaoOpen(true);
-  };
+  // --- Colunas da Tabela ---
+  const columns: Column<Cargo>[] = [
+    {
+      key: 'nome',
+      label: 'Cargo',
+      render: (_nome, cargo) => (
+        <div className="flex items-center">
+          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+            <Briefcase className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <div className="text-sm font-medium text-gray-900">{cargo.nome}</div>
+            <div className="text-sm text-gray-500">
+              {cargo.departamento
+                ? cargo.departamento.nome
+                : cargo.departamento_id != null
+                  ? departamentoMap.get(cargo.departamento_id) || 'Dept. não encontrado'
+                  : 'Dept. não informado'}
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'tipo',
+      label: 'Tipo',
+      render: (tipo) => {
+        const displayTipo = typeof tipo === 'string' || typeof tipo === 'number' ? tipo : '-';
+        return <span className="text-sm text-gray-700">{displayTipo || '-'}</span>;
+      }
+    },
+    {
+      key: 'ativo',
+      label: 'Status',
+      render: (ativo) => <StatusBadge status={ativo ? 'ativo' : 'inativo'} />
+    }
+  ];
 
-  // Se não for admin, mostrar mensagem de acesso negado
+  // --- Renderização ---
+
   if (verificandoPermissao) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <LoadingSpinner />
-      </div>
+      <PageLayout>
+        <PageHeader title="Cargos" subtitle="Gerencie os cargos da sua empresa" />
+         <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>
+      </PageLayout>
     );
   }
 
   if (!isAdmin) {
     return (
-      <div className="space-y-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Cargos</h1>
-          <p className="text-sm text-gray-500">Gerencie os cargos do sistema</p>
-        </div>
-        
-        <div className={pageStyles.messages.error}>
-          <div className="flex items-center">
-            <Shield className="w-8 h-8 text-red-400 mr-3" />
-            <div>
-              <h3 className="text-lg font-medium text-red-800">Acesso Negado</h3>
-              <p className="text-red-700 mt-1">
-                Você não tem permissão para acessar esta página. Apenas administradores podem gerenciar cargos.
-              </p>
-            </div>
+      <PageLayout>
+        <PageHeader title="Cargos" />
+        <div className="flex items-center justify-center min-h-[400px] bg-white rounded-lg shadow-sm border border-red-200 p-8">
+          <div className="text-center">
+            <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Acesso Negado</h2>
+            <p className="text-gray-600">Você não tem permissão para gerenciar cargos.</p>
           </div>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className={pageStyles.layout.container}>
-      {/* Page Title */}
-      <div className={pageStyles.header.wrapper}>
-        <h1 className={pageStyles.header.title}>Cargos</h1>
-        <p className={pageStyles.header.subtitle}>Gerencie os cargos da sua empresa</p>
+    <PageLayout>
+      <PageHeader title="Cargos" subtitle="Gerencie os cargos da sua empresa">
+        <IconButton icon={Plus} onClick={openModalCadastro} label="Novo Cargo" />
+      </PageHeader>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+  <SearchBar value={searchTerm} onChange={handleSearch} placeholder="Buscar por nome..." />
       </div>
-
-      {/* Search and Actions */}
-      <div className={pageStyles.actionBar.wrapper}>
-        <form onSubmit={handleSearch} className={pageStyles.actionBar.searchForm}>
-          <div className={pageStyles.actionBar.searchContainer}>
-            <Search className={pageStyles.actionBar.searchIcon} />
-            <input
-              type="text"
-              placeholder="Buscar cargos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={pageStyles.actionBar.searchInput}
-            />
-          </div>
-        </form>
-
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className={pageStyles.actionBar.primaryButton}
-        >
-          <Plus className={pageStyles.actionBar.primaryButtonIcon} />
-          Novo Cargo
-        </button>
-      </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className={pageStyles.messages.error}>
-          <p className={pageStyles.messages.errorText}>{error}</p>
-        </div>
+      
+      {error && !isModalCadastroOpen && !isModalEdicaoOpen && (
+         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4" role="alert">
+           {error}
+         </div>
       )}
 
-      {/* Jobs List */}
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <LoadingSpinner />
-        </div>
-      ) : (
-        <div className={tableStyles.container.wrapper}>
-          <div className={tableStyles.container.scrollWrapper}>
-            <table className={tableStyles.table.base}>
-              <thead className={tableStyles.header.wrapper}>
-                <tr>
-                  <th className={tableStyles.header.cell}>
-                    Cargo
-                  </th>
-                  <th className={tableStyles.header.cell}>
-                    Código
-                  </th>
-                  <th className={tableStyles.header.cell}>
-                    Nível
-                  </th>
-                  <th className={tableStyles.header.cell}>
-                    Status
-                  </th>
-                  <th className={tableStyles.header.cellRight}>
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={tableStyles.body.wrapper}>
-                {cargos.map((cargo) => (
-                  <tr key={cargo.id} className={tableStyles.body.row}>
-                    <td className={tableStyles.cell.base}>
-                      <div className="flex items-center">
-                        <UserCheck className="w-5 h-5 text-gray-400 mr-3" />
-                        <div>
-                          <div className={tableStyles.cell.textBold}>
-                            {cargo.nome}
-                          </div>
-                          {cargo.descricao && (
-                            <div className={tableStyles.cell.textSecondary}>
-                              {cargo.descricao}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className={tableStyles.cell.base}>
-                      {cargo.codigo}
-                    </td>
-                    <td className={tableStyles.cell.base}>
-                      {cargo.nivel || '-'}
-                    </td>
-                    <td className={tableStyles.cell.base}>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        cargo.ativo
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {cargo.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td className={tableStyles.cell.actions}>
-                      <div className={tableStyles.actions.wrapper}>
-                        <button
-                          onClick={() => setCargoParaVisualizar(cargo)}
-                          className={tableStyles.actions.button}
-                          title="Visualizar"
-                        >
-                          <Eye className={tableStyles.actions.icon} />
-                        </button>
-                        <button
-                          onClick={() => abrirModalEdicao(cargo)}
-                          className={tableStyles.actions.button}
-                          title="Editar"
-                        >
-                          <Edit2 className={tableStyles.actions.icon} />
-                        </button>
-                        <button
-                          onClick={() => setCargoParaDeletar(cargo)}
-                          className={tableStyles.actions.button}
-                          title="Excluir"
-                        >
-                          <Trash2 className={tableStyles.actions.icon} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <StateHandler
+        loading={loading}
+        error={undefined}
+        isEmpty={cargos.length === 0 && !loading}
+        emptyState={
+          <div className="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-200">
+            <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 font-medium">
+              {searchTerm ? `Nenhum cargo encontrado para "${searchTerm}"` : "Nenhum cargo cadastrado."}
+            </p>
+            {!searchTerm && (
+               <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                 + Cadastrar Novo Cargo
+               </button>
+             )}
           </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className={tableStyles.pagination.wrapper}>
-              <div className={tableStyles.pagination.nav.mobile.wrapper}>
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className={tableStyles.pagination.nav.mobile.button}
-                >
-                  Anterior
-                </button>
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className={tableStyles.pagination.nav.mobile.button}
-                >
-                  Próxima
-                </button>
-              </div>
-              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <p className={tableStyles.pagination.info}>
-                    Página <span className={tableStyles.pagination.infoHighlight}>{currentPage}</span> de{' '}
-                    <span className={tableStyles.pagination.infoHighlight}>{totalPages}</span>
-                  </p>
-                </div>
-                <div>
-                  <nav className={tableStyles.pagination.nav.wrapper}>
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className={tableStyles.pagination.nav.mobile.button}
-                    >
-                      Anterior
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className={tableStyles.pagination.nav.mobile.button}
-                    >
-                      Próxima
-                    </button>
-                  </nav>
-                </div>
-              </div>
+        }
+      >
+        <DataTable
+          data={cargos}
+          columns={columns}
+          actions={(cargo) => (
+            <div className="flex items-center justify-end space-x-1">
+              <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(cargo)} title="Visualizar"/>
+              <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => abrirModalEdicao(cargo)} title="Editar"/>
+              <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleExcluirClick(cargo)} title="Excluir"/>
             </div>
           )}
-        </div>
-      )}
+        />
+        {totalPages > 1 && (
+          <div className="bg-white px-4 py-3 border-t border-gray-200 rounded-b-lg">
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
+          </div>
+        )}
+      </StateHandler>
 
-      {/* Modals */}
+      {/* --- Modais --- */}
+
       {/* Modal de Cadastro */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setFormData({ nome: '', descricao: '', nivel: '' });
-          setError('');
-        }}
+      <ModalPadrao
+        isOpen={isModalCadastroOpen}
+        onClose={handleCadastroClose}
         title="Cadastrar Novo Cargo"
+        confirmLabel={loading ? 'Salvando...' : 'Cadastrar'}
+        onConfirm={handleSalvar}
+        size="lg"
       >
-        <div className="space-y-6">
+        <form onSubmit={(e) => { e.preventDefault(); handleSalvar(); }} className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start space-x-2" role="alert">
+                <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-400" />
+                <span>{error}</span>
+            </div>
+          )}
           <div>
-            <label className={formStyles.label.base}>
-              Nome do Cargo *
+            <label htmlFor="cargo-nome-cad" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+              <Briefcase className="w-4 h-4 mr-2 text-gray-400" /> Nome do Cargo *
             </label>
             <input
-              type="text"
-              value={formData.nome}
+              id="cargo-nome-cad" type="text" value={formData.nome}
               onChange={(e) => handleInputChange('nome', e.target.value)}
-              className={formStyles.input.base}
-              placeholder="Ex: Administrador"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent text-sm ${error && !formData.nome.trim() ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
+              placeholder="Ex: Analista Contábil" disabled={loading}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              O código será gerado automaticamente com as 3 primeiras letras + 3 números
-            </p>
           </div>
 
           <div>
-            <label className={formStyles.label.base}>
-              Descrição
+            <label htmlFor="cargo-desc-cad" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+              <FileText className="w-4 h-4 mr-2 text-gray-400" /> Descrição (Opcional)
             </label>
             <textarea
-              value={formData.descricao}
+              id="cargo-desc-cad" value={formData.descricao}
               onChange={(e) => handleInputChange('descricao', e.target.value)}
-              className={formStyles.textarea.base}
-              rows={3}
-              placeholder="Descreva as responsabilidades do cargo"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              rows={3} placeholder="Descreva as responsabilidades do cargo" disabled={loading}
             />
           </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="cargo-tipo-cad" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                 <TrendingUp className="w-4 h-4 mr-2 text-gray-400" /> Tipo (Opcional)
+              </label>
+              <select // Alterado para select para consistência, mas pode ser input
+                id="cargo-tipo-cad" value={formData.tipo}
+                onChange={(e) => handleInputChange('tipo', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+                disabled={loading}
+              >
+                <option value="">Selecione um tipo</option>
+                {tiposCargo.map(tipo => (<option key={tipo} value={tipo}>{tipo}</option>))}
+              </select>
+            </div>
 
-          <div>
-            <label className={formStyles.label.base}>
-              Nível
-            </label>
-            <select 
-              value={formData.nivel}
-              onChange={(e) => handleInputChange('nivel', e.target.value)}
-              className={formStyles.select.base}
-            >
-              <option value="">Selecione um nível</option>
-              <option value="Júnior">Júnior</option>
-              <option value="Pleno">Pleno</option>
-              <option value="Sênior">Sênior</option>
-              <option value="Especialista">Especialista</option>
-              <option value="Gerente">Gerente</option>
-              <option value="Diretor">Diretor</option>
-            </select>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="cargo-depto-cad" className="flex items-center text-sm font-medium text-gray-700">
+                  <Building className="w-4 h-4 mr-2 text-gray-400" /> Departamento *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsModalDepartamentoOpen(true)}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                >
+                  + Novo Departamento
+                </button>
+              </div>
+              <select
+                id="cargo-depto-cad" value={formData.departamento_id}
+                onChange={(e) => handleInputChange('departamento_id', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent text-sm bg-white ${error && !formData.departamento_id ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
+                disabled={loading || departamentos.length === 0}
+              >
+                <option value="">{departamentos.length === 0 ? 'Carregando...' : 'Selecione um departamento'}</option>
+                {departamentos.map(depto => (
+                  <option key={depto.id} value={depto.id}>{depto.nome}</option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
-
-        <div className={formStyles.actions.wrapper}>
-          <button
-            onClick={() => {
-              setIsModalOpen(false);
-              setFormData({ nome: '', descricao: '', nivel: '' });
-              setError('');
-            }}
-            className={`${buttonStyles.base} ${buttonStyles.variants.secondary} ${buttonStyles.sizes.md}`}
-          >
-            Cancelar
-          </button>
-          <button 
-            onClick={handleSalvar}
-            disabled={loading}
-            className={`${buttonStyles.base} ${buttonStyles.variants.primary} ${buttonStyles.sizes.md}`}
-          >
-            {loading ? 'Salvando...' : 'Cadastrar'}
-          </button>
-        </div>
-      </Modal>
+        </form>
+      </ModalPadrao>
 
       {/* Modal de Edição */}
-      <Modal
+      <ModalPadrao
         isOpen={isModalEdicaoOpen}
-        onClose={() => {
-          setIsModalEdicaoOpen(false);
-          setCargoParaEditar(null);
-          setFormData({ nome: '', descricao: '', nivel: '' });
-          setError('');
-        }}
-        title="Editar Cargo"
+        onClose={handleEdicaoClose}
+        title={`Editar Cargo: ${cargoParaEditar?.nome || ''}`}
+        confirmLabel={loading ? 'Salvando...' : 'Salvar Alterações'}
+        onConfirm={handleEditar}
+        size="lg"
       >
-        <div className="space-y-6">
+        <form onSubmit={(e) => { e.preventDefault(); handleEditar(); }} className="space-y-6">
+          {error && (
+             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start space-x-2" role="alert">
+                <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-400" />
+                <span>{error}</span>
+             </div>
+          )}
+          
           <div>
-            <label className={formStyles.label.base}>
-              Nome do Cargo *
+            <label htmlFor="cargo-nome-edit" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+              <Briefcase className="w-4 h-4 mr-2 text-gray-400" /> Nome do Cargo *
             </label>
             <input
-              type="text"
-              value={formData.nome}
+              id="cargo-nome-edit" type="text" value={formData.nome}
               onChange={(e) => handleInputChange('nome', e.target.value)}
-              className={formStyles.input.base}
-              placeholder="Ex: Administrador"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent text-sm ${error && !formData.nome.trim() ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
+              disabled={loading}
             />
           </div>
 
           <div>
-            <label className={formStyles.label.base}>
-              Descrição
+            <label htmlFor="cargo-desc-edit" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+              <FileText className="w-4 h-4 mr-2 text-gray-400" /> Descrição (Opcional)
             </label>
             <textarea
-              value={formData.descricao}
+              id="cargo-desc-edit" value={formData.descricao}
               onChange={(e) => handleInputChange('descricao', e.target.value)}
-              className={formStyles.textarea.base}
-              rows={3}
-              placeholder="Descreva as responsabilidades do cargo"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              rows={3} disabled={loading}
             />
           </div>
-
-          <div>
-            <label className={formStyles.label.base}>
-              Nível
-            </label>
-            <select 
-              value={formData.nivel}
-              onChange={(e) => handleInputChange('nivel', e.target.value)}
-              className={formStyles.select.base}
-            >
-              <option value="">Selecione um nível</option>
-              <option value="Júnior">Júnior</option>
-              <option value="Pleno">Pleno</option>
-              <option value="Sênior">Sênior</option>
-              <option value="Especialista">Especialista</option>
-              <option value="Gerente">Gerente</option>
-              <option value="Diretor">Diretor</option>
-            </select>
-          </div>
-        </div>
-
-        <div className={formStyles.actions.wrapper}>
-          <button
-            onClick={() => {
-              setIsModalEdicaoOpen(false);
-              setCargoParaEditar(null);
-              setFormData({ nome: '', descricao: '', nivel: '' });
-              setError('');
-            }}
-            className={`${buttonStyles.base} ${buttonStyles.variants.secondary} ${buttonStyles.sizes.md}`}
-          >
-            Cancelar
-          </button>
-          <button 
-            onClick={handleEditar}
-            disabled={loading}
-            className={`${buttonStyles.base} ${buttonStyles.variants.primary} ${buttonStyles.sizes.md}`}
-          >
-            {loading ? 'Salvando...' : 'Salvar'}
-          </button>
-        </div>
-      </Modal>
-
-      {/* Modal de Visualização */}
-      {cargoParaVisualizar && (
-        <Modal
-          isOpen={!!cargoParaVisualizar}
-          onClose={() => setCargoParaVisualizar(null)}
-          title="Detalhes do Cargo"
-        >
-          <div className="space-y-4">
-            <div>
-              <label className={formStyles.label.base}>Nome</label>
-              <p className="mt-1 text-sm text-gray-900">{cargoParaVisualizar.nome}</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div>
+              <label htmlFor="cargo-tipo-edit" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                 <TrendingUp className="w-4 h-4 mr-2 text-gray-400" /> Tipo (Opcional)
+              </label>
+              <select
+                id="cargo-tipo-edit" value={formData.tipo}
+                onChange={(e) => handleInputChange('tipo', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+                disabled={loading}
+              >
+                <option value="">Selecione um tipo</option>
+                {tiposCargo.map(tipo => (<option key={tipo} value={tipo}>{tipo}</option>))}
+              </select>
             </div>
+            
             <div>
-              <label className={formStyles.label.base}>Código</label>
-              <p className="mt-1 text-sm text-gray-900">{cargoParaVisualizar.codigo}</p>
-            </div>
-            {cargoParaVisualizar.descricao && (
-              <div>
-                <label className={formStyles.label.base}>Descrição</label>
-                <p className="mt-1 text-sm text-gray-900">{cargoParaVisualizar.descricao}</p>
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="cargo-depto-edit" className="flex items-center text-sm font-medium text-gray-700">
+                  <Building className="w-4 h-4 mr-2 text-gray-400" /> Departamento *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsModalDepartamentoOpen(true)}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                >
+                  + Novo Departamento
+                </button>
               </div>
-            )}
-            {cargoParaVisualizar.nivel && (
-              <div>
-                <label className={formStyles.label.base}>Nível</label>
-                <p className="mt-1 text-sm text-gray-900">{cargoParaVisualizar.nivel}</p>
-              </div>
-            )}
-            <div>
-              <label className={formStyles.label.base}>Status</label>
-              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
-                cargoParaVisualizar.ativo
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-              }`}>
-                {cargoParaVisualizar.ativo ? 'Ativo' : 'Inativo'}
-              </span>
+              <select
+                id="cargo-depto-edit" value={formData.departamento_id}
+                onChange={(e) => handleInputChange('departamento_id', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent text-sm bg-white ${error && !formData.departamento_id ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
+                disabled={loading || departamentos.length === 0}
+              >
+                <option value="">{departamentos.length === 0 ? 'Carregando...' : 'Selecione um departamento'}</option>
+                {departamentos.map(depto => (
+                  <option key={depto.id} value={depto.id}>{depto.nome}</option>
+                ))}
+              </select>
             </div>
           </div>
+        </form>
+      </ModalPadrao>
 
-          <div className="flex justify-end mt-6">
-            <button
-              onClick={() => setCargoParaVisualizar(null)}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Fechar
-            </button>
-          </div>
-        </Modal>
-      )}
+      {/* Modal de Visualização (Design Aprimorado) */}
+      <ModalPadrao
+        isOpen={!!cargoParaVisualizar}
+        onClose={() => setCargoParaVisualizar(null)}
+        title="Detalhes do Cargo"
+        confirmLabel="Fechar"
+        onConfirm={() => setCargoParaVisualizar(null)}
+        size="lg"
+      >
+        {cargoParaVisualizar && (
+           <div className="space-y-6">
+             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+               <div className="flex items-center mb-3">
+                 <Briefcase className="w-5 h-5 text-blue-600 mr-2" />
+                 <h3 className="text-lg font-semibold text-gray-800">Identificação do Cargo</h3>
+               </div>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                 <div>
+                   <label className="block text-xs font-medium text-gray-500 mb-1">Nome</label>
+                   <p className="text-gray-900 font-semibold">{cargoParaVisualizar.nome}</p>
+                 </div>
+                 <div>
+                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><TrendingUp className="w-3 h-3 mr-1" /> Tipo</label>
+                   <p className="text-gray-900">{cargoParaVisualizar.tipo || <span className="italic text-gray-400">Não definido</span>}</p>
+                 </div>
+                 <div>
+                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Building className="w-3 h-3 mr-1" /> Departamento</label>
+                    <p className="text-gray-900">
+                      {cargoParaVisualizar.departamento?.nome
+                        || (cargoParaVisualizar.departamento_id != null
+                          ? (departamentoMap.get(cargoParaVisualizar.departamento_id)
+                              || <span className="italic text-gray-400">ID: {cargoParaVisualizar.departamento_id}</span>)
+                          : <span className="italic text-gray-400">Não informado</span>)}
+                    </p>
+                 </div>
+               </div>
+             </div>
 
-      {/* Modal de Confirmação de Exclusão */}
-      {cargoParaDeletar && (
-        <Modal
-          isOpen={!!cargoParaDeletar}
-          onClose={() => setCargoParaDeletar(null)}
-          title="Confirmar Exclusão"
-        >
-          <div className="space-y-4">
-            <p className="text-gray-700">
-              Tem certeza que deseja excluir o cargo <strong>{cargoParaDeletar.nome}</strong>?
-            </p>
-            <p className="text-sm text-gray-500">
-              Esta ação não pode ser desfeita.
-            </p>
-          </div>
+             {cargoParaVisualizar.descricao && (
+               <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                 <div className="flex items-center mb-3"><FileText className="w-5 h-5 text-gray-600 mr-2" /><h3 className="text-lg font-semibold text-gray-800">Descrição</h3></div>
+                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{cargoParaVisualizar.descricao}</p>
+               </div>
+             )}
+             
+             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center mb-3"><Calendar className="w-5 h-5 text-purple-600 mr-2" /><h3 className="text-lg font-semibold text-gray-800">Histórico</h3></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                    <div>
+                         <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                         <StatusBadge status={cargoParaVisualizar.ativo ? 'ativo' : 'inativo'} />
+                    </div>
+                    <div>
+                         <label className="block text-xs font-medium text-gray-500 mb-1">Data de Criação</label>
+                         <p className="text-gray-900">{cargoParaVisualizar.created_at ? format(new Date(cargoParaVisualizar.created_at), 'dd/MM/yyyy HH:mm') : '-'}</p>
+                    </div>
+                </div>
+             </div>
+           </div>
+        )}
+      </ModalPadrao>
 
-          <div className={formStyles.actions.wrapper}>
-            <button
-              onClick={() => setCargoParaDeletar(null)}
-              className={`${buttonStyles.base} ${buttonStyles.variants.secondary} ${buttonStyles.sizes.md}`}
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={confirmarDeletar}
-              className={`${buttonStyles.base} ${buttonStyles.variants.danger} ${buttonStyles.sizes.md}`}
-            >
-              Excluir
-            </button>
-          </div>
-        </Modal>
-      )}
-    </div>
+      {/* Modal de Confirmação de Exclusão (Usando ConfirmDialog) */}
+      <ConfirmDialog
+        open={modalExclusaoOpen}
+        title="Confirmar Exclusão"
+        message={`Tem certeza que deseja excluir o cargo "${cargoParaDeletar?.nome}"? Esta ação marcará o cargo como inativo.`}
+        onConfirm={confirmarDeletar}
+        onCancel={() => {
+          setModalExclusaoOpen(false);
+          setCargoParaDeletar(null);
+        }}
+        confirmLabel="Sim, Excluir"
+        cancelLabel="Cancelar"
+        variant="danger"
+      />
+
+      <ModalCadastroDepartamento
+        isOpen={isModalDepartamentoOpen}
+        onClose={() => setIsModalDepartamentoOpen(false)}
+        onDepartamentoCadastrado={handleDepartamentoCadastrado}
+        empresa_id={empresaUsuarioId}
+      />
+    </PageLayout>
   );
 };
+

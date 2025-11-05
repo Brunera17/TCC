@@ -36,12 +36,14 @@ export interface Cliente {
 
 export interface Endereco {
   id: number;
-  rua: string;
+  logradouro: string;
   numero: string;
+  bairro: string;
   complemento?: string;
   cidade: string;
   estado: string;
   cep: string;
+  rua?: string;
   cliente_id: number;
   created_at?: string;
   updated_at?: string;
@@ -60,6 +62,10 @@ export interface EntidadeJuridica {
 export interface TipoAtividade {
   id: number;
   nome: string;
+  codigo?: string;
+  descricao?: string;
+  aplicavel_pf?: boolean;
+  aplicavel_pj?: boolean;
   ativo: boolean;
   created_at?: string;
   updated_at?: string;
@@ -233,7 +239,7 @@ export interface ServicoCreateData {
   ativo?: boolean;
 }
 
-export interface ServicoUpdateData extends Partial<ServicoCreateData> {}
+export type ServicoUpdateData = Partial<ServicoCreateData>;
 
 export interface FuncionarioCreateData {
   nome: string;

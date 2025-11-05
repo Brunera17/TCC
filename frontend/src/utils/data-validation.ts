@@ -156,28 +156,80 @@ export function validateClienteData(data: any): ValidationResult {
 function validateEnderecoData(endereco: any): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  if (endereco.rua && typeof endereco.rua !== 'string') {
+  if (!endereco || typeof endereco !== 'object') {
     errors.push({
-      field: 'endereco.rua',
-      message: 'Rua deve ser uma string',
-      value: endereco.rua
+      field: 'endereco',
+      message: 'Endereço deve ser um objeto válido',
+      value: endereco
+    });
+    return errors;
+  }
+
+  const enderecoNormalizado = {
+    ...endereco,
+    logradouro:
+      typeof endereco?.logradouro === 'string'
+        ? endereco.logradouro
+        : typeof endereco?.rua === 'string'
+        ? endereco.rua
+        : endereco.logradouro
+  };
+
+  const camposTexto: Array<{ chave: keyof typeof endereco; nome: string; obrigatorio?: boolean }> = [
+    { chave: 'logradouro', nome: 'Logradouro', obrigatorio: true },
+    { chave: 'numero', nome: 'Número', obrigatorio: true },
+    { chave: 'bairro', nome: 'Bairro', obrigatorio: true },
+    { chave: 'cidade', nome: 'Cidade', obrigatorio: true },
+    { chave: 'estado', nome: 'Estado', obrigatorio: true },
+    { chave: 'complemento', nome: 'Complemento' }
+  ];
+
+  camposTexto.forEach(({ chave, nome, obrigatorio }) => {
+    const valor = enderecoNormalizado[chave] ?? endereco[chave];
+    if (valor === undefined || valor === null || valor === '') {
+      if (obrigatorio) {
+        errors.push({
+          field: `endereco.${String(chave)}`,
+          message: `${nome} é obrigatório quando o endereço é informado`,
+          value: valor
+        });
+      }
+      return;
+    }
+
+    if (typeof valor !== 'string') {
+      errors.push({
+        field: `endereco.${String(chave)}`,
+        message: `${nome} deve ser uma string`,
+        value: valor
+      });
+    }
+  });
+
+  if (typeof endereco.estado === 'string' && endereco.estado.trim().length !== 2) {
+    errors.push({
+      field: 'endereco.estado',
+      message: 'Estado deve possuir exatamente 2 caracteres',
+      value: endereco.estado
     });
   }
 
-  if (endereco.cep && typeof endereco.cep !== 'string') {
-    errors.push({
-      field: 'endereco.cep',
-      message: 'CEP deve ser uma string',
-      value: endereco.cep
-    });
-  } else if (endereco.cep) {
-    const cepNumbers = endereco.cep.replace(/\D/g, '');
-    if (cepNumbers.length !== 8) {
+  if (endereco.cep !== undefined && endereco.cep !== null && endereco.cep !== '') {
+    if (typeof endereco.cep !== 'string') {
       errors.push({
         field: 'endereco.cep',
-        message: 'CEP deve ter 8 dígitos',
+        message: 'CEP deve ser uma string',
         value: endereco.cep
       });
+    } else {
+      const cepNumbers = endereco.cep.replace(/\D/g, '');
+      if (cepNumbers.length !== 8) {
+        errors.push({
+          field: 'endereco.cep',
+          message: 'CEP deve ter 8 dígitos',
+          value: endereco.cep
+        });
+      }
     }
   }
 

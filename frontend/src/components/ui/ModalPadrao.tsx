@@ -38,13 +38,13 @@ export const ModalPadrao: React.FC<ModalPadraoProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 text-center">
         {/* Overlay */}
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50"
           onClick={onClose}
         />
         
         {/* Modal */}
-        <div className={`relative inline-block w-full ${sizeClasses[size]} p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg`}>
+        <div className={`relative inline-block w-full ${sizeClasses[size]} p-6 my-8 overflow-hidden text-left align-middle bg-white shadow-xl rounded-lg`}>
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">{title}</h2>

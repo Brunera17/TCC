@@ -1,21 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/**
- * ApiService.ts — versão aprimorada
- * Autor: Bruno Brunera ✨
- * Objetivo: Comunicação segura e eficiente com API Flask
- */
-
-// Em desenvolvimento, usa o proxy do Vite. Em produção, usa a URL completa
 export const API_URL = import.meta.env.DEV
   ? "/api"  // Usa proxy do Vite em desenvolvimento
   : (import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:5000/api");
 
-// 🟢 CONSOLE.LOG ADICIONADO (Passo 1 do debug)
-console.log(`[api.ts] API base URL: ${API_URL}`);
-
-//
-// 🔹 Tipos e utilitários base
-//
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
@@ -28,7 +14,12 @@ export class ApiError extends Error {
   public details?: any;
 
   constructor(status: number, details?: any) {
-    super(`Erro HTTP ${status}`);
+    const detailMessage =
+      typeof details === 'string'
+        ? details
+        : (details?.error ?? details?.message ?? null);
+    const baseMessage = `Erro HTTP ${status}`;
+    super(detailMessage ? `${baseMessage}: ${detailMessage}` : baseMessage);
     this.status = status;
     this.details = details;
   }
@@ -49,15 +40,13 @@ function buildHeaders(extra: Record<string, string> = {}): Headers {
 }
 
 function normalizeUrl(path: string): string {
-  // Remove barras do início do path e do final da API_URL
   const cleanPath = path.replace(/^\/+/, "");
   const cleanApiUrl = API_URL.replace(/\/+$/, "");
   return `${cleanApiUrl}/${cleanPath}`;
 }
 
-//
-// 🔹 Token utils
-//
+type GenericRecord = Record<string, unknown>;
+
 function getValidToken(): string | null {
   const sources = [
     localStorage.getItem("access_token"),
@@ -78,7 +67,6 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 
   try {
-    // Tentar diferentes endpoints de refresh
     const endpoints = ["usuarios/refresh/", "auth/refresh/", "refresh/"];
 
     for (const endpoint of endpoints) {
@@ -111,9 +99,6 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
-//
-// 🔹 Funções de requisição base
-//
 async function fetchJSON<T>(
   path: string,
   options: RequestInit = {},
@@ -125,24 +110,16 @@ async function fetchJSON<T>(
   const config: RequestInit = { ...options, headers };
   const method = (options.method || "GET").toUpperCase();
 
-  // 🟢 CONSOLE.LOG ADICIONADO (Passo 2 do debug)
-  console.log(`[fetchJSON] Requesting: ${method} ${url}`);
-
-  log(`➡️ ${method} ${url}`);
-
   try {
     const res = await fetch(url, config);
 
-    // Tentativa de refresh automático se 401
     if (res.status === 401 && retry) {
       const refreshed = await refreshAccessToken();
       if (refreshed) {
-        // Recria os headers com o novo token antes de tentar novamente
         const newHeaders = buildHeaders(options.headers as Record<string, string>);
         const newConfig = { ...options, headers: newHeaders };
         return fetchJSON<T>(path, newConfig, false); // Passa false para não tentar refresh novamente
       } else {
-        // Se refresh falhou, limpar tokens e redirecionar para login
         console.warn("🚫 Token expirado e refresh falhou. Redirecionando para login...");
         localStorage.removeItem("access_token");
         localStorage.removeItem("jwt_token");
@@ -150,7 +127,6 @@ async function fetchJSON<T>(
         localStorage.removeItem("refresh_token");
         sessionStorage.removeItem("access_token");
 
-        // Redirecionar para login se não estiver já lá
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }
@@ -164,7 +140,7 @@ async function fetchJSON<T>(
     try {
       parsed = text ? JSON.parse(text) : null;
     } catch {
-      parsed = text; // Se não for JSON, mantenha o texto (útil para erros HTML)
+      parsed = text; 
     }
 
     if (!res.ok) {
@@ -181,24 +157,18 @@ async function fetchJSON<T>(
     console.error("❌ URL:", url);
     console.error("❌ Método:", method);
 
-    // Se for erro de TypeError (rede, CORS), dar mensagem mais clara
     if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
       throw new Error('Erro de conectividade - verifique se o backend está rodando e configuração CORS');
     }
 
-    // Se já for um ApiError, apenas relance
     if (error instanceof ApiError) {
       throw error;
     }
 
-    // Para outros erros, encapsule
     throw new Error(`Erro desconhecido na requisição: ${error.message}`);
   }
 }
 
-//
-// 🔹 Métodos genéricos (GET, POST, PUT, DELETE)
-//
 async function getJSON<T>(path: string, params?: Record<string, any>): Promise<T> {
   const query = params ? '?' + new URLSearchParams(params).toString() : '';
   return fetchJSON<T>(path + query, { method: "GET" });
@@ -226,13 +196,58 @@ async function deleteJSON<T>(path: string, body?: any): Promise<T> {
   return fetchJSON<T>(path, options);
 }
 
-//
-// 🔹 ApiService principal
-//
+function shouldFallbackToUsuarios(error: unknown): error is ApiError {
+  return error instanceof ApiError && (error.status === 404 || error.status === 405);
+}
+
+function normalizeEnderecoPayload(endereco: unknown): GenericRecord | undefined {
+  if (!endereco || typeof endereco !== 'object') return undefined;
+
+  const normalized: GenericRecord = { ...(endereco as GenericRecord) };
+
+  const logradouro = normalized['logradouro'];
+  const rua = normalized['rua'];
+
+  if ((typeof logradouro !== 'string' || logradouro.trim().length === 0) && typeof rua === 'string') {
+    normalized['logradouro'] = rua.trim();
+  }
+
+  if (typeof normalized['logradouro'] === 'string') {
+    normalized['logradouro'] = (normalized['logradouro'] as string).trim();
+  }
+
+  delete normalized['rua'];
+
+  return normalized;
+}
+
+function normalizeClientePayload(data: unknown): GenericRecord {
+  if (!data || typeof data !== 'object') {
+    return {};
+  }
+
+  const payload: GenericRecord = { ...(data as GenericRecord) };
+
+  if (payload.endereco) {
+    const enderecoNormalizado = normalizeEnderecoPayload(payload.endereco);
+    if (enderecoNormalizado) {
+      payload.endereco = enderecoNormalizado;
+    }
+  }
+
+  if (Array.isArray(payload.enderecos)) {
+    payload.enderecos = payload.enderecos
+      .map(endereco => normalizeEnderecoPayload(endereco))
+      .filter((item): item is GenericRecord => Boolean(item));
+  }
+
+  return payload;
+}
+
 export const apiService = {
   // ---------- Usuário ----------
-  async login(credentials: { identificador: string; senha: string }) { // Atualizado para identificador
-    return postJSON<{ access_token: string; refresh_token: string, user: any }>( // Retorna user também
+  async login(credentials: { identificador: string; senha: string }) { 
+    return postJSON<{ access_token: string; refresh_token: string, user: any }>( 
       "usuarios/login/",
       credentials
     );
@@ -243,36 +258,71 @@ export const apiService = {
   },
 
   // ---------- Funcionários/Usuários ----------
-  async getFuncionarios(params?: any): Promise<any> { // Mantido any por flexibilidade, idealmente Funcionario[]
-    return getJSON<any>("usuarios/", params);
+  async getFuncionarios(params?: any): Promise<any> { 
+    return getJSON<any>("funcionarios/", params);
   },
 
   async getFuncionario(id: number) {
-    return getJSON<any>(`usuarios/${id}/`);
+    return getJSON<any>(`funcionarios/${id}/`);
   },
 
   async createFuncionario(data: any) {
-    return postJSON("usuarios/", data);
+    try {
+      return await postJSON("funcionarios/", data);
+    } catch (error) {
+      if (shouldFallbackToUsuarios(error)) {
+        return postJSON("usuarios/", data);
+      }
+      throw error;
+    }
   },
 
   async updateFuncionario(id: number, data: any) {
-    return putJSON(`usuarios/${id}/`, data);
+    try {
+      return await putJSON(`funcionarios/${id}/`, data);
+    } catch (error) {
+      if (shouldFallbackToUsuarios(error)) {
+        try {
+          return await putJSON(`usuarios/${id}/`, data);
+        } catch (usuariosError) {
+          if (shouldFallbackToUsuarios(usuariosError)) {
+            return putJSON(`usuarios/${id}`, data);
+          }
+          throw usuariosError;
+        }
+      }
+      throw error;
+    }
   },
 
   async deleteFuncionario(id: number) {
-    return deleteJSON(`usuarios/${id}/`);
+    try {
+      return await deleteJSON(`funcionarios/${id}/`);
+    } catch (error) {
+      if (shouldFallbackToUsuarios(error)) {
+        try {
+          return await deleteJSON(`usuarios/${id}/`);
+        } catch (usuariosError) {
+          if (shouldFallbackToUsuarios(usuariosError)) {
+            return deleteJSON(`usuarios/${id}`);
+          }
+          throw usuariosError;
+        }
+      }
+      throw error;
+    }
   },
 
   // ---------- Serviços ----------
-  async getServicos(params?: any): Promise<any[]> { // Pode retornar PaginatedResponse se backend suportar
-    return getJSON<any[]>("servicos/", params);
+  async getServicos(params?: any): Promise<any> { // Alterado para 'any' para aceitar PaginatedResponse ou Array
+    return getJSON<any>("servicos/", params);
   },
 
   async getServico(id: number) {
     return getJSON<any>(`servicos/${id}`);
   },
 
-  async getServicoPorCodigo(codigo: string): Promise<any | null> { // Retorna null se 404
+  async getServicoPorCodigo(codigo: string): Promise<any | null> { 
     try {
       return await getJSON<any>(`servicos/codigo/${encodeURIComponent(codigo)}`);
     } catch (error) {
@@ -281,7 +331,7 @@ export const apiService = {
     }
   },
 
-  async getServicoPorNome(nome: string): Promise<any | null> { // Retorna null se 404
+  async getServicoPorNome(nome: string): Promise<any | null> { 
     try {
       return await getJSON<any>(`servicos/nome/${encodeURIComponent(nome)}`);
     } catch (error) {
@@ -295,15 +345,15 @@ export const apiService = {
   },
 
   async updateServico(id: number, data: any) {
-    return putJSON(`servicos/${id}`, data); // Adicionado / no final
+    return putJSON(`servicos/${id}`, data);
   },
 
   async deleteServico(id: number) {
-    return deleteJSON(`servicos/${id}`); // Adicionado / no final
+    return deleteJSON(`servicos/${id}`);
   },
 
   // ---------- Categorias ----------
-  async getCategorias(params?: any): Promise<any[]> { // Adicionado params
+  async getCategorias(params?: any): Promise<any[]> {
     return getJSON<any[]>("categorias-servicos/", params);
   },
 
@@ -312,32 +362,49 @@ export const apiService = {
   },
 
   // ---------- Clientes ----------
-  async getClientes(params?: any): Promise<any> { // Pode retornar PaginatedResponse
+  async getClientes(params?: any): Promise<any> {
     return getJSON<any>("clientes/", params);
   },
 
-  async getCliente(id: number): Promise<any> { // Adicionado
-    return getJSON<any>(`clientes/${id}/`);
+  async getCliente(id: number): Promise<any> {
+    return getJSON<any>(`clientes/${id}`);
   },
 
   async createCliente(data: any) {
-    return postJSON("clientes/", data);
+    const payload = normalizeClientePayload(data);
+    if ('empresa_id' in payload) {
+      delete payload.empresa_id;
+    }
+    try {
+      const rawUser = localStorage.getItem('user');
+      if (rawUser) {
+        const parsed = JSON.parse(rawUser);
+        const empresaId = parsed?.empresa_id ?? parsed?.empresa?.id;
+        if (typeof empresaId !== 'number') {
+          console.warn('Usuário autenticado sem empresa vinculada ao tentar criar cliente.');
+        }
+      }
+    } catch (err) {
+      console.warn('Não foi possível validar a empresa do usuário antes de criar cliente:', err);
+    }
+    return postJSON("clientes/", payload);
   },
 
   async updateCliente(id: number, data: any) {
-    return putJSON(`clientes/${id}/`, data);
+    const payload = normalizeClientePayload(data);
+    return putJSON(`clientes/${id}`, payload);
   },
 
   async deleteCliente(id: number) {
-    return deleteJSON(`clientes/${id}/`);
+    return deleteJSON(`clientes/${id}`);
   },
 
   // ---------- Propostas ----------
-  async getPropostas(params?: any): Promise<any> { // Pode retornar PaginatedResponse
+  async getPropostas(params?: any): Promise<any> { 
     return getJSON<any>("propostas/", params);
   },
 
-  async getProposta(id: number): Promise<any> { // Adicionado
+  async getProposta(id: number): Promise<any> {
     return getJSON<any>(`propostas/${id}/`);
   },
 
@@ -349,15 +416,15 @@ export const apiService = {
     return putJSON(`propostas/${id}/`, data);
   },
 
-  async deleteProposta(id: number, observacao?: string): Promise<any> { // Adicionado observacao
+  async deleteProposta(id: number, observacao?: string): Promise<any> { 
     return deleteJSON(`propostas/${id}/`, observacao ? { observacao } : undefined);
   },
 
-  async gerarPDFProposta(id: number): Promise<any> { // Adicionado
+  async gerarPDFProposta(id: number): Promise<any> {
     return postJSON(`propostas/${id}/gerar-pdf/`, {});
   },
 
-  async visualizarPDFProposta(id: number): Promise<Blob> { // Adicionado - retorna Blob
+  async visualizarPDFProposta(id: number): Promise<Blob> {
     const url = normalizeUrl(`propostas/${id}/pdf/`);
     const headers = buildHeaders();
     const res = await fetch(url, { headers });
@@ -365,61 +432,67 @@ export const apiService = {
     return res.blob();
   },
 
-  async getLogsPropostas(id: number): Promise<any> { // Adicionado
+  async getLogsPropostas(id: number): Promise<any> {
     return getJSON(`propostas/${id}/logs/`);
   },
 
   // ---------- Regimes Tributários ----------
-  async getRegimesTributarios(params?: any): Promise<any> { // Adicionado
+  async getRegimesTributarios(params?: any): Promise<any> {
     return getJSON("regimes-tributarios/", params);
   },
-  async getRegimeTributario(id: number): Promise<any> { // Adicionado
+  async getRegimeTributario(id: number): Promise<any> {
     return getJSON(`regimes-tributarios/${id}/`);
   },
-  async createRegime(data: any): Promise<any> { // Adicionado
+  async createRegime(data: any): Promise<any> {
     return postJSON("regimes-tributarios/", data);
   },
-  async updateRegime(id: number, data: any): Promise<any> { // Adicionado
+  async updateRegime(id: number, data: any): Promise<any> {
     return putJSON(`regimes-tributarios/${id}/`, data);
   },
-  async deleteRegimeTributario(id: number): Promise<any> { // Adicionado
-    return deleteJSON(`regimes-tributarios/${id}/`);
+  async deleteRegimeTributario(id: number): Promise<any> {
+    return deleteJSON(`regimes-tributarios/${id}`);
   },
 
   // ---------- Tipos de Atividade ----------
-  async getTiposAtividade(params?: any): Promise<any> { // Adicionado
+  async getTiposAtividade(params?: any): Promise<any> {
     return getJSON("tipos-atividade/", params);
   },
-  async deleteTipoAtividade(id: number): Promise<any> { // Adicionado
-    return deleteJSON(`tipos-atividade/${id}/`);
+  async createTipoAtividade(data: any): Promise<any> {
+    return postJSON("tipos-atividade/", data);
+  },
+  async updateTipoAtividade(id: number, data: any): Promise<any> {
+    return putJSON(`tipos-atividade/${id}`, data);
+  },
+  async deleteTipoAtividade(id: number): Promise<any> {
+    return deleteJSON(`tipos-atividade/${id}`);
   },
 
   // ---------- Faixas de Faturamento ----------
-  async getFaixasFaturamento(params?: any): Promise<any> { // Adicionado
+  async getFaixasFaturamento(params?: any): Promise<any> {
     return getJSON("faixas-faturamento/", params);
   },
 
   // ---------- Cargos ----------
-  async getCargos(params?: any): Promise<any> { // Adicionado
+  async getCargos(params?: any): Promise<any> {
     return getJSON("cargos/", params);
   },
-  async createCargo(data: any): Promise<any> { // Adicionado
+  async createCargo(data: any): Promise<any> {
     return postJSON("cargos/", data);
   },
-  async updateCargo(id: number, data: any): Promise<any> { // Adicionado
-    return putJSON(`cargos/${id}/`, data);
+  async updateCargo(id: number, data: any): Promise<any> {
+    return putJSON(`cargos/${id}`, data);
   },
-  async deleteCargo(id: number): Promise<any> { // Adicionado
-    return deleteJSON(`cargos/${id}/`);
+  async deleteCargo(id: number): Promise<any> {
+    return deleteJSON(`cargos/${id}`);
   },
 
   // ---------- Empresas ----------
-  async getEmpresas(params?: any): Promise<any> { // Adicionado
+  async getEmpresas(params?: any): Promise<any> {
     return getJSON("empresas/", params);
   },
 
   // ---------- Mensalidade Automática ----------
-  async buscarMensalidadeAutomatica(config: { // Adicionado
+  async buscarMensalidadeAutomatica(config: {
     tipo_atividade_id: number;
     regime_tributario_id: number;
     faixa_faturamento_id?: number;
@@ -428,43 +501,55 @@ export const apiService = {
   },
 
   // ---------- Notificações ----------
-  async getNotificacoes(): Promise<any> { // Adicionado
+  async getNotificacoes(): Promise<any> {
     return getJSON("notificacoes/");
   },
-  async marcarNotificacaoComoLida(id: number): Promise<any> { // Adicionado
+  async marcarNotificacaoComoLida(id: number): Promise<any> {
     return postJSON(`notificacoes/${id}/ler/`, {});
   },
-  async marcarTodasNotificacoesComoLidas(): Promise<any> { // Adicionado
+  async marcarTodasNotificacoesComoLidas(): Promise<any> {
     return postJSON("notificacoes/ler-todas/", {});
   },
 
   // ---------- Ordens de Serviço ----------
-  async getOrdensServico(params?: any): Promise<any> { // Adicionado
+  async getOrdensServico(params?: any): Promise<any> {
     return getJSON("ordens-servico/", params);
   },
-  async createOrdemServico(data: any): Promise<any> { // Adicionado
+  async createOrdemServico(data: any): Promise<any> {
     return postJSON("ordens-servico/", data);
   },
-  async updateOrdemServico(id: number, data: any): Promise<any> { // Adicionado
-    return putJSON(`ordens-servico/${id}/`, data);
+
+  // --- CORREÇÃO AQUI (Removendo a barra final) ---
+  async updateOrdemServico(id: number, data: any): Promise<any> {
+    return putJSON(`ordens-servico/${id}`, data);
   },
-  async deleteOrdemServico(id: number): Promise<any> { // Adicionado
-    return deleteJSON(`ordens-servico/${id}/`);
+  async deleteOrdemServico(id: number): Promise<any> {
+    return deleteJSON(`ordens-servico/${id}`);
   },
+  // --- FIM DA CORREÇÃO ---
 
   // ---------- Departamentos ----------
-  async getDepartamentos(params?: any): Promise<any> { // Adicionado
+  async getDepartamentos(params?: any): Promise<any> {
     return getJSON("departamentos/", params);
+  },
+  async createDepartamento(data: any): Promise<any> {
+    return postJSON("departamentos/", data);
+  },
+  async updateDepartamento(id: number, data: any): Promise<any> {
+    return putJSON(`departamentos/${id}/`, data);
+  },
+  async deleteDepartamento(id: number): Promise<any> {
+    return deleteJSON(`departamentos/${id}/`);
   },
 
   // ---------- Chat ----------
-  async getChatMessages(sessionId: string): Promise<any> { // Adicionado
+  async getChatMessages(sessionId: string): Promise<any> {
     return getJSON(`chat/${sessionId}/messages/`);
   },
-  async sendChatMessage(message: string, sessionId: string): Promise<any> { // Adicionado
+  async sendChatMessage(message: string, sessionId: string): Promise<any> {
     return postJSON(`chat/${sessionId}/send/`, { message });
   },
-  async clearChatSession(sessionId: string): Promise<any> { // Adicionado
+  async clearChatSession(sessionId: string): Promise<any> {
     return postJSON(`chat/${sessionId}/clear/`, {});
   },
 

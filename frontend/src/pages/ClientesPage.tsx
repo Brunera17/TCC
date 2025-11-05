@@ -1,11 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Mail, User, Building, Eye, Edit2 } from 'lucide-react';
-import { apiService } from '../lib/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Plus,
+  Search,
+  Trash2,
+  Mail,
+  User,
+  Building,
+  Eye,
+  Edit2,
+  AlertTriangle,
+  MapPin,
+  Phone,
+  Calendar
+} from 'lucide-react';
+import { apiService, ApiError } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import {
+  PageLayout,
+  PageHeader,
+  SearchBar,
+  IconButton,
+  DataTable,
+  ConfirmDialog,
+  StatusBadge,
+  StateHandler,
+  Pagination,
+  ModalPadrao, // Usar ModalPadrao
+  type Column
+} from '../components/ui';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { Modal } from '../components/modals/Modal';
 import { ModalCadastroCliente } from '../components/modals/ModalCadastroCliente';
 
 // Interface Cliente local (compatível com o backend)
+// --- CORREÇÃO: Adicionadas 'ativo' e 'abertura_empresa' que estavam faltando na interface mas eram usadas ---
 interface Cliente {
   id: number;
   nome: string;
@@ -14,17 +41,29 @@ interface Cliente {
   telefone?: string;
   created_at?: string;
   updated_at?: string;
-  
-  // Relacionamentos
+  abertura_empresa: boolean; // <-- Adicionado
+  ativo: boolean; // <-- Adicionado
+  endereco?: { // Mantido para consistência
+    logradouro: string;
+    numero: string;
+    bairro: string;
+    complemento?: string;
+    cidade: string;
+    estado: string;
+    cep: string;
+    rua?: string;
+  };
   enderecos?: Array<{
     id: number;
-    rua: string;
+    logradouro: string;
     numero: string;
+    bairro: string;
     complemento?: string;
     cidade: string;
     estado: string;
     cep: string;
     cliente_id: number;
+    rua?: string;
   }>;
   entidades_juridicas?: Array<{
     id: number;
@@ -35,451 +74,444 @@ interface Cliente {
   }>;
 }
 
+// Helper para checagem de tipo da resposta da API
+type ClientesApiPayload = {
+  data?: Cliente[];
+  items?: Cliente[];
+  total?: number;
+  count?: number;
+  per_page?: number;
+  page_size?: number;
+};
+const isClientesApiPayload = (value: unknown): value is ClientesApiPayload =>
+  typeof value === 'object' && value !== null;
+
 interface ClientesPageProps {
   openModalOnLoad?: boolean;
 }
 
 export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = false }) => {
+  const { user } = useAuth(); // Obter usuário para permissões
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Iniciar como true
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 10;
 
-  // Estados para os novos modais
+  // Estados dos modais (simplificado)
+  const [isModalCadastroOpen, setIsModalCadastroOpen] = useState(false);
+  const [isModalVisualizacaoOpen, setIsModalVisualizacaoOpen] = useState(false);
+  const [modalExclusaoOpen, setModalExclusaoOpen] = useState(false);
+
+  // Dados para os modais
   const [clienteParaVisualizar, setClienteParaVisualizar] = useState<Cliente | null>(null);
   const [clienteParaEditar, setClienteParaEditar] = useState<Cliente | null>(null);
   const [clienteParaDeletar, setClienteParaDeletar] = useState<Cliente | null>(null);
-  const [isModalEdicaoOpen, setIsModalEdicaoOpen] = useState(false);
 
-  const fetchClientes = async (page = 1, search = '') => {
+  // Permissão
+  const isAdmin = Boolean(user?.gerente);
+  const [verificandoPermissao, setVerificandoPermissao] = useState(true);
+
+  useEffect(() => {
+    setVerificandoPermissao(false);
+  }, [user]);
+
+  // --- Funções ---
+
+  const fetchClientes = useCallback(async (page = currentPage, search = searchTerm) => {
+    // Não busca se não for admin (assumindo que só admins veem clientes)
+    // Se funcionários comuns puderem ver, remova esta verificação
+    if (!isAdmin) { 
+        setLoading(false); 
+        setClientes([]);
+        return; 
+    }
+
     setLoading(true);
+    setError('');
     try {
-      const response = await apiService.getClientes({
+      const response: unknown = await apiService.getClientes({
         page,
-        per_page: 10,
-        search,
+        per_page: itemsPerPage,
+        search: search || undefined,
         ativo: true
       });
 
-      setClientes(response.data || []);
-      setTotalPages(Math.ceil(response.total / (response.per_page || 10)));
-    } catch (err: any) {
-      setError(err.message);
+      let clientesData: Cliente[] = [];
+      let totalRegistros = 0;
+      let itensPorPaginaApi = itemsPerPage;
+
+      if (Array.isArray(response)) {
+        clientesData = response;
+        totalRegistros = clientesData.length;
+        setTotalPages(1); // Assume 1 página se for array
+      } else if (isClientesApiPayload(response)) {
+        clientesData = response.data || response.items || [];
+        totalRegistros = response.total ?? response.count ?? clientesData.length;
+        itensPorPaginaApi = response.per_page ?? response.page_size ?? itemsPerPage;
+        setTotalPages(Math.max(1, Math.ceil(totalRegistros / Math.max(1, itensPorPaginaApi))));
+      } else {
+         throw new Error("Formato de resposta inesperado da API");
+      }
+      
+      setClientes(clientesData);
+
+    } catch (err: unknown) {
+       const errorMsg = err instanceof ApiError ? `Erro ${err.status}: ${JSON.stringify(err.details)}` : (err instanceof Error ? err.message : 'Erro desconhecido');
+       setError(errorMsg);
+       setClientes([]);
+       setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAdmin, currentPage, searchTerm]); // Adicionado isAdmin
 
   useEffect(() => {
     fetchClientes(currentPage, searchTerm);
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, fetchClientes]); // fetchClientes é dependência
 
-  // Abrir modal automaticamente se openModalOnLoad for true
   useEffect(() => {
-    if (openModalOnLoad) {
-      setIsModalOpen(true);
+    if (openModalOnLoad && isAdmin) { // Só abre se for admin
+      setClienteParaEditar(null);
+      setIsModalCadastroOpen(true);
     }
-  }, [openModalOnLoad]);
+  }, [openModalOnLoad, isAdmin]);
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     setCurrentPage(1);
   };
-
-  const openModal = () => {
-    setIsModalOpen(true);
+  
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
+  const openModalCadastro = () => {
+    setClienteParaEditar(null);
+    setIsModalCadastroOpen(true);
   };
 
-  const handleClienteCadastrado = (cliente: Cliente) => {
-    fetchClientes(currentPage, searchTerm);
-    closeModal();
+  const closeModalCadastro = () => {
+    setIsModalCadastroOpen(false);
+    setClienteParaEditar(null);
   };
 
-  // Funções para os novos botões de ação
+  const handleClienteCadastrado = () => {
+    fetchClientes(1); // Volta para a página 1 após cadastro
+    closeModalCadastro();
+  };
+
+  const handleClienteEditado = () => {
+    fetchClientes(currentPage); // Recarrega a página atual
+    closeModalCadastro();
+  };
+
   const handleVisualizar = (cliente: Cliente) => {
     setClienteParaVisualizar(cliente);
+    setIsModalVisualizacaoOpen(true);
+  };
+
+  const closeModalVisualizacao = () => {
+    setIsModalVisualizacaoOpen(false);
+    setClienteParaVisualizar(null);
   };
 
   const handleEditar = (cliente: Cliente) => {
     setClienteParaEditar(cliente);
-    setIsModalEdicaoOpen(true);
+    setIsModalCadastroOpen(true); // Reutiliza o ModalCadastroCliente
   };
 
   const handleDeletar = (cliente: Cliente) => {
     setClienteParaDeletar(cliente);
+    setModalExclusaoOpen(true);
   };
 
   const confirmarDeletar = async () => {
     if (!clienteParaDeletar) return;
-
+    setLoading(true);
     try {
       await apiService.deleteCliente(clienteParaDeletar.id);
-      fetchClientes(currentPage, searchTerm);
+      setModalExclusaoOpen(false);
       setClienteParaDeletar(null);
-    } catch (err: any) {
-      setError(err.message);
+      fetchClientes(1); // Volta para pág 1
+    } catch (err: unknown) {
+      const errorMsg = err instanceof ApiError ? `Erro ${err.status}: ${JSON.stringify(err.details)}` : (err instanceof Error ? err.message : 'Erro desconhecido');
+      setError(errorMsg);
+      setModalExclusaoOpen(false);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleClienteEditado = (cliente: Cliente) => {
-    fetchClientes(currentPage, searchTerm);
-    setIsModalEdicaoOpen(false);
-    setClienteParaEditar(null);
-  };
-
-
-  // Função para formatar CPF/CNPJ
-  const formatarDocumento = (documento: string) => {
-    const limpo = documento.replace(/\D/g, '');
+  // --- Funções de Formatação ---
+  const formatarDocumento = (cliente: Cliente): string => {
+    const pjCnpj = cliente.entidades_juridicas?.[0]?.cnpj;
+    const pfCpf = cliente.cpf;
+    const doc = pjCnpj || pfCpf;
+    if (!doc) return '—';
+    
+    const limpo = doc.replace(/\D/g, '');
     if (limpo.length === 11) {
       return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
     } else if (limpo.length === 14) {
       return limpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
     }
-    return documento;
+    return doc;
+  };
+  
+  const formatarCEP = (cep?: string) => {
+     if (!cep) return '—';
+     const limpo = cep.replace(/\D/g, '');
+     if (limpo.length === 8) {
+       return limpo.replace(/(\d{5})(\d{3})/, '$1-$2');
+     }
+     return cep;
+  };
+  
+  const getTipoClienteBadge = (cliente: Cliente) => {
+     const isPJ = cliente.entidades_juridicas && cliente.entidades_juridicas.length > 0;
+     const isAbertura = cliente.abertura_empresa;
+     
+     if (isAbertura) {
+         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Abertura</span>;
+     }
+     if (isPJ) {
+         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">PJ</span>;
+     }
+     return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">PF</span>;
   };
 
-  // Função para formatar CEP
-  const formatarCEP = (cep: string) => {
-    const limpo = cep.replace(/\D/g, '');
-    return limpo.replace(/(\d{5})(\d{3})/, '$1-$2');
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Page Title */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-        <p className="text-sm text-gray-500">Gerencie seus clientes e informações cadastrais</p>
-      </div>
-
-      {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar clientes..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-        <button
-          onClick={() => openModal()}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Novo Cliente</span>
-        </button>
-      </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {/* Content */}
-      {loading ? (
-        <div className="flex justify-center py-8">
-          <LoadingSpinner />
-        </div>
-      ) : (
-        <>
-          {/* Clientes List */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Cliente
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      CPF/CNPJ
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      E-mail
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tipo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {clientes.map((cliente) => (
-                    <tr key={cliente.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                            {cliente.abertura_empresa ? (
-                              <Building className="w-4 h-4 text-blue-600" />
-                            ) : (
-                              <User className="w-4 h-4 text-blue-600" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {cliente.nome}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              ID: {cliente.id}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatarDocumento(cliente.cpf)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                          {cliente.email}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cliente.abertura_empresa
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-green-100 text-green-800'
-                          }`}>
-                          {cliente.abertura_empresa ? 'Abertura de Empresa' : 'Cliente Existente'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cliente.ativo
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                          }`}>
-                          {cliente.ativo ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleVisualizar(cliente)}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50"
-                            title="Visualizar cliente"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEditar(cliente)}
-                            className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-50"
-                            title="Editar cliente"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeletar(cliente)}
-                            className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50"
-                            title="Excluir cliente"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {clientes.length === 0 && (
-              <div className="text-center py-8">
-                <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">Nenhum cliente encontrado</p>
-              </div>
+  // --- Colunas da Tabela ---
+  const columns: Column<Cliente>[] = [
+    {
+      key: 'nome',
+      label: 'Cliente',
+      render: (_, cliente) => (
+        <div className="flex items-center">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0 ${
+              cliente.abertura_empresa ? 'bg-purple-100' : (cliente.entidades_juridicas && cliente.entidades_juridicas.length > 0 ? 'bg-blue-50' : 'bg-green-50')
+          }`}>
+            {cliente.abertura_empresa ? (
+              <Building className="w-4 h-4 text-purple-600" />
+            ) : (cliente.entidades_juridicas && cliente.entidades_juridicas.length > 0) ? (
+              <Building className="w-4 h-4 text-blue-600" />
+            ) : (
+              <User className="w-4 h-4 text-green-600" />
             )}
           </div>
+          <div>
+            <div className="text-sm font-medium text-gray-900">{cliente.nome}</div>
+            <div className="text-sm text-gray-500">ID: {cliente.id}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'cpf', // Usado como key, mas render usa lógica customizada
+      label: 'Documento',
+      render: (_, cliente) => (
+         <span className="text-sm font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+            {formatarDocumento(cliente)}
+         </span>
+      )
+    },
+    {
+      key: 'email',
+      label: 'E-mail',
+      render: (email: Cliente['email']) => (
+        <span className="text-sm text-gray-700">{email || '—'}</span>
+      )
+    },
+    {
+      key: 'abertura_empresa', // Usado como key
+      label: 'Tipo',
+      render: (_, cliente) => getTipoClienteBadge(cliente)
+    },
+    {
+      key: 'ativo',
+      label: 'Status',
+      render: (ativo) => <StatusBadge status={ativo ? 'ativo' : 'inativo'} />
+    }
+  ];
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center space-x-2">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50"
-              >
-                Anterior
-              </button>
-              <span className="px-3 py-1">
-                Página {currentPage} de {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50"
-              >
-                Próxima
-              </button>
+  return (
+    <PageLayout>
+      <PageHeader title="Clientes" subtitle="Gerencie seus clientes e informações cadastrais">
+        <IconButton icon={Plus} onClick={openModalCadastro} label="Novo Cliente" />
+      </PageHeader>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <SearchBar value={searchTerm} onChange={handleSearch} placeholder="Buscar por nome, CPF/CNPJ ou email..." />
+      </div>
+
+      <StateHandler
+        loading={loading}
+        error={error || undefined}
+        onErrorDismiss={() => setError('')}
+        isEmpty={clientes.length === 0 && !loading}
+        emptyState={
+          <div className="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-200">
+            <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 font-medium">
+              {searchTerm ? `Nenhum cliente encontrado para "${searchTerm}"` : "Nenhum cliente cadastrado."}
+            </p>
+            {!searchTerm && (
+               <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                 + Cadastrar Novo Cliente
+               </button>
+             )}
+          </div>
+        }
+      >
+        <DataTable
+          data={clientes}
+          columns={columns}
+          actions={(cliente) => (
+            <div className="flex items-center justify-end space-x-1">
+              <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(cliente)} title="Visualizar"/>
+              <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => handleEditar(cliente)} title="Editar"/>
+              <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleDeletar(cliente)} title="Excluir"/>
             </div>
           )}
-        </>
-      )}
+        />
+        {totalPages > 1 && (
+          <div className="bg-white px-4 py-3 border-t border-gray-200 rounded-b-lg">
+             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
+          </div>
+        )}
+      </StateHandler>
 
-      {/* Modal de Cadastro de Cliente */}
+      {/* Modal de Cadastro/Edição de Cliente */}
       <ModalCadastroCliente
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        onClienteCadastrado={handleClienteCadastrado}
-      />
-
-      {/* Modal de Edição de Cliente */}
-      <ModalCadastroCliente
-        isOpen={isModalEdicaoOpen}
-        onClose={() => setIsModalEdicaoOpen(false)}
-        onClienteCadastrado={handleClienteEditado}
+        isOpen={isModalCadastroOpen}
+        onClose={closeModalCadastro}
+        onClienteCadastrado={clienteParaEditar ? handleClienteEditado : handleClienteCadastrado}
         clienteParaEditar={clienteParaEditar}
       />
 
-      {/* Modal de Visualização */}
-      <Modal
-        isOpen={!!clienteParaVisualizar}
-        onClose={() => setClienteParaVisualizar(null)}
-        title="Visualizar Cliente"
+      {/* Modal de Visualização (Novo Design) */}
+      <ModalPadrao
+        isOpen={isModalVisualizacaoOpen}
+        onClose={closeModalVisualizacao}
+        title="Detalhes do Cliente"
+        confirmLabel="Fechar"
+        onConfirm={closeModalVisualizacao}
         size="lg"
       >
         {clienteParaVisualizar && (
-          <div className="space-y-6">
-            {/* Dados do Cliente */}
-            <div>
-              <h4 className="text-lg font-medium text-gray-900 mb-4">Dados do Cliente</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome</label>
-                  <p className="mt-1 text-sm text-gray-900">{clienteParaVisualizar.nome}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">CPF/CNPJ</label>
-                  <p className="mt-1 text-sm text-gray-900">{formatarDocumento(clienteParaVisualizar.cpf)}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">E-mail</label>
-                  <p className="mt-1 text-sm text-gray-900">{clienteParaVisualizar.email || 'Não informado'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Tipo</label>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {clienteParaVisualizar.abertura_empresa ? 'Abertura de Empresa' : 'Cliente Existente'}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {clienteParaVisualizar.ativo ? 'Ativo' : 'Inativo'}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Data de Criação</label>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {new Date(clienteParaVisualizar.created_at).toLocaleDateString('pt-BR')}
-                  </p>
-                </div>
-              </div>
-            </div>
+           <div className="space-y-6">
+             {/* Dados Pessoais */}
+             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+               <div className="flex items-center mb-3">
+                 <User className="w-5 h-5 text-blue-600 mr-2" />
+                 <h3 className="text-lg font-semibold text-gray-800">Dados Pessoais / Responsável</h3>
+               </div>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                 <div>
+                   <label className="block text-xs font-medium text-gray-500 mb-1">Nome</label>
+                   <p className="text-gray-900 font-semibold">{clienteParaVisualizar.nome}</p>
+                 </div>
+                 <div>
+                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><User className="w-3 h-3 mr-1" /> CPF</label>
+                   <p className="text-gray-900">{formatarDocumento(clienteParaVisualizar)}</p>
+                 </div>
+                 <div>
+                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Mail className="w-3 h-3 mr-1" /> Email</label>
+                   <p className="text-gray-900">{clienteParaVisualizar.email || '—'}</p>
+                 </div>
+                 <div>
+                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Phone className="w-3 h-3 mr-1" /> Telefone</label>
+                   <p className="text-gray-900">{clienteParaVisualizar.telefone || '—'}</p>
+                 </div>
+                 <div>
+                   <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                   <StatusBadge status={clienteParaVisualizar.ativo ? 'ativo' : 'inativo'} />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-medium text-gray-500 mb-1">Tipo</label>
+                   {getTipoClienteBadge(clienteParaVisualizar)}
+                 </div>
+               </div>
+             </div>
 
-            {/* Endereço */}
-            {clienteParaVisualizar.endereco && (
-              <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Endereço</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Rua</label>
-                    <p className="mt-1 text-sm text-gray-900">{clienteParaVisualizar.endereco.rua}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Número</label>
-                    <p className="mt-1 text-sm text-gray-900">{clienteParaVisualizar.endereco.numero}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Cidade</label>
-                    <p className="mt-1 text-sm text-gray-900">{clienteParaVisualizar.endereco.cidade}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Estado</label>
-                    <p className="mt-1 text-sm text-gray-900">{clienteParaVisualizar.endereco.estado}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">CEP</label>
-                    <p className="mt-1 text-sm text-gray-900">{formatarCEP(clienteParaVisualizar.endereco.cep)}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Empresa */}
-            {clienteParaVisualizar.entidades_juridicas && clienteParaVisualizar.entidades_juridicas.length > 0 && (
-              <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Empresa</h4>
-                {clienteParaVisualizar.entidades_juridicas.map((empresa, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Nome da Empresa</label>
-                      <p className="mt-1 text-sm text-gray-900">{empresa.nome}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">CNPJ</label>
-                      <p className="mt-1 text-sm text-gray-900">{formatarDocumento(empresa.cnpj)}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Tipo</label>
-                      <p className="mt-1 text-sm text-gray-900">{empresa.tipo}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+             {/* Endereço(s) */}
+             {clienteParaVisualizar.enderecos && clienteParaVisualizar.enderecos.length > 0 && (
+               <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                 <div className="flex items-center mb-3">
+                   <MapPin className="w-5 h-5 text-green-600 mr-2" />
+                   <h3 className="text-lg font-semibold text-gray-800">Endereço</h3>
+                 </div>
+                 {clienteParaVisualizar.enderecos.map(end => (
+                    <div key={end.id} className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Logradouro</label>
+                        <p className="text-gray-900">{end.logradouro || end.rua || '—'}, {end.numero || 'S/N'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">CEP</label>
+                        <p className="text-gray-900">{formatarCEP(end.cep)}</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Cidade</label>
+                        <p className="text-gray-900">{end.cidade || '—'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Estado</label>
+                        <p className="text-gray-900">{end.estado || '—'}</p>
+                      </div>
+                   </div>
+                 ))}
+               </div>
+             )}
+             
+             {/* Empresa(s) */}
+             {clienteParaVisualizar.entidades_juridicas && clienteParaVisualizar.entidades_juridicas.length > 0 && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                 <div className="flex items-center mb-3">
+                   <Building className="w-5 h-5 text-purple-600 mr-2" />
+                   <h3 className="text-lg font-semibold text-gray-800">Empresa(s) Vinculada(s)</h3>
+                 </div>
+                 <div className="space-y-4">
+                    {clienteParaVisualizar.entidades_juridicas.map(emp => (
+                        <div key={emp.id} className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-sm border-t pt-4 first:border-t-0 first:pt-0">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Nome Fantasia / Razão Social</label>
+                            <p className="text-gray-900 font-semibold">{emp.nome}</p>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">CNPJ</label>
+                            <p className="text-gray-900">{formatarDocumento(emp)}</p>
+                          </div>
+                           <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Tipo</label>
+                            <p className="text-gray-900">{emp.tipo || '—'}</p>
+                          </div>
+                       </div>
+                    ))}
+                 </div>
+               </div>
+             )}
+           </div>
         )}
-      </Modal>
+      </ModalPadrao>
 
-      {/* Modal de Confirmação para Deletar */}
-      <Modal
-        isOpen={!!clienteParaDeletar}
-        onClose={() => setClienteParaDeletar(null)}
+      {/* Modal de Confirmação para Deletar (Usando ConfirmDialog) */}
+      <ConfirmDialog
+        open={modalExclusaoOpen}
+        onCancel={() => {
+          setModalExclusaoOpen(false);
+          setClienteParaDeletar(null);
+        }}
+        onConfirm={confirmarDeletar}
         title="Confirmar Exclusão"
-        size="sm"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-700">
-            Tem certeza que deseja excluir o cliente <strong>{clienteParaDeletar?.nome}</strong>?
-          </p>
-          <p className="text-sm text-red-600">
-            Esta ação não pode ser desfeita.
-          </p>
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={() => setClienteParaDeletar(null)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={confirmarDeletar}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
-            >
-              Excluir
-            </button>
-          </div>
-        </div>
-      </Modal>
-    </div>
+        message={`Tem certeza que deseja excluir o cliente "${clienteParaDeletar?.nome}"? Esta ação não pode ser desfeita.`}
+        confirmLabel="Sim, Excluir"
+        cancelLabel="Cancelar"
+        variant="danger"
+      />
+    </PageLayout>
   );
 };
+

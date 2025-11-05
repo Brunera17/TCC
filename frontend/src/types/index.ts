@@ -36,12 +36,14 @@ export interface Cliente {
 
 export interface Endereco {
   id: number;
-  rua: string;
+  logradouro: string;
   numero: string;
+  bairro: string;
   complemento?: string;
   cidade: string;
   estado: string;
   cep: string;
+  rua?: string;
   cliente_id: number;
   created_at?: string;
   updated_at?: string;
@@ -60,6 +62,10 @@ export interface EntidadeJuridica {
 export interface TipoAtividade {
   id: number;
   nome: string;
+  codigo?: string;
+  descricao?: string;
+  aplicavel_pf?: boolean;
+  aplicavel_pj?: boolean;
   ativo: boolean;
   created_at?: string;
   updated_at?: string;
@@ -77,7 +83,15 @@ export interface Servico {
   id: number;
   nome: string;
   descricao?: string;
-  preco_base: number;
+  // Ajustado para 'valor_unitario' ou 'valor_base' ou 'preco_base'
+  // Usarei 'valor_unitario' com base nos arquivos, mas o backend model usa 'valor_base' em ItemOS
+  // O ServicosPage.tsx usa 'valor_unitario'. Vou manter 'valor_unitario' para consistência do frontend.
+  valor_unitario: number; 
+  valor_base?: number; // Do backend model
+  preco_base?: number; // Do index.clean.ts
+  codigo?: string;
+  categoria?: string;
+  tipo_cobranca?: string;
   ativo: boolean;
   created_at?: string;
   updated_at?: string;
@@ -193,7 +207,17 @@ export interface Cargo {
   updated_at?: string;
 }
 
-// Interfaces para Ordem de Serviço
+// --- Tipos de Ordem de Serviço Atualizados ---
+
+export interface ItemOrdemServico {
+  id?: number; // ID só existirá em OS já criadas
+  servico_id: number;
+  quantidade: number;
+  valor_unitario: number;
+  desconto: number; // Em percentual (0-100)
+  valor_total: number; // Calculado
+}
+
 export interface OrdemServico {
   id: number;
   protocolo: string;
@@ -202,27 +226,33 @@ export interface OrdemServico {
   departamento_id?: number;
   vencimento: string;
   observacao?: string;
-  status: 'aberta' | 'em_andamento' | 'finalizada' | 'cancelada';
+  status: 'aberta' | 'em_andamento' | 'pausada' | 'concluida' | 'cancelada';
+  data_abertura: string;
+  data_fechamento?: string;
+  valor_total_os: number;
   created_at: string;
   updated_at: string;
   cliente?: Cliente;
-  usuario?: {
-    id: number;
-    nome: string;
-    email: string;
-  };
+  usuario?: Usuario; // Usando a interface Usuario
   departamento?: Departamento;
+  itens: ItemOrdemServico[];
+  ativo: boolean;
 }
 
 export interface OrdemServicoCreateData {
+  protocolo: string;
   cliente_id: number;
+  usuario_id: number; // ID do usuário logado
   departamento_id?: number;
   vencimento: string;
   observacao?: string;
+  status: 'aberta' | 'em_andamento' | 'pausada' | 'concluida' | 'cancelada';
+  valor_total_os: number;
+  itens: ItemOrdemServico[];
 }
 
-export interface OrdemServicoUpdateData extends Partial<OrdemServicoCreateData> {
-  status?: 'aberta' | 'em_andamento' | 'finalizada' | 'cancelada';
+export interface OrdemServicoUpdateData extends Partial<Omit<OrdemServicoCreateData, 'itens' | 'protocolo' | 'usuario_id'>> {
+  // Itens não podem ser atualizados por esta rota (geralmente)
 }
 
 // Interfaces para criação e atualização
@@ -233,7 +263,7 @@ export interface ServicoCreateData {
   ativo?: boolean;
 }
 
-export interface ServicoUpdateData extends Partial<ServicoCreateData> {}
+export type ServicoUpdateData = Partial<ServicoCreateData>;
 
 export interface FuncionarioCreateData {
   nome: string;
