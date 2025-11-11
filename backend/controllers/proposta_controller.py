@@ -26,9 +26,22 @@ def get_propostas_por_cliente(cliente_id):
 # Rota para histórico de alterações da proposta
 @bp.route('/<int:proposta_id>/logs/', methods=['GET'], strict_slashes=False)
 def get_proposta_logs(proposta_id):
-    # TODO: Buscar histórico real no banco
-    # Por enquanto retorna lista vazia
-    return jsonify([]), 200
+    # Mock: histórico de alterações da proposta
+    from datetime import datetime
+    historico = [
+        {
+            'id': 1,
+            'proposta_id': proposta_id,
+            'campo_alterado': 'status',
+            'valor_anterior': '',
+            'valor_novo': 'criada',
+            'usuario_id': 1,
+            'usuario_nome': 'Admin',
+            'created_at': datetime.now().isoformat(),
+            'observacao': 'Proposta criada'
+        }
+    ]
+    return jsonify(historico), 200
 @bp.route('/', methods=['POST'])
 def criar_proposta():
     data = request.get_json()
