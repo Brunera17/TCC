@@ -1,7 +1,8 @@
-import React, { useState, useEffect,useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BarChart3, Download, Eye, Calendar, Filter, Search, Plus, FileText, Calculator, DollarSign, Users } from 'lucide-react'; // Added Users here
 import { apiService, ApiError } from '../lib/api';
 import { PageLayout, PageHeader, DataTable, StateHandler, Card, type Column } from '../components/ui'; // Keep only UI components here
+import { formatarData } from '../utils/formatters';
 import { Button, Input, Select } from '../components/forms'; // Import Button, Input, and Select from forms index
 interface Relatorio {
   id: number;
@@ -51,8 +52,8 @@ export const RelatoriosPage: React.FC = () => {
       const message = err instanceof ApiError
         ? `Erro ${err.status}: ${JSON.stringify(err.details)}`
         : err instanceof Error
-        ? err.message
-        : 'Erro desconhecido';
+          ? err.message
+          : 'Erro desconhecido';
       setError(`Falha ao carregar relatórios salvos: ${message}`);
       setRelatoriosSalvos([]); // Limpa em caso de erro
     } finally {
@@ -69,8 +70,8 @@ export const RelatoriosPage: React.FC = () => {
     const termo = searchTerm.toLowerCase();
     const tipoMatch = !tipoFiltro || relatorio.tipo.toLowerCase() === tipoFiltro.toLowerCase();
     const searchMatch = !termo ||
-                        relatorio.titulo.toLowerCase().includes(termo) ||
-                        relatorio.tipo.toLowerCase().includes(termo);
+      relatorio.titulo.toLowerCase().includes(termo) ||
+      relatorio.tipo.toLowerCase().includes(termo);
     return tipoMatch && searchMatch;
   });
 
@@ -92,8 +93,8 @@ export const RelatoriosPage: React.FC = () => {
   };
 
   const handleCriarRelatorio = () => {
-      alert('Abrir modal/página para criar relatório customizado... (Funcionalidade de exemplo)');
-      // Implementar lógica para POST /api/relatorios/custom
+    alert('Abrir modal/página para criar relatório customizado... (Funcionalidade de exemplo)');
+    // Implementar lógica para POST /api/relatorios/custom
   };
 
   const colunasRelatoriosSalvos: Column<Relatorio>[] = [
@@ -110,14 +111,14 @@ export const RelatoriosPage: React.FC = () => {
     {
       key: 'data_criacao',
       label: 'Criado em',
-      render: (item) => new Date(item.data_criacao).toLocaleDateString('pt-BR'),
+      render: (item) => formatarData(item.data_criacao)
     },
     // Adicionar mais colunas se a API retornar mais dados (ex: filtros usados)
   ];
 
   const tiposDisponiveis = useMemo(() => {
-      const tipos = new Set(relatoriosPredefinidos.map(r => r.tipo));
-      return Array.from(tipos).map(tipo => ({ value: tipo, label: tipo.charAt(0).toUpperCase() + tipo.slice(1) }));
+    const tipos = new Set(relatoriosPredefinidos.map(r => r.tipo));
+    return Array.from(tipos).map(tipo => ({ value: tipo, label: tipo.charAt(0).toUpperCase() + tipo.slice(1) }));
   }, []);
 
   return (
@@ -167,24 +168,24 @@ export const RelatoriosPage: React.FC = () => {
 
         {/* Filtros e Busca */}
         <div className="flex flex-col md:flex-row gap-4 mb-4 p-4 bg-gray-50 rounded-lg border">
-            <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                    placeholder="Buscar por título ou tipo..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full"
-                />
-            </div>
-            <div className="relative w-full md:w-64">
-                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                 <Select
-                    options={[{ value: '', label: 'Filtrar por tipo...' }, ...tiposDisponiveis]}
-                    value={tipoFiltro}
-                    onChange={(value) => setTipoFiltro(value)}
-                    className="pl-10 w-full bg-white" // Ensure select background is white
-                />
-            </div>
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Buscar por título ou tipo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full"
+            />
+          </div>
+          <div className="relative w-full md:w-64">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Select
+              options={[{ value: '', label: 'Filtrar por tipo...' }, ...tiposDisponiveis]}
+              value={tipoFiltro}
+              onChange={(value) => setTipoFiltro(value)}
+              className="pl-10 w-full bg-white" // Ensure select background is white
+            />
+          </div>
         </div>
 
         <StateHandler

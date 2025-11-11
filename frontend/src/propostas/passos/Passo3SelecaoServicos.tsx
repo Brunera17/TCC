@@ -17,6 +17,7 @@ import {
 } from '../../components/ui';
 import { Button, Input, Textarea } from '../../components/forms';
 import type { Servico as ServicoBase, Categoria as CategoriaType } from '../../types';
+import { formatarHora } from '../../utils/formatters';
 
 // ... (Interfaces e funções helper como formatarMoeda, etc. permanecem as mesmas) ...
 type Servico = ServicoBase & {
@@ -324,8 +325,8 @@ export const Passo3SelecaoServicos: React.FC<Passo3Props> = ({
     if (servicosSelecionados.size === 0 || !tipoAtividade?.id || !regimeTributario?.id) return;
     setSalvando(true);
     try {
-  const servicosArray = Array.from(servicosSelecionados.values());
-  const extrasObject = Object.fromEntries(informacoesExtras) as InformacoesExtrasPersistidas;
+      const servicosArray = Array.from(servicosSelecionados.values());
+      const extrasObject = Object.fromEntries(informacoesExtras) as InformacoesExtrasPersistidas;
       const dadosParaSalvar = {
         passo: 3,
         tipoAtividadeId: tipoAtividade?.id || 0,
@@ -367,7 +368,7 @@ export const Passo3SelecaoServicos: React.FC<Passo3Props> = ({
       const dadosBackup = localStorage.getItem('proposta_passo3_backup');
       if (dadosBackup) {
         try {
-      const dados = JSON.parse(dadosBackup);
+          const dados = JSON.parse(dadosBackup);
           const timestamp = new Date(dados.timestamp);
           const agora = new Date();
           const diffHoras = (agora.getTime() - timestamp.getTime()) / (1000 * 60 * 60);
@@ -585,7 +586,7 @@ export const Passo3SelecaoServicos: React.FC<Passo3Props> = ({
     }
     setServicosSelecionados(novosSelecionados);
   };
-  
+
   const podeProximo = useMemo(() => {
     const temServicoValido = Array.from(servicosSelecionados.values())
       .some(item => {
@@ -728,7 +729,7 @@ export const Passo3SelecaoServicos: React.FC<Passo3Props> = ({
           {ultimoSalvamento && !salvando && (
             <div className="flex items-center text-green-600 text-sm">
               <CheckCircle className="w-4 h-4 mr-2" />
-              <span>Salvo {ultimoSalvamento.toLocaleTimeString()}</span>
+              <span>Salvo {formatarHora(ultimoSalvamento)}</span>
             </div>
           )}
           <Button variant="ghost" onClick={onVoltar} leftIcon={<ArrowLeft className="w-4 h-4" />}>
@@ -738,7 +739,7 @@ export const Passo3SelecaoServicos: React.FC<Passo3Props> = ({
       </PageHeader>
 
       {error && <ErrorMessage message={error} onDismiss={() => setError('')} className="mb-4" />}
-      
+
       {tipoAtividade?.nome && regimeTributario?.nome && (
         <IndicadorFiltro
           tipoAtividade={tipoAtividade}
@@ -746,9 +747,9 @@ export const Passo3SelecaoServicos: React.FC<Passo3Props> = ({
           infoFiltros={infoFiltros}
         />
       )}
-      
+
       {dadosSalvos?.servicosSelecionados && (
-         <div className="mb-4 flex items-center space-x-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
+        <div className="mb-4 flex items-center space-x-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
           <CheckCircle className="w-5 h-5" />
           <span>Seleção de serviços recuperada.</span>
         </div>
@@ -774,13 +775,12 @@ export const Passo3SelecaoServicos: React.FC<Passo3Props> = ({
                     key={categoria.key}
                     onClick={() => setAbaAtiva(index)}
                     disabled={!temServicos}
-                    className={`flex-shrink-0 whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      abaAtiva === index
+                    className={`flex-shrink-0 whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${abaAtiva === index
                         ? 'border-blue-500 text-blue-600'
                         : temServicos
                           ? 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                           : 'border-transparent text-gray-300 cursor-not-allowed'
-                    }`}
+                      }`}
                   >
                     <div className="flex flex-col items-center">
                       <span>{categoria.displayName}</span>
@@ -912,7 +912,7 @@ export const Passo3SelecaoServicos: React.FC<Passo3Props> = ({
           {/* Resumo */}
           <Card variant="bordered" className="mt-8 bg-gray-50">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo dos Serviços</h3>
-              {servicosPorCategoria.map(categoria => {
+            {servicosPorCategoria.map(categoria => {
               const total = totaisPorCategoria.get(categoria.key) || 0;
               if (total === 0) return null;
               return (
@@ -922,7 +922,7 @@ export const Passo3SelecaoServicos: React.FC<Passo3Props> = ({
                 </div>
               );
             })}
-            
+
             {valorMensalidade > 0 && (
               <div className="flex justify-between items-center pt-2 mt-2 border-t border-gray-200">
                 <span className="font-medium text-green-700">Mensalidade Automática:</span>
@@ -954,7 +954,7 @@ export const Passo3SelecaoServicos: React.FC<Passo3Props> = ({
             {ultimoSalvamento && !salvando && (
               <div className="flex items-center text-green-600 text-sm">
                 <CheckCircle className="w-4 h-4 mr-2" />
-                <span>Salvo {ultimoSalvamento.toLocaleTimeString()}</span>
+                <span>Salvo {formatarHora(ultimoSalvamento)}</span>
               </div>
             )}
             <span className="text-sm text-gray-600 hidden md:block">Total: <strong className="text-lg text-blue-600">{formatarMoeda(totalGeral)}</strong></span>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { formatarDataHora } from '../../utils/formatters';
 
 import {
   X, User, Mail, Hash, Calendar, MapPin, Building, Shield,
@@ -33,7 +34,113 @@ type RegimeDetalhe = {
   ativo?: boolean | null;
 };
 
-type ModalData = ClienteDetalhe | FuncionarioDetalhe | CargoDetalhe | ServicoDetalhe | RegimeDetalhe;
+// Tipos mínimos usados pelo modal — mantive apenas os campos necessários para renderização
+type ClienteDetalhe = {
+  id?: number;
+  nome?: string;
+  cpf?: string;
+  cnpj?: string;
+  email?: string;
+  created_at?: string;
+  updated_at?: string;
+  abertura_empresa?: boolean;
+  enderecos?: Array<{ logradouro?: string; rua?: string; numero?: string; cep?: string; cidade?: string; estado?: string }>;
+  entidades_juridicas?: Array<{ nome?: string; cnpj?: string; tipo?: string }>;
+};
+
+type FuncionarioDetalhe = {
+  id?: number;
+  nome?: string;
+  email?: string;
+  cargo?: { nome?: string } | null;
+  gerente?: boolean;
+  empresa?: { nome?: string } | null;
+  ativo?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type CargoDetalhe = {
+  id?: number;
+  nome?: string;
+  codigo?: string;
+  nivel?: number | null;
+  ativo?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+// Usamos `any` aqui para manter a compatibilidade com os vários formatos de dados
+// recebidos pelo modal (cliente, funcionário, cargo, serviço, regime).
+type ModalData = any;
+
+// Tipos auxiliares para ícones/cores locais
+type IconComponent = React.ComponentType<{ className?: string }>;
+type ColorKey = 'blue' | 'green' | 'purple' | 'orange' | 'indigo' | 'emerald' | 'violet' | 'gray';
+
+// Presets simples de classes (substitui getColorStyles externo)
+const getColorStyles = (color: ColorKey) => {
+  const presets: Record<ColorKey, any> = {
+    blue: {
+      gradient: 'from-blue-600 to-blue-500',
+      iconBg: 'bg-blue-600',
+      title: 'text-white',
+      fieldBg: 'bg-blue-50',
+      fieldText: 'text-blue-600'
+    },
+    green: {
+      gradient: 'from-emerald-600 to-emerald-500',
+      iconBg: 'bg-emerald-600',
+      title: 'text-white',
+      fieldBg: 'bg-emerald-50',
+      fieldText: 'text-emerald-600'
+    },
+    purple: {
+      gradient: 'from-purple-600 to-purple-500',
+      iconBg: 'bg-purple-600',
+      title: 'text-white',
+      fieldBg: 'bg-purple-50',
+      fieldText: 'text-purple-600'
+    },
+    orange: {
+      gradient: 'from-orange-600 to-orange-500',
+      iconBg: 'bg-orange-600',
+      title: 'text-white',
+      fieldBg: 'bg-orange-50',
+      fieldText: 'text-orange-600'
+    },
+    indigo: {
+      gradient: 'from-indigo-600 to-indigo-500',
+      iconBg: 'bg-indigo-600',
+      title: 'text-white',
+      fieldBg: 'bg-indigo-50',
+      fieldText: 'text-indigo-600'
+    },
+    emerald: {
+      gradient: 'from-emerald-600 to-emerald-500',
+      iconBg: 'bg-emerald-600',
+      title: 'text-white',
+      fieldBg: 'bg-emerald-50',
+      fieldText: 'text-emerald-600'
+    },
+    violet: {
+      gradient: 'from-violet-600 to-violet-500',
+      iconBg: 'bg-violet-600',
+      title: 'text-white',
+      fieldBg: 'bg-violet-50',
+      fieldText: 'text-violet-600'
+    },
+    gray: {
+      gradient: 'from-gray-700 to-gray-600',
+      iconBg: 'bg-gray-700',
+      title: 'text-white',
+      fieldBg: 'bg-gray-50',
+      fieldText: 'text-gray-600'
+    }
+  };
+
+  return presets[color] ?? presets.gray;
+};
 
 interface ModalVisualizacaoProps {
   isOpen: boolean;
@@ -52,13 +159,7 @@ export function ModalVisualizacao({
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatarDataHora(dateString);
   };
 
   // Função para formatar CPF
@@ -227,7 +328,7 @@ export function ModalVisualizacao({
                   <InfoField
                     iconType="logradouro"
                     label="Logradouro"
-                      value={`${data.enderecos[0].logradouro ?? data.enderecos[0].rua}, ${data.enderecos[0].numero}`}
+                    value={`${data.enderecos[0].logradouro ?? data.enderecos[0].rua}, ${data.enderecos[0].numero}`}
                     color="emerald"
                   />
                 </div>
@@ -332,8 +433,8 @@ export function ModalVisualizacao({
               <InfoField iconType="cargo" label="Cargo" value={data.cargo?.nome} color="blue" />
               <InfoField
                 iconType="data"
-                  label="Data de Cadastro"
-                  value={formatDate(data.created_at)}
+                label="Data de Cadastro"
+                value={formatDate(data.created_at)}
                 color="orange"
               />
             </div>
@@ -428,8 +529,8 @@ export function ModalVisualizacao({
               <InfoField iconType="codigo" label="Código" value={data.codigo} color="green" />
               <InfoField
                 iconType="data"
-                  label="Data de Cadastro"
-                  value={formatDate(data.created_at)}
+                label="Data de Cadastro"
+                value={formatDate(data.created_at)}
                 color="orange"
               />
             </div>
@@ -446,8 +547,8 @@ export function ModalVisualizacao({
               </div>
               <InfoField
                 iconType="data"
-                  label="Última Atualização"
-                  value={formatDate(data.updated_at)}
+                label="Última Atualização"
+                value={formatDate(data.updated_at)}
                 color="blue"
               />
             </div>

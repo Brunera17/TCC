@@ -1,7 +1,7 @@
 from  datetime import datetime
 from config import db
 from sqlalchemy.orm import validates
-from .base import TimestampMixin, ActiveMixin
+from .base import TimestampMixin, ActiveMixin, format_datetime_to_utc_iso
 import re
 
 class Solicitacao(db.Model, TimestampMixin, ActiveMixin):
@@ -31,16 +31,16 @@ class Solicitacao(db.Model, TimestampMixin, ActiveMixin):
             'id': self.id,
             'protocolo': self.protocolo,
             'etapa': self.etapa,
-            'data_conclusao': self.data_conclusao.isoformat() if self.data_conclusao else None,
+            'data_conclusao': format_datetime_to_utc_iso(self.data_conclusao) if self.data_conclusao else None,
             'conteudo': self.conteudo,
             'status': self.status,
             'prioridade': self.prioridade,
             'tipo': self.tipo,
             'cliente': self.cliente.to_json() if self.cliente and self.cliente.ativo else None,
             'funcionario': self.funcionario.to_json() if self.funcionario and self.funcionario.ativo else None,
-            'created_at': self.created_at.isoformat(),
-            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'deleted_at': format_datetime_to_utc_iso(self.deleted_at) if self.deleted_at else None,
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
             'ativo': self.ativo
         }
 

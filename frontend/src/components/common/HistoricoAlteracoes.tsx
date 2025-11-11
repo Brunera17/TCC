@@ -3,6 +3,7 @@ import { History, User, Clock, ArrowRight, RefreshCw } from 'lucide-react';
 import { Button } from '../forms/Button';
 import { ModalPadrao } from '../ui/ModalPadrao';
 import { LoadingSpinner } from './LoadingSpinner';
+import { formatarData, formatarDataHora } from '../../utils/formatters';
 import type { OrdemServico } from '../../types';
 
 interface HistoricoAlteracao {
@@ -44,10 +45,10 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
     try {
       setLoading(true);
       setError('');
-      
+
       // Como o endpoint de histórico pode não existir ainda, vamos simular com dados base
       // Em produção, seria: const response = await apiService.getHistoricoOrdemServico(ordemServico.id);
-      
+
       // Simulando histórico baseado nos dados da OS
       const historicoSimulado: HistoricoAlteracao[] = [
         {
@@ -102,7 +103,7 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
       case 'status':
         return statusLabels[valor as keyof typeof statusLabels] || valor;
       case 'vencimento':
-        return new Date(valor).toLocaleDateString('pt-BR');
+        return formatarData(valor);
       case 'cliente_id':
         return `Cliente ID: ${valor}`;
       case 'departamento_id':
@@ -135,21 +136,7 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
     }
   };
 
-  const formatDateTime = (dateString: string) => {
-    const parsed = new Date(dateString);
-    const hasTimezoneInfo = /[zZ]|[+-]\d{2}:?\d{2}$/.test(dateString);
-    const date = hasTimezoneInfo
-      ? parsed
-      : new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000);
-
-    return date.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDateTime = (dateString: string) => formatarDataHora(dateString);
 
   return (
     <ModalPadrao

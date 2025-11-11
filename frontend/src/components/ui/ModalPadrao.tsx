@@ -42,9 +42,9 @@ export const ModalPadrao: React.FC<ModalPadraoProps> = ({
           className="fixed inset-0 bg-black bg-opacity-50"
           onClick={onClose}
         />
-        
+
         {/* Modal */}
-        <div className={`relative inline-block w-full ${sizeClasses[size]} p-6 my-8 overflow-hidden text-left align-middle bg-white shadow-xl rounded-lg`}>
+        <div className={`relative inline-block w-full ${sizeClasses[size]} p-6 overflow-hidden text-left align-middle bg-white shadow-xl rounded-lg`}>
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
@@ -65,12 +65,7 @@ export const ModalPadrao: React.FC<ModalPadraoProps> = ({
           {/* Footer */}
           {showFooter && (
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-              >
-                {cancelLabel}
-              </button>
+
               {onConfirm && (
                 <button
                   onClick={onConfirm}

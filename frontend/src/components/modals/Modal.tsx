@@ -64,7 +64,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 m-0"
       onClick={handleOverlayClick}
       style={{
         margin: 0,
@@ -76,13 +76,12 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         ref={modalRef}
         className={cn(
-          'relative bg-white rounded-lg shadow-xl w-full mx-4 max-h-[90vh] overflow-hidden',
+          'relative bg-gray-50 rounded-lg shadow-xl w-full max-h-[90vh] overflow-hidden',
           sizeClasses[size],
           className
         )}
         onClick={(e) => e.stopPropagation()}
         style={{
-          margin: '0 1rem',
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column'

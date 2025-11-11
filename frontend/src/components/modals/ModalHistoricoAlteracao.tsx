@@ -5,12 +5,13 @@ import { ModalPadrao } from '../ui/ModalPadrao';
 // 2. Importar IconButton para o botão de "Atualizar"
 import { IconButton } from '../ui/IconButton';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { formatarData, formatarDataHora } from '../../utils/formatters';
 import { StatusBadge } from '../ui/StatusBadge'; // Importar StatusBadge
-import type { OrdemServico } from '../../types';
+import type { PropostaResponse } from '../../types';
 
 interface HistoricoAlteracao {
   id: number;
-  ordem_servico_id: number;
+  proposta_id: number;
   campo_alterado: string;
   valor_anterior: string;
   valor_novo: string;
@@ -21,7 +22,7 @@ interface HistoricoAlteracao {
 }
 
 interface HistoricoProps {
-  ordemServico: OrdemServico;
+  proposta: PropostaResponse;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -34,12 +35,7 @@ const statusLabels: Record<string, string> = {
   'concluida': 'Concluída',
   'cancelada': 'Cancelada'
 };
-
-export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
-  ordemServico,
-  isOpen,
-  onClose
-}) => {
+export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({ proposta, isOpen, onClose }) => {
   const [historico, setHistorico] = useState<HistoricoAlteracao[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,62 +44,33 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
     try {
       setLoading(true);
       setError('');
-      
-      // Simulação (substituir pela chamada real da API quando pronta)
-      // const response = await apiService.getHistoricoOrdemServico(ordemServico.id);
-      
-      const historicoSimulado: HistoricoAlteracao[] = [
-        {
-          id: 1,
-          ordem_servico_id: ordemServico.id,
-          campo_alterado: 'status',
-          valor_anterior: '',
-          valor_novo: ordemServico.status,
-          usuario_id: ordemServico.usuario_id,
-          usuario_nome: ordemServico.usuario?.nome || 'Sistema',
-          created_at: ordemServico.created_at,
-          observacao: 'Ordem de serviço criada'
-        }
-      ];
-
-      if (ordemServico.updated_at !== ordemServico.created_at) {
-        historicoSimulado.push({
-          id: 2,
-          ordem_servico_id: ordemServico.id,
-          campo_alterado: 'status',
-          valor_anterior: 'aberta',
-          valor_novo: ordemServico.status,
-          usuario_id: ordemServico.usuario_id,
-          usuario_nome: ordemServico.usuario?.nome || 'Sistema',
-          created_at: ordemServico.updated_at,
-          observacao: 'Status atualizado'
-        });
-      }
-      
-      // Ordenar por data (mais recente primeiro)
-      historicoSimulado.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
-      setHistorico(historicoSimulado);
+      // Chamada real da API
+      const response = await fetch(`/api/propostas/${proposta.id}/logs/`);
+      if (!response.ok) throw new Error('Erro ao buscar histórico');
+      // API pode retornar um array diretamente ou um objeto { logs: [...] } — aceitar ambos
+      const raw = await response.json();
+      const data: HistoricoAlteracao[] = Array.isArray(raw) ? raw : (raw.logs ?? []);
+      setHistorico(data);
     } catch (err) {
       console.error('Erro ao carregar histórico:', err);
       setError('Erro ao carregar histórico de alterações');
     } finally {
       setLoading(false);
     }
-  }, [ordemServico]);
+  }, [proposta]);
 
   useEffect(() => {
-    if (isOpen && ordemServico) {
+    if (isOpen && proposta) {
       carregarHistorico();
     }
-  }, [isOpen, ordemServico, carregarHistorico]);
+  }, [isOpen, proposta, carregarHistorico]);
 
   const formatarValor = (campo: string, valor: string) => {
     switch (campo) {
       case 'status':
         return statusLabels[valor as keyof typeof statusLabels] || valor;
       case 'vencimento':
-        return new Date(valor).toLocaleDateString('pt-BR');
+        return formatarData(valor);
       default:
         return valor;
     }
@@ -132,16 +99,7 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
     }
   };
 
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDateTime = (dateString: string) => formatarDataHora(dateString);
 
   return (
     // 3. Usar ModalPadrao com o footer padrão
@@ -151,25 +109,20 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
       title="Histórico de Alterações"
       size="lg"
       showFooter={true}
-      confirmLabel="Fechar"
-      onConfirm={onClose}
+      cancelLabel="Fechar"
     >
-      {/* 4. O ModalPadrao já tem um 'p-6' branco. 
-           Vamos criar um wrapper para o scroll e para o fundo cinza claro,
-           usando margem negativa para preencher o padding do modal.
-      */}
-      <div className="space-y-6 max-h-[70vh] overflow-y-auto -m-6 p-6 bg-gray-50">
-        
+      <div className="space-y-6 max-h-[70vh] overflow-y-auto bg-gray-50 h-full w-full">
+
         {/* 5. Cabeçalho de informações da OS, alinhado com o padrão */}
         <div className="flex items-center justify-between pb-4 border-b border-gray-200 sticky top-0 bg-gray-50 pt-1 z-10">
           <div>
             <h3 className="font-semibold text-gray-900">
-              OS: {ordemServico.protocolo}
+              Proposta: {proposta.numero}
             </h3>
             <p className="text-sm text-gray-600">
-              Cliente: {ordemServico.cliente?.nome}
+              Cliente: {proposta.cliente?.nome}
             </p>
-            <StatusBadge status={ordemServico.status} className="mt-1" />
+            <StatusBadge status={proposta.status} className="mt-1" />
           </div>
           <IconButton
             icon={RefreshCw}
@@ -201,7 +154,7 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
               <div className="relative space-y-4">
                 {/* Linha da timeline (opcional, mas visualmente bom) */}
                 <div className="absolute left-6 top-2 bottom-2 w-0.5 bg-gray-200" />
-                
+
                 {historico.map((item) => (
                   // 7. Card do item da timeline (branco sobre fundo cinza)
                   <div
@@ -275,26 +228,26 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
                 <div>
                   <span className="text-gray-600">Criado em:</span>
                   <span className="ml-2 font-medium">
-                    {formatDateTime(ordemServico.created_at)}
+                    {formatDateTime(proposta.created_at ?? '')}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-600">Última alteração:</span>
                   <span className="ml-2 font-medium">
-                    {formatDateTime(ordemServico.updated_at)}
+                    {formatDateTime(proposta.updated_at ?? '')}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-600">Status atual:</span>
                   <span className="ml-2 font-medium">
-                    {statusLabels[ordemServico.status]}
+                    {statusLabels[proposta.status]}
                   </span>
                 </div>
               </div>
             </div>
           </div>
         )}
-        
+
         {/* 9. Remover o footer customizado daqui, pois o ModalPadrao já o fornece */}
       </div>
     </ModalPadrao>

@@ -123,10 +123,10 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
   const fetchClientes = useCallback(async (page = currentPage, search = searchTerm) => {
     // Não busca se não for admin (assumindo que só admins veem clientes)
     // Se funcionários comuns puderem ver, remova esta verificação
-    if (!isAdmin) { 
-        setLoading(false); 
-        setClientes([]);
-        return; 
+    if (!isAdmin) {
+      setLoading(false);
+      setClientes([]);
+      return;
     }
 
     setLoading(true);
@@ -153,16 +153,16 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
         itensPorPaginaApi = response.per_page ?? response.page_size ?? itemsPerPage;
         setTotalPages(Math.max(1, Math.ceil(totalRegistros / Math.max(1, itensPorPaginaApi))));
       } else {
-         throw new Error("Formato de resposta inesperado da API");
+        throw new Error("Formato de resposta inesperado da API");
       }
-      
+
       setClientes(clientesData);
 
     } catch (err: unknown) {
-       const errorMsg = err instanceof ApiError ? `Erro ${err.status}: ${JSON.stringify(err.details)}` : (err instanceof Error ? err.message : 'Erro desconhecido');
-       setError(errorMsg);
-       setClientes([]);
-       setTotalPages(1);
+      const errorMsg = err instanceof ApiError ? `Erro ${err.status}: ${JSON.stringify(err.details)}` : (err instanceof Error ? err.message : 'Erro desconhecido');
+      setError(errorMsg);
+      setClientes([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -183,7 +183,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
     setSearchTerm(term);
     setCurrentPage(1);
   };
-  
+
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
   };
@@ -251,7 +251,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
     const pfCpf = cliente.cpf;
     const doc = pjCnpj || pfCpf;
     if (!doc) return '—';
-    
+
     const limpo = doc.replace(/\D/g, '');
     if (limpo.length === 11) {
       return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
@@ -260,27 +260,27 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
     }
     return doc;
   };
-  
+
   const formatarCEP = (cep?: string) => {
-     if (!cep) return '—';
-     const limpo = cep.replace(/\D/g, '');
-     if (limpo.length === 8) {
-       return limpo.replace(/(\d{5})(\d{3})/, '$1-$2');
-     }
-     return cep;
+    if (!cep) return '—';
+    const limpo = cep.replace(/\D/g, '');
+    if (limpo.length === 8) {
+      return limpo.replace(/(\d{5})(\d{3})/, '$1-$2');
+    }
+    return cep;
   };
-  
+
   const getTipoClienteBadge = (cliente: Cliente) => {
-     const isPJ = cliente.entidades_juridicas && cliente.entidades_juridicas.length > 0;
-     const isAbertura = cliente.abertura_empresa;
-     
-     if (isAbertura) {
-         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Abertura</span>;
-     }
-     if (isPJ) {
-         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">PJ</span>;
-     }
-     return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">PF</span>;
+    const isPJ = cliente.entidades_juridicas && cliente.entidades_juridicas.length > 0;
+    const isAbertura = cliente.abertura_empresa;
+
+    if (isAbertura) {
+      return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Abertura</span>;
+    }
+    if (isPJ) {
+      return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">PJ</span>;
+    }
+    return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">PF</span>;
   };
 
   // --- Colunas da Tabela ---
@@ -290,9 +290,8 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
       label: 'Cliente',
       render: (_, cliente) => (
         <div className="flex items-center">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0 ${
-              cliente.abertura_empresa ? 'bg-purple-100' : (cliente.entidades_juridicas && cliente.entidades_juridicas.length > 0 ? 'bg-blue-50' : 'bg-green-50')
-          }`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0 ${cliente.abertura_empresa ? 'bg-purple-100' : (cliente.entidades_juridicas && cliente.entidades_juridicas.length > 0 ? 'bg-blue-50' : 'bg-green-50')
+            }`}>
             {cliente.abertura_empresa ? (
               <Building className="w-4 h-4 text-purple-600" />
             ) : (cliente.entidades_juridicas && cliente.entidades_juridicas.length > 0) ? (
@@ -312,9 +311,9 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
       key: 'cpf', // Usado como key, mas render usa lógica customizada
       label: 'Documento',
       render: (_, cliente) => (
-         <span className="text-sm font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-            {formatarDocumento(cliente)}
-         </span>
+        <span className="text-sm font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+          {formatarDocumento(cliente)}
+        </span>
       )
     },
     {
@@ -358,10 +357,10 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
               {searchTerm ? `Nenhum cliente encontrado para "${searchTerm}"` : "Nenhum cliente cadastrado."}
             </p>
             {!searchTerm && (
-               <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
-                 + Cadastrar Novo Cliente
-               </button>
-             )}
+              <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                + Cadastrar Novo Cliente
+              </button>
+            )}
           </div>
         }
       >
@@ -370,15 +369,15 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
           columns={columns}
           actions={(cliente) => (
             <div className="flex items-center justify-end space-x-1">
-              <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(cliente)} title="Visualizar"/>
-              <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => handleEditar(cliente)} title="Editar"/>
-              <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleDeletar(cliente)} title="Excluir"/>
+              <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(cliente)} title="Visualizar" />
+              <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => handleEditar(cliente)} title="Editar" />
+              <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleDeletar(cliente)} title="Excluir" />
             </div>
           )}
         />
         {totalPages > 1 && (
           <div className="bg-white px-4 py-3 border-t border-gray-200 rounded-b-lg">
-             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
           </div>
         )}
       </StateHandler>
@@ -401,99 +400,99 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
         size="lg"
       >
         {clienteParaVisualizar && (
-           <div className="space-y-6">
-             {/* Dados Pessoais */}
-             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-               <div className="flex items-center mb-3">
-                 <User className="w-5 h-5 text-blue-600 mr-2" />
-                 <h3 className="text-lg font-semibold text-gray-800">Dados Pessoais / Responsável</h3>
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">Nome</label>
-                   <p className="text-gray-900 font-semibold">{clienteParaVisualizar.nome}</p>
-                 </div>
-                 <div>
-                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><User className="w-3 h-3 mr-1" /> CPF</label>
-                   <p className="text-gray-900">{formatarDocumento(clienteParaVisualizar)}</p>
-                 </div>
-                 <div>
-                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Mail className="w-3 h-3 mr-1" /> Email</label>
-                   <p className="text-gray-900">{clienteParaVisualizar.email || '—'}</p>
-                 </div>
-                 <div>
-                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Phone className="w-3 h-3 mr-1" /> Telefone</label>
-                   <p className="text-gray-900">{clienteParaVisualizar.telefone || '—'}</p>
-                 </div>
-                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-                   <StatusBadge status={clienteParaVisualizar.ativo ? 'ativo' : 'inativo'} />
-                 </div>
-                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">Tipo</label>
-                   {getTipoClienteBadge(clienteParaVisualizar)}
-                 </div>
-               </div>
-             </div>
+          <div className="space-y-6">
+            {/* Dados Pessoais */}
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center mb-3">
+                <User className="w-5 h-5 text-blue-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-800">Dados Pessoais / Responsável</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Nome</label>
+                  <p className="text-gray-900 font-semibold">{clienteParaVisualizar.nome}</p>
+                </div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><User className="w-3 h-3 mr-1" /> CPF</label>
+                  <p className="text-gray-900">{formatarDocumento(clienteParaVisualizar)}</p>
+                </div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Mail className="w-3 h-3 mr-1" /> Email</label>
+                  <p className="text-gray-900">{clienteParaVisualizar.email || '—'}</p>
+                </div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Phone className="w-3 h-3 mr-1" /> Telefone</label>
+                  <p className="text-gray-900">{clienteParaVisualizar.telefone || '—'}</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                  <StatusBadge status={clienteParaVisualizar.ativo ? 'ativo' : 'inativo'} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Tipo</label>
+                  {getTipoClienteBadge(clienteParaVisualizar)}
+                </div>
+              </div>
+            </div>
 
-             {/* Endereço(s) */}
-             {clienteParaVisualizar.enderecos && clienteParaVisualizar.enderecos.length > 0 && (
-               <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                 <div className="flex items-center mb-3">
-                   <MapPin className="w-5 h-5 text-green-600 mr-2" />
-                   <h3 className="text-lg font-semibold text-gray-800">Endereço</h3>
-                 </div>
-                 {clienteParaVisualizar.enderecos.map(end => (
-                    <div key={end.id} className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Logradouro</label>
-                        <p className="text-gray-900">{end.logradouro || end.rua || '—'}, {end.numero || 'S/N'}</p>
+            {/* Endereço(s) */}
+            {clienteParaVisualizar.enderecos && clienteParaVisualizar.enderecos.length > 0 && (
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center mb-3">
+                  <MapPin className="w-5 h-5 text-green-600 mr-2" />
+                  <h3 className="text-lg font-semibold text-gray-800">Endereço</h3>
+                </div>
+                {clienteParaVisualizar.enderecos.map(end => (
+                  <div key={end.id} className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Logradouro</label>
+                      <p className="text-gray-900">{end.logradouro || end.rua || '—'}, {end.numero || 'S/N'}</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">CEP</label>
+                      <p className="text-gray-900">{formatarCEP(end.cep)}</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Cidade</label>
+                      <p className="text-gray-900">{end.cidade || '—'}</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Estado</label>
+                      <p className="text-gray-900">{end.estado || '—'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empresa(s) */}
+            {clienteParaVisualizar.entidades_juridicas && clienteParaVisualizar.entidades_juridicas.length > 0 && (
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center mb-3">
+                  <Building className="w-5 h-5 text-purple-600 mr-2" />
+                  <h3 className="text-lg font-semibold text-gray-800">Empresa(s) Vinculada(s)</h3>
+                </div>
+                <div className="space-y-4">
+                  {clienteParaVisualizar.entidades_juridicas.map(emp => (
+                    <div key={emp.id} className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-sm border-t pt-4 first:border-t-0 first:pt-0">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Nome Fantasia / Razão Social</label>
+                        <p className="text-gray-900 font-semibold">{emp.nome}</p>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">CEP</label>
-                        <p className="text-gray-900">{formatarCEP(end.cep)}</p>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">CNPJ</label>
+                        <p className="text-gray-900">{formatarDocumento(emp)}</p>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Cidade</label>
-                        <p className="text-gray-900">{end.cidade || '—'}</p>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Tipo</label>
+                        <p className="text-gray-900">{emp.tipo || '—'}</p>
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Estado</label>
-                        <p className="text-gray-900">{end.estado || '—'}</p>
-                      </div>
-                   </div>
-                 ))}
-               </div>
-             )}
-             
-             {/* Empresa(s) */}
-             {clienteParaVisualizar.entidades_juridicas && clienteParaVisualizar.entidades_juridicas.length > 0 && (
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                 <div className="flex items-center mb-3">
-                   <Building className="w-5 h-5 text-purple-600 mr-2" />
-                   <h3 className="text-lg font-semibold text-gray-800">Empresa(s) Vinculada(s)</h3>
-                 </div>
-                 <div className="space-y-4">
-                    {clienteParaVisualizar.entidades_juridicas.map(emp => (
-                        <div key={emp.id} className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-sm border-t pt-4 first:border-t-0 first:pt-0">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Nome Fantasia / Razão Social</label>
-                            <p className="text-gray-900 font-semibold">{emp.nome}</p>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">CNPJ</label>
-                            <p className="text-gray-900">{formatarDocumento(emp)}</p>
-                          </div>
-                           <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Tipo</label>
-                            <p className="text-gray-900">{emp.tipo || '—'}</p>
-                          </div>
-                       </div>
-                    ))}
-                 </div>
-               </div>
-             )}
-           </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </ModalPadrao>
 

@@ -11,9 +11,17 @@ class ClienteRepository:
     
     def get_by_cpf(self, cpf: str):
         return Cliente.query.filter_by(cpf=cpf, ativo=True).first()
+
+    def get_by_cpf_any(self, cpf: str):
+        """Retorna cliente por CPF independentemente do campo 'ativo' (inclui soft-deleted)."""
+        return Cliente.query.filter_by(cpf=cpf).first()
     
     def get_by_email(self, email:str):
         return Cliente.query.filter_by(email=email, ativo=True).first()
+
+    def get_by_email_any(self, email: str):
+        """Retorna cliente por email independentemente do campo 'ativo' (inclui soft-deleted)."""
+        return Cliente.query.filter_by(email=email).first()
         
     def create(self, cliente: Cliente):
         db.session.add(cliente)

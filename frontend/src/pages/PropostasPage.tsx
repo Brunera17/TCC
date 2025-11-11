@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { apiService } from '../lib/api';
 import { LoadingSpinner, StatusBadge } from '../components/common';
+import { formatarData } from '../utils/formatters';
 import {
   PageHeader,
   PageLayout,
@@ -808,7 +809,7 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
       label: 'Data',
       render: (data) => (
         <span className="text-sm text-gray-900">
-          {data ? new Date(data).toLocaleDateString('pt-BR') : 'N/A'}
+          {data ? formatarData(data) : 'N/A'}
         </span>
       )
     },

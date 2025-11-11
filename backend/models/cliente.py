@@ -3,7 +3,7 @@
 from datetime import datetime
 from config import db
 from sqlalchemy.orm import validates
-from .base import TimestampMixin, ActiveMixin
+from .base import TimestampMixin, ActiveMixin, format_datetime_to_utc_iso
 import re
 
 class Cliente(db.Model, TimestampMixin, ActiveMixin):
@@ -36,9 +36,9 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
             'telefone': self.telefone,
             'endereco': self.endereco,
             'observacoes': self.observacoes,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
+            'deleted_at': format_datetime_to_utc_iso(self.deleted_at) if self.deleted_at else None,
             'ativo': self.ativo
         }
     
@@ -122,8 +122,8 @@ class Endereco(db.Model, TimestampMixin, ActiveMixin):
             'estado': self.estado,
             'cep': self.cep,
             'cliente_id': self.cliente_id,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
             'ativo': self.ativo
         }
     

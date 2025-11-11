@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify
 from services.cliente_service import ClienteService
 from services.endereco_service import EnderecoService
 from services.entidade_juridica_service import EntidadeJuridicaService
+from sqlalchemy.exc import IntegrityError
 
 bp = Blueprint('cliente', __name__, url_prefix='/api/clientes')
 service_cliente = ClienteService()
@@ -45,6 +46,10 @@ def criar_cliente():
     except ValueError as e:
         print(f"DEBUG: Erro de validação: {str(e)}")
         return jsonify({'error': str(e)}), 400
+    except IntegrityError as e:
+        # Erro de unicidade em banco - retorna 409 Conflict com detalhe
+        print(f"DEBUG: IntegrityError ao criar cliente: {str(e)}")
+        return jsonify({'error': 'Conflito ao criar cliente', 'details': str(e)}), 409
     except Exception as e:
         print(f"DEBUG: Erro interno: {str(e)}")
         return jsonify({'error': f'Erro interno do servidor: {str(e)}'}), 500

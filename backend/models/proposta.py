@@ -1,8 +1,7 @@
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone, timedelta
 from config import db
 from sqlalchemy.orm import validates
-from .base import TimestampMixin, ActiveMixin
+from .base import TimestampMixin, ActiveMixin, format_datetime_to_utc_iso
 import re
 
 class ItemProposta(db.Model, TimestampMixin, ActiveMixin):
@@ -51,8 +50,8 @@ class ItemProposta(db.Model, TimestampMixin, ActiveMixin):
             'valor_unitario': self.valor_unitario,
             'valor_total': self.valor_total,
             'ativo': self.ativo,
-            'created_at': self.created_at.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat(),
-            'updated_at': self.updated_at.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
         }
     def __repr__(self):
         return f"<ItemProposta {self.id}>"
@@ -197,7 +196,8 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
         if caminho_arquivo and sucesso:
             self.pdf_caminho = caminho_arquivo
         if sucesso:
-            self.pdf_gerado_em = datetime.now()
+            # gravar timestamp; será serializado como UTC pelo helper de serialização
+            self.pdf_gerado_em = datetime.utcnow()
         
         # Salvar será feito pelo chamador para controlar transação
     def to_json(self):
@@ -209,8 +209,6 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
             'entidade_juridica_id': self.entidade_juridica_id,
             'usuario_id': self.usuario_id,
             'funcionario_responsavel_id': self.usuario_id,  # Alias para compatibilidade
-            'validade': self.validade.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat() if self.validade else None,
-            'data_validade': self.validade.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat() if self.validade else None,  # Alias para compatibilidade
             'observacao': self.observacao,
             'status': self.status,
             'porcentagem_desconto': self.porcentagem_desconto,
@@ -219,11 +217,13 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
                 'valor_mensalidade': self.valor_mensalidade,
             'requer_aprovacao': self.requer_aprovacao,
             'aprovado_por': self.aprovado_por,
-            'data_aprovacao': self.data_aprovacao.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat() if self.data_aprovacao else None,
             'motivo_rejeicao': self.motivo_rejeicao,
             'pdf_gerado': self.pdf_gerado,
             'pdf_caminho': self.pdf_caminho,
-            'pdf_gerado_em': self.pdf_gerado_em.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat() if self.pdf_gerado_em else None,
+            'validade': format_datetime_to_utc_iso(self.validade) if self.validade else None,
+            'data_validade': format_datetime_to_utc_iso(self.validade) if self.validade else None,  # Alias para compatibilidade
+            'data_aprovacao': format_datetime_to_utc_iso(self.data_aprovacao) if self.data_aprovacao else None,
+            'pdf_gerado_em': format_datetime_to_utc_iso(self.pdf_gerado_em) if self.pdf_gerado_em else None,
                 'tipo_atividade_id': self.tipo_atividade_id,
                 'regime_tributario_id': self.regime_tributario_id,
                 'faixa_faturamento_id': self.faixa_faturamento_id,
@@ -236,9 +236,9 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
                 'faixa_faturamento': self.faixa_faturamento.to_json() if self.faixa_faturamento else None,
             'itens': [item.to_json() for item in self.itens],
             'ativo': self.ativo,
-            'created_at': self.created_at.isoformat(),
-            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'deleted_at': format_datetime_to_utc_iso(self.deleted_at) if self.deleted_at else None,
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
         }
     def __repr__(self):
         return f"<Proposta {self.numero_proposta}>"

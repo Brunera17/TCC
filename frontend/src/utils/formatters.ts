@@ -24,12 +24,29 @@ export const formatarMoedaPDF = (valor: number): string => {
 
 export const formatarData = (data: string | Date): string => {
   const date = typeof data === 'string' ? new Date(data) : data;
-  return date.toLocaleDateString('pt-BR');
+  try {
+    return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Brasilia', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+  } catch {
+    return date.toLocaleDateString('pt-BR');
+  }
 };
 
 export const formatarDataHora = (data: string | Date): string => {
   const date = typeof data === 'string' ? new Date(data) : data;
-  return date.toLocaleString('pt-BR');
+  try {
+    return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Brasilia', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(date);
+  } catch {
+    return date.toLocaleString('pt-BR');
+  }
+};
+
+export const formatarHora = (data: string | Date): string => {
+  const date = typeof data === 'string' ? new Date(data) : data;
+  try {
+    return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Brasilia', hour: '2-digit', minute: '2-digit' }).format(date);
+  } catch {
+    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
 };
 
 // ✅ NOVO: Funções de formatação para documentos

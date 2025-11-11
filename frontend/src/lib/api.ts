@@ -47,12 +47,12 @@ type AgendamentosListResponse =
   | Agendamento[]
   | PaginatedResponse<Agendamento>
   | {
-      data?: Agendamento[];
-      results?: Agendamento[];
-      items?: Agendamento[];
-      total?: number;
-      per_page?: number;
-    };
+    data?: Agendamento[];
+    results?: Agendamento[];
+    items?: Agendamento[];
+    total?: number;
+    per_page?: number;
+  };
 
 type AgendamentosQuery = Record<string, string | number | boolean | undefined>;
 
@@ -463,7 +463,7 @@ async function fetchJSON<T>(
     try {
       parsed = text ? JSON.parse(text) : null;
     } catch {
-      parsed = text; 
+      parsed = text;
     }
 
     if (!res.ok) {
@@ -571,8 +571,8 @@ function normalizeClientePayload(data: unknown): GenericRecord {
 
 export const apiService = {
   // ---------- Usuário ----------
-  async login(credentials: { identificador: string; senha: string }) { 
-    return postJSON<{ access_token: string; refresh_token: string, user: any }>( 
+  async login(credentials: { identificador: string; senha: string }) {
+    return postJSON<{ access_token: string; refresh_token: string, user: any }>(
       "usuarios/login/",
       credentials
     );
@@ -594,7 +594,7 @@ export const apiService = {
   },
 
   // ---------- Funcionários/Usuários ----------
-  async getFuncionarios(params?: any): Promise<any> { 
+  async getFuncionarios(params?: any): Promise<any> {
     return getJSON<any>("funcionarios/", params);
   },
 
@@ -687,7 +687,7 @@ export const apiService = {
     return getJSON<any>(`servicos/${id}`);
   },
 
-  async getServicoPorCodigo(codigo: string): Promise<any | null> { 
+  async getServicoPorCodigo(codigo: string): Promise<any | null> {
     try {
       return await getJSON<any>(`servicos/codigo/${encodeURIComponent(codigo)}`);
     } catch (error) {
@@ -696,7 +696,7 @@ export const apiService = {
     }
   },
 
-  async getServicoPorNome(nome: string): Promise<any | null> { 
+  async getServicoPorNome(nome: string): Promise<any | null> {
     try {
       return await getJSON<any>(`servicos/nome/${encodeURIComponent(nome)}`);
     } catch (error) {
@@ -765,7 +765,7 @@ export const apiService = {
   },
 
   // ---------- Propostas ----------
-  async getPropostas(params?: any): Promise<any> { 
+  async getPropostas(params?: any): Promise<any> {
     const response = await getJSON<any>("propostas/", params);
     return normalizePropostasResponse(response, params);
   },
@@ -835,7 +835,7 @@ export const apiService = {
     return normalizePropostaEntity(response);
   },
 
-  async deleteProposta(id: number, observacao?: string): Promise<any> { 
+  async deleteProposta(id: number, observacao?: string): Promise<any> {
     return deleteJSON(`propostas/${id}/`, observacao ? { observacao } : undefined);
   },
 
@@ -910,6 +910,8 @@ export const apiService = {
   async getEmpresas(params?: any): Promise<any> {
     return getJSON("empresas/", params);
   },
+
+  // ---------- Propostas: Logs ----------
 
   // ---------- Mensalidade Automática ----------
   async buscarMensalidadeAutomatica(config: {

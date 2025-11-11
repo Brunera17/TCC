@@ -4,7 +4,6 @@ export { ConfirmModal } from './ConfirmModal';
 
 // Modais de Propostas
 export { ModalEdicaoCompleta } from './ModalEdicaoCompleta';
-export { ModalEdicaoProposta } from './ModalEdicaoProposta';
 export { ModalExclusaoProposta } from './ModalExclusaoProposta';
 
 // Modais de Cadastro

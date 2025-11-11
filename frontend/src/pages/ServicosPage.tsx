@@ -15,11 +15,11 @@ import {
   ModalPadrao,
   type Column
 } from '../components/ui';
-import { ModalCadastroCategoria } from '../components/modals/ModalCadastroCategoria'; // Ajuste o caminho se necessário
+import { ModalCadastroCategoria } from '../components/modals';
 
-export interface Servico {
+interface Servico {
   id: number;
-  codigo: string;
+  codigo?: string;
   nome: string;
   descricao?: string;
   valor_unitario: number;
@@ -112,7 +112,7 @@ export default function ServicosPage() {
       setModalExclusaoOpen(false);
       fetchServicos();
       setServicoParaExcluir(null);
-    } catch (err) { setError('Erro ao excluir serviço'); }
+    } catch (err) { console.error('Erro ao excluir serviço:', err); setError('Erro ao excluir serviço'); }
   };
 
   const handleSearch = (term: string) => setSearchTerm(term);
@@ -324,8 +324,7 @@ export default function ServicosPage() {
         isOpen={isModalVisualizacaoOpen}
         onClose={() => setIsModalVisualizacaoOpen(false)}
         title="Detalhes do Serviço"
-        confirmLabel="Fechar"
-        onConfirm={() => setIsModalVisualizacaoOpen(false)}
+        cancelLabel="Fechar"
         showFooter={true}
         size="lg"
       >

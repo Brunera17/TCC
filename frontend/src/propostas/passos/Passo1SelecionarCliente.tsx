@@ -14,6 +14,7 @@ import {
   Plus
 } from 'lucide-react';
 import { apiService } from "../../lib/api";
+import { formatarHora } from '../../utils/formatters';
 import { ModalCadastroCliente } from "../../components/modals/ModalCadastroCliente";
 import type { Cliente } from "../../types";
 import { validateClienteData } from "../../utils/data-validation";
@@ -430,7 +431,7 @@ export const Passo1SelecionarCliente: React.FC<Passo1Props> = ({
           <span>Progresso recuperado - Cliente selecionado anteriormente</span>
         </div>
       )}
-      
+
       {erroSalvamento && <ErrorMessage message={`Falha no salvamento automático: ${erroSalvamento}`} variant="warning" className="mb-4" />}
 
       {/* 4. Barra de Ações (Busca + Botão) em um Card */}
@@ -520,7 +521,7 @@ export const Passo1SelecionarCliente: React.FC<Passo1Props> = ({
             {ultimoSalvamento && !salvando && (
               <div className="flex items-center text-green-600 text-sm">
                 <CheckCircle className="w-4 h-4 mr-2" />
-                <span>Salvo {ultimoSalvamento.toLocaleTimeString()}</span>
+                <span>Salvo {formatarHora(ultimoSalvamento)}</span>
               </div>
             )}
             {selectedClienteId && (

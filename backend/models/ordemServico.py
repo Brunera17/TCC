@@ -1,7 +1,7 @@
 from  datetime import datetime
 from config import db
 from sqlalchemy.orm import validates
-from .base import TimestampMixin, ActiveMixin
+from .base import TimestampMixin, ActiveMixin, format_datetime_to_utc_iso
 import re
 
 class ItemOrdemServico(db.Model, TimestampMixin, ActiveMixin):
@@ -68,8 +68,8 @@ class ItemOrdemServico(db.Model, TimestampMixin, ActiveMixin):
             'valor_total': self.valor_total,
             'desconto': self.desconto,
             'ativo': self.ativo,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
         }
 
     def __repr__(self):
@@ -134,11 +134,11 @@ class OrdemServico(db.Model, TimestampMixin, ActiveMixin):
         return{
             'id': self.id,
             'protocolo': self.protocolo,
-            'vencimento': self.vencimento.isoformat() if self.vencimento else None,
+            'vencimento': format_datetime_to_utc_iso(self.vencimento) if self.vencimento else None,
             'observacao': self.observacao,
             'status': self.status,
-            'data_abertura': self.data_abertura.isoformat(),
-            'data_fechamento': self.data_fechamento.isoformat() if self.data_fechamento else None,
+            'data_abertura': format_datetime_to_utc_iso(self.data_abertura),
+            'data_fechamento': format_datetime_to_utc_iso(self.data_fechamento) if self.data_fechamento else None,
             'valor_total_os': self.valor_total_os,
             'cliente': self.cliente.to_json() if self.cliente else None,
             'empresa': self.empresa.to_json() if self.empresa else None,
@@ -146,8 +146,8 @@ class OrdemServico(db.Model, TimestampMixin, ActiveMixin):
             'departamento': self.departamento.to_json() if self.departamento else None,
             'itens': [item.to_json() for item in self.itens if item.ativo],
             'ativo': self.ativo,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
         }
 
     def __repr__(self):

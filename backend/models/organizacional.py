@@ -7,7 +7,7 @@ from config import db
 from sqlalchemy.orm import validates
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from .base import ActiveMixin, TimestampMixin
+from .base import ActiveMixin, TimestampMixin, format_datetime_to_utc_iso
 
 
 # ======================================================
@@ -62,8 +62,8 @@ class Empresa(db.Model, TimestampMixin, ActiveMixin):
             'endereco': self.endereco,
             'telefone': self.telefone,
             'email': self.email,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
             'ativo': self.ativo
         }
 
@@ -107,9 +107,9 @@ class Departamento(db.Model, TimestampMixin, ActiveMixin):
             'status': self.status,
             'empresa_id': self.empresa_id,
             'cargos': [cargo.to_json() for cargo in self.cargos if cargo.ativo],
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
+            'deleted_at': format_datetime_to_utc_iso(self.deleted_at) if self.deleted_at else None,
             'ativo': self.ativo
         }
 
@@ -157,9 +157,9 @@ class Cargo(db.Model, TimestampMixin, ActiveMixin):
             'descricao': self.descricao,
             'tipo': self.tipo,
             'departamento_id': self.departamento_id,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
+            'deleted_at': format_datetime_to_utc_iso(self.deleted_at) if self.deleted_at else None,
             'ativo': self.ativo
         }
 
@@ -257,12 +257,12 @@ class Usuario(db.Model, TimestampMixin, ActiveMixin):
             'departamento_id': departamento.id if departamento else None,
             'empresa': empresa.to_json() if empresa else None,
             'empresa_id': empresa.id if empresa else None,
-            'ultimo_login': self.ultimo_login.isoformat() if self.ultimo_login else None,
+            'ultimo_login': format_datetime_to_utc_iso(self.ultimo_login) if self.ultimo_login else None,
             'tentativas_login': self.tentativas_login,
-            'bloqueado_ate': self.bloqueado_ate.isoformat() if self.bloqueado_ate else None,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
+            'bloqueado_ate': format_datetime_to_utc_iso(self.bloqueado_ate) if self.bloqueado_ate else None,
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
+            'deleted_at': format_datetime_to_utc_iso(self.deleted_at) if self.deleted_at else None,
             'ativo': self.ativo
         }
 

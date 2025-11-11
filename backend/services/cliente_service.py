@@ -29,13 +29,44 @@ class ClienteService:
         if not email:
             raise ValueError("E-mail é obrigatório")
 
-        if self.repo.get_by_cpf(cpf):
+        # Verifica se já existe registro (inclusive soft-deleted)
+        existente_cpf = self.repo.get_by_cpf_any(cpf)
+        if existente_cpf and existente_cpf.ativo:
             raise ValueError("CPF já cadastrado")
-        if self.get_by_email(email):
+
+        existente_email = self.repo.get_by_email_any(email)
+        if existente_email and existente_email.ativo:
             raise ValueError("E-mail já cadastrado")
 
         data['cpf'] = cpf
         data['email'] = email
+
+        # Se existe registro inativo (soft-deleted) com mesmo CPF ou email, reativa e sobrescreve
+        to_reactivate = existente_cpf if (existente_cpf and not existente_cpf.ativo) else (existente_email if (existente_email and not existente_email.ativo) else None)
+
+        if to_reactivate:
+            # Sobrescreve campos permitidos e reativa
+            campos_permitidos = {'nome', 'cpf', 'email', 'telefone', 'endereco', 'observacoes'}
+            for key, value in data.items():
+                if key in campos_permitidos:
+                    setattr(to_reactivate, key, value)
+
+            # Marca como ativo e limpa deleted_at
+            try:
+                to_reactivate.ativo = True
+                to_reactivate.deleted_at = None
+                # Persistir alterações
+                self.repo.update(to_reactivate)
+            except Exception as e:
+                raise Exception(f"Erro ao reativar cliente existente: {str(e)}")
+
+            # Atualiza endereços e entidades se vierem no payload
+            self._atualizar_enderecos(to_reactivate.id, data.get('enderecos') or data.get('endereco'))
+            self._atualizar_entidades_juridicas(to_reactivate.id, data.get('entidades_juridicas') or data.get('entidade_juridica'))
+
+            return to_reactivate
+
+        # Caso não exista, cria novo registro
         cliente = Cliente(**data)
         return self.repo.create(cliente)
     

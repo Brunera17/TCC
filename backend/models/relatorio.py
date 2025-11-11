@@ -1,7 +1,7 @@
 from  datetime import datetime
 from config import db
 from sqlalchemy.orm import validates
-from .base import TimestampMixin, ActiveMixin
+from .base import TimestampMixin, ActiveMixin, format_datetime_to_utc_iso
 import re
 
 class Relatorio(db.Model, TimestampMixin, ActiveMixin):
@@ -28,9 +28,9 @@ class Relatorio(db.Model, TimestampMixin, ActiveMixin):
             'tipo': self.tipo,
             'arquivo': self.arquivo,
             'funcionario': self.funcionario.to_json() if self.funcionario and self.funcionario.ativo else None,
-            'created_at': self.created_at.isoformat(),
-            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'deleted_at': format_datetime_to_utc_iso(self.deleted_at) if self.deleted_at else None,
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
             'ativo': self.ativo
         }
     

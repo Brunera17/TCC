@@ -2,7 +2,7 @@
 
 from config import db
 from sqlalchemy.orm import validates
-from models.base import TimestampMixin, ActiveMixin
+from models.base import TimestampMixin, ActiveMixin, format_datetime_to_utc_iso
 
 
 class TipoAtividade(db.Model, TimestampMixin, ActiveMixin):
@@ -37,8 +37,8 @@ class TipoAtividade(db.Model, TimestampMixin, ActiveMixin):
             'descricao': self.descricao,
             'codigo': self.codigo,
             'aplicavel_pj': self.aplicavel_pj,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
             'ativo': self.ativo
         }
 

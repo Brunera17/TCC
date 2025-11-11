@@ -1,16 +1,20 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from sqlalchemy.inspection import inspect
 
 from models.proposta import ItemProposta, Proposta
 from repositories.proposta_repository import PropostaRepository
+from services.audit_log_service import AuditLogService
+from models.organizacional import Usuario
 
 class PropostaService:
     """ Serviço para gerenciar propostas """
 
     def __init__(self):
         self.repo = PropostaRepository()
+        # Serviço para auditoria/histórico
+        self.audit = AuditLogService()
 
         # Cache das colunas mapeadas para evitar passar atributos inválidos ao modelo
         self._proposta_columns = {
@@ -151,7 +155,26 @@ class PropostaService:
 
     def criar_proposta(self, **data):
         proposta = Proposta(**self._normalizar_dados(data, preencher_numero=True))
-        return self.repo.create(proposta)
+        criada = self.repo.create(proposta)
+        try:
+            usuario_id = data.get('usuario_id') or getattr(criada, 'usuario_id', None)
+            usuario_nome = data.get('usuario_nome')
+            # se não vier nome no payload, tentar buscar via usuario_id
+            if not usuario_nome and usuario_id:
+                try:
+                    u = Usuario.query.filter_by(id=usuario_id).first()
+                    if u:
+                        usuario_nome = u.nome
+                except Exception:
+                    usuario_nome = None
+
+            # Grava log de criação com snapshot inicial (inclui nome do usuário quando possível)
+            # Usar acao semântica já padronizada
+            self.audit.create_log(criada.id, 'PROPOSTA_CRIADA', detalhes=criada.to_json(), usuario_id=usuario_id, usuario_nome=usuario_nome)
+        except Exception:
+            # Não falhar a criação por problemas na auditoria
+            pass
+        return criada
     
     def atualizar_proposta(self, proposta_id: int, **data):
         proposta = self.repo.get_by_id(proposta_id)
@@ -161,25 +184,95 @@ class PropostaService:
         
         dados_normalizados = self._normalizar_dados(data)
         print(f"🔄 Dados normalizados: {dados_normalizados}")
-        
+        # Preparar rastreamento de alterações
+        changes = []
+        # snapshot de itens antes da alteração
+        try:
+            before_items = [it.to_json() for it in proposta.itens]
+        except Exception:
+            before_items = None
+
         for key, value in dados_normalizados.items():
             old_value = getattr(proposta, key, None)
+
+            # tratamento especial para itens (lista de ItemProposta)
+            if key == 'itens':
+                new_items = []
+                try:
+                    # valor vindo do payload já é convertido para instâncias ItemProposta
+                    if isinstance(value, list):
+                        for it in value:
+                            if hasattr(it, 'to_json'):
+                                new_items.append(it.to_json())
+                            else:
+                                new_items.append(str(it))
+                except Exception:
+                    new_items = str(value)
+
+                changes.append({'campo': 'itens', 'before': before_items, 'after': new_items})
+                setattr(proposta, key, value)
+                print(f"📝 itens: {len(before_items) if before_items else 0} -> {len(new_items) if isinstance(new_items, list) else new_items}")
+                continue
+
             setattr(proposta, key, value)
             print(f"📝 {key}: {old_value} -> {value}")
-            
-        return self.repo.update(proposta)
+            if old_value != value:
+                # registrar alteração simples
+                changes.append({'campo': key, 'before': old_value, 'after': value})
+
+        atualizado = self.repo.update(proposta)
+
+        try:
+            if changes:
+                usuario_id = data.get('usuario_id') or getattr(atualizado, 'usuario_id', None)
+                usuario_nome = data.get('usuario_nome')
+                if not usuario_nome and usuario_id:
+                    try:
+                        u = Usuario.query.filter_by(id=usuario_id).first()
+                        if u:
+                            usuario_nome = u.nome
+                    except Exception:
+                        usuario_nome = None
+
+                # Gravar log de atualização com acao semântica
+                self.audit.create_log(atualizado.id, 'PROPOSTA_EDITADA', detalhes=changes, usuario_id=usuario_id, usuario_nome=usuario_nome)
+        except Exception:
+            pass
+
+        return atualizado
     
     def deletar_proposta(self, proposta_id: int):
         proposta = self.repo.get_by_id(proposta_id)
         
         if not proposta:
             raise ValueError("Proposta não encontrada")
+        # Gravar snapshot antes de deletar
+        try:
+            usuario_id = getattr(proposta, 'usuario_id', None)
+            usuario_nome = None
+            try:
+                if usuario_id:
+                    u = Usuario.query.filter_by(id=usuario_id).first()
+                    if u:
+                        usuario_nome = u.nome
+            except Exception:
+                usuario_nome = None
+
+            # Gravar log de deleção com acao semântica
+            self.audit.create_log(proposta.id, 'PROPOSTA_DELETADA', detalhes=proposta.to_json(), usuario_id=usuario_id, usuario_nome=usuario_nome)
+        except Exception:
+            pass
+
         return self.repo.delete(proposta)
+
+    def get_logs(self, proposta_id: int):
+        """Retorna logs de auditoria para uma proposta"""
+        return self.audit.get_logs(proposta_id)
 
     def _gerar_numero_proposta(self) -> str:
         """Gera identificador no formato PROP<ano><mes><dia><hora><minuto><segundo> no fuso de Brasília."""
-        from zoneinfo import ZoneInfo
-        base = datetime.now(ZoneInfo('America/Sao_Paulo')).strftime("PROP%Y%m%d%H%M%S")
+        # usar timezone fixa de Brasília (UTC-3)
+        base = datetime.now(timezone(timedelta(hours=-3))).strftime("PROP%Y%m%d%H%M%S")
 
         if not Proposta.query.filter_by(numero_proposta=base).first():
             return base

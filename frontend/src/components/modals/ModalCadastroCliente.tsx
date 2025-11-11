@@ -1,7 +1,7 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useEffect, useState, useRef } from 'react';
 import { User, Building, Check, AlertCircle, MapPin } from 'lucide-react';
 import { ModalPadrao } from '../ui/ModalPadrao';
-import { apiService } from '../../lib/api';
+import { apiService, ApiError } from '../../lib/api';
 import type { Cliente } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { validateClienteData, debugApiCall } from '../../utils/data-validation';
@@ -165,12 +165,15 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
   const [formData, setFormData] = useState<ClienteCompleto>(createInitialFormData());
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [emailChecking, setEmailChecking] = useState(false);
+  const [existingClient, setExistingClient] = useState<any | null>(null);
+  const emailDebounceRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
-  setFormData(createInitialFormData());
-  setErrors({});
-  setAbaAtiva('cliente');
+      setFormData(createInitialFormData());
+      setErrors({});
+      setAbaAtiva('cliente');
     }
   }, [isOpen]);
 
@@ -209,24 +212,24 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
           endereco:
             enderecoPrincipal
               ? {
-                  id: enderecoPrincipal.id,
-                  logradouro: logradouroNormalizado,
-                  numero: enderecoPrincipal.numero || '',
-                  bairro: enderecoPrincipal.bairro || '',
-                  cidade: enderecoPrincipal.cidade || '',
-                  estado: enderecoPrincipal.estado || '',
-                  cep: aplicarMascaraCEP(enderecoPrincipal.cep || ''),
-                  complemento: enderecoPrincipal.complemento || '',
-                  rua: logradouroNormalizado
-                }
+                id: enderecoPrincipal.id,
+                logradouro: logradouroNormalizado,
+                numero: enderecoPrincipal.numero || '',
+                bairro: enderecoPrincipal.bairro || '',
+                cidade: enderecoPrincipal.cidade || '',
+                estado: enderecoPrincipal.estado || '',
+                cep: aplicarMascaraCEP(enderecoPrincipal.cep || ''),
+                complemento: enderecoPrincipal.complemento || '',
+                rua: logradouroNormalizado
+              }
               : null,
           empresa:
             clienteCompleto.entidades_juridicas && clienteCompleto.entidades_juridicas.length > 0
               ? {
-                  nome: clienteCompleto.entidades_juridicas[0].nome,
-                  cnpj: aplicarMascaraCNPJ(clienteCompleto.entidades_juridicas[0].cnpj),
-                  tipo: clienteCompleto.entidades_juridicas[0].tipo
-                }
+                nome: clienteCompleto.entidades_juridicas[0].nome,
+                cnpj: aplicarMascaraCNPJ(clienteCompleto.entidades_juridicas[0].cnpj),
+                tipo: clienteCompleto.entidades_juridicas[0].tipo
+              }
               : null
         });
       } catch (erroDesconhecido) {
@@ -363,6 +366,48 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
     });
 
     clearFieldError(secao, campo);
+    // when email changes, reset existingClient and debounce-check
+    if (secao === 'cliente' && campo === 'email') {
+      setExistingClient(null);
+      if (emailDebounceRef.current) {
+        window.clearTimeout(emailDebounceRef.current);
+      }
+
+      const emailValor = String(valor || '').trim();
+      if (emailValor && validarEmail(emailValor)) {
+        emailDebounceRef.current = window.setTimeout(async () => {
+          setEmailChecking(true);
+          try {
+            // API currently returns active clients; check for active email duplicates
+            const clientes = await apiService.getClientes();
+            const encontrado = (clientes || []).find((c: any) => (c.email || '').toLowerCase() === emailValor.toLowerCase());
+            if (encontrado) {
+              setExistingClient(encontrado);
+              // mark error for active duplicate
+              setErrors(prev => ({
+                ...prev,
+                cliente: { ...(prev.cliente || {}), email: 'E-mail já cadastrado.' }
+              }));
+            } else {
+              setExistingClient(null);
+              setErrors(prev => {
+                if (!prev.cliente || !prev.cliente.email) return prev;
+                const updated = { ...prev.cliente };
+                delete updated.email;
+                const next = { ...prev };
+                if (Object.keys(updated).length === 0) delete next.cliente; else next.cliente = updated;
+                return next;
+              });
+            }
+          } catch (err) {
+            // ignore check errors silently
+            console.warn('Erro ao verificar e-mail:', err);
+          } finally {
+            setEmailChecking(false);
+          }
+        }, 600);
+      }
+    }
   };
 
   const validarFormulario = (): boolean => {
@@ -451,23 +496,23 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
         endereco:
           formData.endereco && formData.endereco.logradouro.trim()
             ? {
-                ...(formData.endereco.id ? { id: formData.endereco.id } : {}),
-                logradouro: formData.endereco.logradouro.trim(),
-                numero: formData.endereco.numero.trim(),
-                bairro: formData.endereco.bairro.trim(),
-                cidade: formData.endereco.cidade.trim(),
-                estado: formData.endereco.estado.trim().toUpperCase(),
-                cep: formData.endereco.cep.replace(/\D/g, ''),
-                complemento: formData.endereco.complemento?.trim() || undefined
-              }
+              ...(formData.endereco.id ? { id: formData.endereco.id } : {}),
+              logradouro: formData.endereco.logradouro.trim(),
+              numero: formData.endereco.numero.trim(),
+              bairro: formData.endereco.bairro.trim(),
+              cidade: formData.endereco.cidade.trim(),
+              estado: formData.endereco.estado.trim().toUpperCase(),
+              cep: formData.endereco.cep.replace(/\D/g, ''),
+              complemento: formData.endereco.complemento?.trim() || undefined
+            }
             : undefined,
         entidade_juridica:
           formData.empresa && (formData.empresa.nome || formData.empresa.cnpj || formData.empresa.tipo)
             ? {
-                nome: formData.empresa.nome || '',
-                cnpj: formData.empresa.cnpj ? formData.empresa.cnpj.replace(/\D/g, '') : '',
-                tipo: formData.empresa.tipo || ''
-              }
+              nome: formData.empresa.nome || '',
+              cnpj: formData.empresa.cnpj ? formData.empresa.cnpj.replace(/\D/g, '') : '',
+              tipo: formData.empresa.tipo || ''
+            }
             : undefined
       };
 
@@ -516,8 +561,30 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
       onClienteCadastrado(response);
       onClose();
     } catch (erroDesconhecido) {
-      const mensagemErro =
-        erroDesconhecido instanceof Error ? erroDesconhecido.message : 'Erro desconhecido.';
+      // Mapeia erros de API para erro de campo quando possível
+      if (erroDesconhecido instanceof ApiError) {
+        const status = erroDesconhecido.status;
+        const details = erroDesconhecido.details;
+        const detailMsg = typeof details === 'string' ? details : (details?.error ?? details?.message ?? '');
+
+        // Caso comum: backend validação -> 400 com mensagem 'E-mail já cadastrado'
+        if ((status === 400 || status === 409) && detailMsg && detailMsg.toString().toLowerCase().includes('e-mail')) {
+          setErrors(prev => ({
+            ...prev,
+            cliente: { ...(prev.cliente || {}), email: 'E-mail já cadastrado.' }
+          }));
+          return;
+        }
+
+        // Fallback: mostrar toast com mensagem do backend
+        showError(
+          'Erro ao cadastrar cliente',
+          `Erro ao ${clienteParaEditar ? 'atualizar' : 'cadastrar'} cliente: ${detailMsg || 'Erro no servidor.'}`
+        );
+        return;
+      }
+
+      const mensagemErro = erroDesconhecido instanceof Error ? erroDesconhecido.message : 'Erro desconhecido.';
       showError(
         'Erro ao cadastrar cliente',
         `Erro ao ${clienteParaEditar ? 'atualizar' : 'cadastrar'} cliente: ${mensagemErro}`
@@ -606,11 +673,10 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
             <button
               type="button"
               onClick={() => setAbaAtiva('cliente')}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${
-                abaAtiva === 'cliente'
+              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${abaAtiva === 'cliente'
                   ? 'border-b-2 border-blue-500 text-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               <User className="h-4 w-4" />
               <span>Dados do Cliente</span>
@@ -618,11 +684,10 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
             <button
               type="button"
               onClick={() => setAbaAtiva('endereco')}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${
-                abaAtiva === 'endereco'
+              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${abaAtiva === 'endereco'
                   ? 'border-b-2 border-blue-500 text-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               <MapPin className="h-4 w-4" />
               <span>Endereço</span>
@@ -631,13 +696,12 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
               type="button"
               onClick={() => setAbaAtiva('empresa')}
               disabled={!podeIrParaEmpresa}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${
-                !podeIrParaEmpresa
+              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${!podeIrParaEmpresa
                   ? 'cursor-not-allowed text-gray-400'
                   : abaAtiva === 'empresa'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
             >
               <Building className="h-4 w-4" />
               <span>Empresa</span>
@@ -655,9 +719,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                     type="text"
                     value={formData.cliente.nome}
                     onChange={event => handleInputChange('cliente', 'nome', event.target.value)}
-                    className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                      errors.cliente?.nome ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.cliente?.nome ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     placeholder="Digite o nome completo"
                   />
                   {errors.cliente?.nome && (
@@ -679,9 +742,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                         handleInputChange('cliente', 'cpf', mascara);
                       }
                     }}
-                    className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                      errors.cliente?.cpf ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.cliente?.cpf ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     placeholder="000.000.000-00"
                     maxLength={14}
                   />
@@ -699,15 +761,23 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                     type="email"
                     value={formData.cliente.email || ''}
                     onChange={event => handleInputChange('cliente', 'email', event.target.value)}
-                    className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                      errors.cliente?.email ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.cliente?.email ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     placeholder="exemplo@email.com"
                   />
                   {errors.cliente?.email && (
                     <p className="mt-1 flex items-center text-sm text-red-600">
                       <AlertCircle className="mr-1 h-4 w-4" />
                       {errors.cliente.email}
+                    </p>
+                  )}
+                  {!errors.cliente?.email && emailChecking && (
+                    <p className="mt-1 flex items-center text-sm text-gray-500">Verificando e-mail...</p>
+                  )}
+                  {!errors.cliente?.email && !emailChecking && existingClient && (
+                    <p className="mt-1 flex items-center text-sm text-yellow-700">
+                      <AlertCircle className="mr-1 h-4 w-4" />
+                      E-mail já cadastrado por <strong className="ml-1">{existingClient.nome}</strong>.
                     </p>
                   )}
                 </div>
@@ -758,9 +828,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                       type="text"
                       value={formData.endereco?.logradouro ?? ''}
                       onChange={event => handleInputChange('endereco', 'logradouro', event.target.value)}
-                      className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                        errors.endereco?.logradouro ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.endereco?.logradouro ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       placeholder="Nome da rua ou avenida"
                     />
                     {errors.endereco?.logradouro && (
@@ -780,9 +849,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                       type="text"
                       value={formData.endereco?.numero ?? ''}
                       onChange={event => handleInputChange('endereco', 'numero', event.target.value)}
-                      className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                        errors.endereco?.numero ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.endereco?.numero ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       placeholder="123"
                     />
                     {errors.endereco?.numero && (
@@ -804,9 +872,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                       type="text"
                       value={formData.endereco?.bairro ?? ''}
                       onChange={event => handleInputChange('endereco', 'bairro', event.target.value)}
-                      className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                        errors.endereco?.bairro ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.endereco?.bairro ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       placeholder="Nome do bairro"
                     />
                     {errors.endereco?.bairro && (
@@ -842,9 +909,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                       type="text"
                       value={formData.endereco?.cidade ?? ''}
                       onChange={event => handleInputChange('endereco', 'cidade', event.target.value)}
-                      className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                        errors.endereco?.cidade ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.endereco?.cidade ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       placeholder="Nome da cidade"
                     />
                     {errors.endereco?.cidade && (
@@ -863,9 +929,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                       id="endereco-estado"
                       value={formData.endereco?.estado ?? ''}
                       onChange={event => handleInputChange('endereco', 'estado', event.target.value)}
-                      className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                        errors.endereco?.estado ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.endereco?.estado ? 'border-red-500' : 'border-gray-300'
+                        }`}
                     >
                       <option value="">Selecione o estado</option>
                       {ESTADOS_BRASIL.map(estado => (
@@ -897,9 +962,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                         handleInputChange('endereco', 'cep', mascara);
                       }
                     }}
-                    className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                      errors.endereco?.cep ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.endereco?.cep ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     placeholder="00000-000"
                     maxLength={9}
                   />
@@ -933,9 +997,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                         type="text"
                         value={formData.empresa?.nome || ''}
                         onChange={event => handleInputChange('empresa', 'nome', event.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                          errors.empresa?.nome ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                        className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.empresa?.nome ? 'border-red-500' : 'border-gray-300'
+                          }`}
                         placeholder="Nome da empresa"
                       />
                       {errors.empresa?.nome && (
@@ -960,9 +1023,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                             handleInputChange('empresa', 'cnpj', mascara);
                           }
                         }}
-                        className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                          errors.empresa?.cnpj ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                        className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.empresa?.cnpj ? 'border-red-500' : 'border-gray-300'
+                          }`}
                         placeholder="00.000.000/0000-00"
                         maxLength={18}
                       />
@@ -982,9 +1044,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                         id="empresa-tipo"
                         value={formData.empresa?.tipo || ''}
                         onChange={event => handleInputChange('empresa', 'tipo', event.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                          errors.empresa?.tipo ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                        className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${errors.empresa?.tipo ? 'border-red-500' : 'border-gray-300'
+                          }`}
                       >
                         <option value="">Selecione o tipo</option>
                         {TIPOS_EMPRESA.map(tipo => (

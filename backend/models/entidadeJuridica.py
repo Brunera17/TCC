@@ -1,7 +1,7 @@
 from  datetime import datetime
 from config import db
 from sqlalchemy.orm import validates
-from .base import TimestampMixin, ActiveMixin
+from .base import TimestampMixin, ActiveMixin, format_datetime_to_utc_iso
 import re
 
 class EntidadeJuridica(db.Model, TimestampMixin, ActiveMixin):
@@ -65,9 +65,9 @@ class EntidadeJuridica(db.Model, TimestampMixin, ActiveMixin):
             'regime_tributario_id': self.regime_tributario_id,
             'tipo': self.tipo.to_json() if self.tipo else None,
             'regime_tributario': self.regime_tributario.to_json() if self.regime_tributario else None,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
+            'deleted_at': format_datetime_to_utc_iso(self.deleted_at) if self.deleted_at else None,
             'ativo': self.ativo
         }
     
@@ -100,8 +100,8 @@ class TipoEmpresa(db.Model, TimestampMixin, ActiveMixin):
             'id': self.id,
             'nome': self.nome,
             'descricao': self.descricao,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
             'ativo': self.ativo
         }
     
@@ -139,8 +139,8 @@ class RegimeTributario(db.Model, TimestampMixin, ActiveMixin):
             'nome': self.nome,
             'aplicavel_pj': self.aplicavel_pj,
             'descricao': self.descricao,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
             'ativo': self.ativo
         }
     
@@ -179,8 +179,8 @@ class FaixaFaturamento(db.Model, TimestampMixin, ActiveMixin):
             'valor_minimo': self.valor_minimo,
             'valor_maximo': self.valor_maximo,
             'regime_tributario_id': self.regime_tributario_id,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
             'ativo': self.ativo
         }
     

@@ -1,7 +1,7 @@
 from  datetime import datetime
 from config import db
 from sqlalchemy.orm import validates
-from .base import TimestampMixin, ActiveMixin
+from .base import TimestampMixin, ActiveMixin, format_datetime_to_utc_iso
 import re
 
 
@@ -52,8 +52,8 @@ class Servico(db.Model, TimestampMixin, ActiveMixin):
             'regras_cobranca': self.regras_cobranca,
             'categoria_id': self.categoria_id,
             'ativo': self.ativo,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
         }
     def __repr__(self):
         return f"<Servico {self.nome}>"
@@ -84,8 +84,8 @@ class CategoriaServico(db.Model, TimestampMixin, ActiveMixin):
             'id': self.id,
             'nome': self.nome,
             'descricao': self.descricao,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': format_datetime_to_utc_iso(self.created_at),
+            'updated_at': format_datetime_to_utc_iso(self.updated_at),
             'ativo': self.ativo
         }
     def __repr__(self):

@@ -11,6 +11,7 @@ import {
   Loader2 // Importar Loader2
 } from 'lucide-react';
 import { apiService } from '../../lib/api';
+import { formatarHora } from '../../utils/formatters';
 // 🎨 Importações de UI Padronizadas
 import {
   PageHeader,
@@ -96,7 +97,7 @@ export const Passo2ConfiguracoesTributarias: React.FC<Passo2Props> = ({
   const [ultimoSalvamento, setUltimoSalvamento] = useState<Date | null>(null);
   const [erroSalvamento, setErroSalvamento] = useState<string | null>(null);
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true);
-  
+
   // ... (Toda a lógica interna, hooks e funções de fetch permanecem os mesmos) ...
   // ... (buscarMensalidadeAutomatica, salvarProgresso, carregarTiposAtividade, etc.) ...
   const hasFaixasFaturamento = faixasFaturamento.length > 0;
@@ -408,7 +409,7 @@ export const Passo2ConfiguracoesTributarias: React.FC<Passo2Props> = ({
       onProximo(dadosCompletos);
     }
   };
-  
+
   const getTabState = (tabIndex: number) => {
     switch (tabIndex) {
       case 0: return { enabled: true, required: true };
@@ -474,13 +475,12 @@ export const Passo2ConfiguracoesTributarias: React.FC<Passo2Props> = ({
               key={tab.id}
               onClick={() => handleTabClick(tab.id)}
               disabled={!tab.state.enabled}
-              className={`flex items-center space-x-2 whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                abaAtiva === tab.id
+              className={`flex items-center space-x-2 whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${abaAtiva === tab.id
                   ? 'border-blue-500 text-blue-600'
                   : tab.state.enabled
                     ? 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     : 'border-transparent text-gray-300 cursor-not-allowed'
-              }`}
+                }`}
               title={tab.state.tooltip}
             >
               <tab.icon className="w-4 h-4" />
@@ -530,7 +530,7 @@ export const Passo2ConfiguracoesTributarias: React.FC<Passo2Props> = ({
             {!loadingRegimes && (
               <div className="space-y-4">
                 {regimesCompativeis.map((regime) => (
-                   <div key={regime.id} className={`border rounded-lg p-4 hover:bg-gray-50 transition-colors ${selectedRegimeTributario === regime.id ? 'bg-blue-50 border-blue-300' : 'border-gray-200'}`}>
+                  <div key={regime.id} className={`border rounded-lg p-4 hover:bg-gray-50 transition-colors ${selectedRegimeTributario === regime.id ? 'bg-blue-50 border-blue-300' : 'border-gray-200'}`}>
                     <label className="flex items-center cursor-pointer">
                       <input
                         type="radio"
@@ -591,38 +591,38 @@ export const Passo2ConfiguracoesTributarias: React.FC<Passo2Props> = ({
             )}
           </div>
         )}
-        
+
         {abaAtiva === 3 && (
-            <div className="p-6">
-              <div className="space-y-6">
-                <Card variant="bordered">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Configurações Selecionadas</h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between"><span className="text-gray-600">Tipo de Atividade:</span><span className="font-medium">{tiposAtividade.find(t => t.id === selectedTipoAtividade)?.nome}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Regime Tributário:</span><span className="font-medium">{regimesCompativeis.find(r => r.id === selectedRegimeTributario)?.nome}</span></div>
-                    {selectedFaixaFaturamento && hasFaixasFaturamento && (
-                      <div className="flex justify-between"><span className="text-gray-600">Faixa de Faturamento:</span><span className="font-medium">{formatarMoeda(faixasFaturamento.find(f => f.id === selectedFaixaFaturamento)?.valor_inicial || 0)}</span></div>
-                    )}
-                  </div>
-                </Card>
-                
-                <Card variant={mensalidadeEncontrada && valorMensalidade > 0 ? "success" : "info"}>
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Mensalidade Automática</h3>
-                  {loadingMensalidade ? (
-                    <div className="flex items-center text-gray-600"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Buscando...</div>
-                  ) : (
-                    <>
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-2xl font-bold text-gray-900">{mensalidadeEncontrada && valorMensalidade > 0 ? formatarMoeda(valorMensalidade) : "A Combinar"}</span>
-                        {mensalidadeEncontrada && valorMensalidade > 0 && <span className="text-green-700 text-sm font-medium">Valor Calculado</span>}
-                      </div>
-                      {erroMensalidade && <ErrorMessage message={erroMensalidade} variant="warning" className="mt-2" />}
-                      {mensalidadeEncontrada && valorMensalidade === 0 && !erroMensalidade && <p className="text-sm text-gray-600 mt-2">Valor será definido manualmente.</p>}
-                    </>
+          <div className="p-6">
+            <div className="space-y-6">
+              <Card variant="bordered">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Configurações Selecionadas</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-600">Tipo de Atividade:</span><span className="font-medium">{tiposAtividade.find(t => t.id === selectedTipoAtividade)?.nome}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Regime Tributário:</span><span className="font-medium">{regimesCompativeis.find(r => r.id === selectedRegimeTributario)?.nome}</span></div>
+                  {selectedFaixaFaturamento && hasFaixasFaturamento && (
+                    <div className="flex justify-between"><span className="text-gray-600">Faixa de Faturamento:</span><span className="font-medium">{formatarMoeda(faixasFaturamento.find(f => f.id === selectedFaixaFaturamento)?.valor_inicial || 0)}</span></div>
                   )}
-                </Card>
-              </div>
+                </div>
+              </Card>
+
+              <Card variant={mensalidadeEncontrada && valorMensalidade > 0 ? "success" : "info"}>
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Mensalidade Automática</h3>
+                {loadingMensalidade ? (
+                  <div className="flex items-center text-gray-600"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Buscando...</div>
+                ) : (
+                  <>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-2xl font-bold text-gray-900">{mensalidadeEncontrada && valorMensalidade > 0 ? formatarMoeda(valorMensalidade) : "A Combinar"}</span>
+                      {mensalidadeEncontrada && valorMensalidade > 0 && <span className="text-green-700 text-sm font-medium">Valor Calculado</span>}
+                    </div>
+                    {erroMensalidade && <ErrorMessage message={erroMensalidade} variant="warning" className="mt-2" />}
+                    {mensalidadeEncontrada && valorMensalidade === 0 && !erroMensalidade && <p className="text-sm text-gray-600 mt-2">Valor será definido manualmente.</p>}
+                  </>
+                )}
+              </Card>
             </div>
+          </div>
         )}
       </Card>
 
@@ -639,10 +639,10 @@ export const Passo2ConfiguracoesTributarias: React.FC<Passo2Props> = ({
             {ultimoSalvamento && !salvando && (
               <div className="flex items-center text-green-600 text-sm">
                 <CheckCircle className="w-4 h-4 mr-2" />
-                <span>Salvo {ultimoSalvamento.toLocaleTimeString()}</span>
+                <span>Salvo {formatarHora(ultimoSalvamento)}</span>
               </div>
             )}
-             <Button
+            <Button
               variant="ghost"
               onClick={salvarProgresso}
               disabled={!podeProximo || salvando}

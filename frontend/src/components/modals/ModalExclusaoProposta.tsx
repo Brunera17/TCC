@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatarData } from '../../utils/formatters';
 import type { Proposta } from '../../types';
 import { Modal } from './Modal';
 import { Button } from '../forms/Button';
@@ -68,9 +69,9 @@ export const ModalExclusaoProposta: React.FC<ModalExclusaoPropostaProps> = ({
         (!observacaoObrigatoria || observacao.trim()) &&
         !loading;
 
-    const formatarData = (data: string | null) => {
+    const formatarDataLocal = (data: string | null) => {
         if (!data) return 'Não definida';
-        return new Date(data).toLocaleDateString('pt-BR');
+        return formatarData(data);
     };
 
     const formatarValor = (valor: number | null) => {
@@ -159,11 +160,11 @@ export const ModalExclusaoProposta: React.FC<ModalExclusaoPropostaProps> = ({
                         </div>
                         <div>
                             <span className="text-gray-600">Criação:</span>
-                            <span className="ml-2 font-medium">{formatarData(proposta.created_at || null)}</span>
+                            <span className="ml-2 font-medium">{formatarDataLocal(proposta.created_at || null)}</span>
                         </div>
                         <div>
                             <span className="text-gray-600">Validade:</span>
-                            <span className="ml-2 font-medium">{formatarData(proposta.data_validade || null)}</span>
+                            <span className="ml-2 font-medium">{formatarDataLocal(proposta.data_validade || null)}</span>
                         </div>
                         <div>
                             <span className="text-gray-600">Responsável:</span>

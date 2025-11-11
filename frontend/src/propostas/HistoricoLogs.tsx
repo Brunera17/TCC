@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Edit, Tag, List, DollarSign, Settings, CheckCircle,
     MessageSquare, Clock, X, Search, Filter, Calendar,
     User, ArrowRight, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { apiService } from '../lib/api';
+import { formatarDataHora } from '../utils/formatters';
 
 interface HistoricoLogsProps {
     propostaId: number;
@@ -16,8 +18,9 @@ interface Log {
     id: number;
     proposta_id: number;
     funcionario_id: number;
-    acao: string;
-    detalhes: string;
+    acao?: string;
+    campo_alterado?: string;
+    detalhes: string | null;
     detalhes_formatados?: any;
     created_at: string;
     funcionario?: {
@@ -25,6 +28,7 @@ interface Log {
         nome: string;
         email: string;
     };
+    usuario_nome?: string;
 }
 
 export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
@@ -39,54 +43,47 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
     const [selectedFilter, setSelectedFilter] = useState<string>('all');
     const [showFilters, setShowFilters] = useState(false);
 
-    useEffect(() => {
-        if (isOpen && propostaId) {
-            carregarLogs();
-        }
-    }, [isOpen, propostaId]);
-
-    const carregarLogs = async () => {
+    const carregarLogs = useCallback(async () => {
         setLoading(true);
         setError('');
 
         try {
             const response = await apiService.getLogsPropostas(propostaId);
-            setLogs(response.logs || []);
+            // API agora retorna formato unificado: { logs: [...] }
+            const resolved = (response && response.logs) ? response.logs : (Array.isArray(response) ? response : []);
+            setLogs(resolved);
         } catch (error) {
             console.error('Erro ao carregar logs:', error);
             setError('Erro ao carregar histórico de alterações');
         } finally {
             setLoading(false);
         }
-    };
+    }, [propostaId]);
+
+    useEffect(() => {
+        if (isOpen && propostaId) {
+            carregarLogs();
+        }
+    }, [isOpen, carregarLogs, propostaId]);
+
+
 
     const getIconeAcao = (acao: string) => {
         const icones = {
             'PROPOSTA_EDITADA': <Edit className="w-4 h-4 text-custom-blue" />,
+            'PROPOSTA_CRIADA': <CheckCircle className="w-4 h-4 text-emerald-600" />,
             'STATUS_ALTERADO': <Tag className="w-4 h-4 text-purple-600" />,
             'SERVICOS_ALTERADOS': <List className="w-4 h-4 text-green-600" />,
             'DESCONTO_ALTERADO': <DollarSign className="w-4 h-4 text-orange-600" />,
             'CONFIGURACOES_ALTERADAS': <Settings className="w-4 h-4 text-indigo-600" />,
             'PROPOSTA_FINALIZADA': <CheckCircle className="w-4 h-4 text-emerald-600" />,
+            'PROPOSTA_DELETADA': <X className="w-4 h-4 text-red-600" />,
             'OBSERVACOES_ALTERADAS': <MessageSquare className="w-4 h-4 text-gray-600" />
         };
         return icones[acao as keyof typeof icones] || <Clock className="w-4 h-4 text-gray-500" />;
     };
 
-    const formatarDetalhes = (log: Log) => {
-        if (typeof log.detalhes_formatados === 'object') {
-            return (
-                <pre className="text-xs bg-gray-100 p-2 rounded mt-2 overflow-x-auto">
-                    {JSON.stringify(log.detalhes_formatados, null, 2)}
-                </pre>
-            );
-        }
-        return <p className="text-sm text-gray-600 mt-1">{log.detalhes_formatados || log.detalhes}</p>;
-    };
-
-    const formatarAcao = (acao: string) => {
-        return acao.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-    };
+    // formatadores auxiliares não utilizados diretamente aqui (mantidos por compatibilidade futura)
 
     // Funções de filtro e formatação
     const getAcaoInfo = (acao: string) => {
@@ -139,6 +136,22 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
                 dotColor: 'bg-emerald-500',
                 iconBgColor: 'bg-emerald-100'
             },
+            'PROPOSTA_CRIADA': {
+                label: 'Proposta Criada',
+                color: 'blue',
+                bgColor: 'bg-blue-50',
+                borderColor: 'border-blue-200',
+                dotColor: 'bg-blue-500',
+                iconBgColor: 'bg-blue-100'
+            },
+            'PROPOSTA_DELETADA': {
+                label: 'Proposta Deletada',
+                color: 'red',
+                bgColor: 'bg-red-50',
+                borderColor: 'border-red-200',
+                dotColor: 'bg-red-500',
+                iconBgColor: 'bg-red-100'
+            },
             'OBSERVACOES_ALTERADAS': {
                 label: 'Observações Alteradas',
                 color: 'gray',
@@ -172,25 +185,11 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
         if (diffDays === 1) return 'Ontem';
         if (diffDays < 7) return `${diffDays} dias atrás`;
 
-        return dataLog.toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        // Formatar explicitamente no fuso de Brasília usando util
+        return formatarDataHora(data);
     };
 
-    const formatarDataCompleta = (data: string) => {
-        return new Date(data).toLocaleString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
-    };
+    const formatarDataCompleta = (data: string) => formatarDataHora(data);
 
     // Filtros e busca
     const filteredLogs = useMemo(() => {
@@ -198,17 +197,25 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
 
         // Filtro por tipo de ação
         if (selectedFilter !== 'all') {
-            filtered = filtered.filter(log => log.acao === selectedFilter);
+            filtered = filtered.filter(log => {
+                const actionKey = log.acao || (log.campo_alterado ? 'PROPOSTA_EDITADA' : '');
+                return actionKey === selectedFilter;
+            });
         }
 
         // Busca por texto
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase();
-            filtered = filtered.filter(log =>
-                log.detalhes.toLowerCase().includes(term) ||
-                log.funcionario?.nome.toLowerCase().includes(term) ||
-                getAcaoInfo(log.acao).label.toLowerCase().includes(term)
-            );
+            filtered = filtered.filter(log => {
+                const detalhesText = (log.detalhes || '') as string;
+                const nomeUsuario = (log.funcionario?.nome || log.usuario_nome || '') as string;
+                const actionKey = log.acao || (log.campo_alterado ? 'PROPOSTA_EDITADA' : 'OUTRA_ACAO');
+                return (
+                    detalhesText.toLowerCase().includes(term) ||
+                    nomeUsuario.toLowerCase().includes(term) ||
+                    getAcaoInfo(actionKey).label.toLowerCase().includes(term)
+                );
+            });
         }
 
         return filtered;
@@ -218,7 +225,8 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
     const actionCounts = useMemo(() => {
         const counts: { [key: string]: number } = {};
         logs.forEach(log => {
-            counts[log.acao] = (counts[log.acao] || 0) + 1;
+            const actionKey = log.acao || (log.campo_alterado ? 'PROPOSTA_EDITADA' : 'OUTRA_ACAO');
+            counts[actionKey] = (counts[actionKey] || 0) + 1;
         });
         return counts;
     }, [logs]);
@@ -234,8 +242,8 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+    const modal = (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
             <div className="bg-white shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col mx-4">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-gray-700 to-gray-800 text-white p-6 flex-shrink-0">
@@ -358,8 +366,9 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
                             <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
 
                             <div className="space-y-6">
-                                {filteredLogs.map((log, index) => {
-                                    const acaoInfo = getAcaoInfo(log.acao);
+                                {filteredLogs.map((log) => {
+                                    const actionKey = log.acao || (log.campo_alterado ? 'PROPOSTA_EDITADA' : 'OUTRA_ACAO');
+                                    const acaoInfo = getAcaoInfo(actionKey);
                                     return (
                                         <div key={log.id} className="relative">
                                             {/* Timeline dot */}
@@ -370,7 +379,7 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
                                                 <div className="flex items-start justify-between mb-3">
                                                     <div className="flex items-center space-x-3">
                                                         <div className={`w-8 h-8 ${acaoInfo.iconBgColor} rounded-lg flex items-center justify-center`}>
-                                                            {getIconeAcao(log.acao)}
+                                                            {getIconeAcao(actionKey)}
                                                         </div>
                                                         <div>
                                                             <h4 className="font-semibold text-gray-900">
@@ -378,7 +387,7 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
                                                             </h4>
                                                             <div className="flex items-center space-x-2 text-sm text-gray-600">
                                                                 <User className="w-4 h-4" />
-                                                                <span>{log.funcionario?.nome || 'Usuário desconhecido'}</span>
+                                                                <span>{log.funcionario?.nome || log.usuario_nome || 'Usuário desconhecido'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -412,7 +421,7 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
                                                         </div>
                                                     ) : (
                                                         <p className="text-sm text-gray-700">
-                                                            {log.detalhes_formatados || log.detalhes}
+                                                            {log.detalhes_formatados || log.detalhes || ''}
                                                         </p>
                                                     )}
                                                 </div>
@@ -464,4 +473,7 @@ export const HistoricoLogs: React.FC<HistoricoLogsProps> = ({
             </div>
         </div>
     );
+
+    if (typeof document === 'undefined') return modal;
+    return createPortal(modal, document.body);
 };
