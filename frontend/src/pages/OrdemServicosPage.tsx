@@ -1,23 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus,
-  Search,
   Trash2,
   Eye,
   Edit2,
   Clock,
-  CheckCircle,
-  XCircle,
   Building,
   User,
   History,
-  DollarSign,
   Package,
   List,
   Calendar,
-  Loader2,
-  AlertTriangle,
-  PauseCircle,
   FileText,
   Handshake
 } from 'lucide-react';
@@ -25,6 +18,7 @@ import { format } from 'date-fns';
 
 import { apiService, ApiError } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import {
   PageLayout,
   PageHeader,
@@ -38,7 +32,6 @@ import {
   ModalPadrao, // <-- O componente correto está importado aqui
   type Column
 } from '../components/ui';
-import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { NotificacoesVencimento } from '../components/common/NotificacoesVencimento';
 import { HistoricoAlteracoes } from '../components/common/HistoricoAlteracoes';
 import { formatarMoeda } from '../utils/formatters';
@@ -49,24 +42,13 @@ import { ModalEdicaoOrdemServico } from '../components/modals/ModalEdicaoOrdemSe
 import type {
   Cliente,
   Departamento,
-  Usuario,
   Servico,
-  OrdemServico, 
-  ItemOrdemServico 
+  OrdemServico 
 } from '../types';
 
 // --- Interfaces Baseadas no Backend Model ---
 
 type OrdemServicoStatus = 'aberta' | 'em_andamento' | 'pausada' | 'concluida' | 'cancelada';
-
-interface OrdemServicoEditFormData {
-  status: OrdemServicoStatus;
-  vencimento: string;
-  departamento_id: string;
-  observacao: string;
-}
-
-// --- Constantes de Status ---
 
 const STATUS_OPTIONS: { value: OrdemServicoStatus; label: string }[] = [
   { value: 'aberta', label: 'Aberta' },
@@ -76,18 +58,46 @@ const STATUS_OPTIONS: { value: OrdemServicoStatus; label: string }[] = [
   { value: 'cancelada', label: 'Cancelada' },
 ];
 
-const STATUS_ICONS: Record<OrdemServicoStatus, React.ElementType> = {
-  aberta: Clock,
-  em_andamento: Loader2,
-  pausada: PauseCircle,
-  concluida: CheckCircle,
-  cancelada: XCircle,
+type OrdensServicoResponse = {
+  data: OrdemServico[];
+  total: number;
+  per_page: number;
+};
+
+type PaginatedResponse<T> = {
+  data: T[];
+};
+
+const isPaginatedOrdensResponse = (response: unknown): response is OrdensServicoResponse => {
+  if (!response || typeof response !== 'object') {
+    return false;
+  }
+  const candidate = response as Partial<OrdensServicoResponse>;
+  return Array.isArray(candidate.data) && typeof candidate.total === 'number' && typeof candidate.per_page === 'number';
+};
+
+const isOrdemServicoArray = (value: unknown): value is OrdemServico[] => {
+  return Array.isArray(value) && value.every((item) => item && typeof item === 'object' && 'id' in item);
+};
+
+const extractData = <T,>(response: unknown): T[] => {
+  if (Array.isArray(response)) {
+    return response as T[];
+  }
+  if (response && typeof response === 'object') {
+    const candidate = response as PaginatedResponse<T>;
+    if (Array.isArray(candidate.data)) {
+      return candidate.data;
+    }
+  }
+  return [];
 };
 
 // --- Componente Principal ---
 
 export const OrdemServicosPage: React.FC = () => {
   const { user } = useAuth();
+  const { showWarning, showError, showSuccess } = useToast();
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
@@ -135,7 +145,7 @@ export const OrdemServicosPage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const params: any = {
+      const params: Record<string, string | number | undefined> = {
         page,
         per_page: itemsPerPage,
         search: search || undefined,
@@ -144,11 +154,11 @@ export const OrdemServicosPage: React.FC = () => {
 
       const response = await apiService.getOrdensServico(params);
 
-      if (response && response.data && typeof response.total === 'number' && typeof response.per_page === 'number') {
+      if (isPaginatedOrdensResponse(response)) {
         setOrdens(response.data);
         setTotalPages(Math.ceil(response.total / response.per_page) || 1);
-      } else if (Array.isArray(response)) {
-        setOrdens(response); 
+      } else if (isOrdemServicoArray(response)) {
+        setOrdens(response);
         setTotalPages(1);
       } else {
         throw new Error("Formato de resposta inesperado da API");
@@ -161,7 +171,7 @@ export const OrdemServicosPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, filtroStatus]);
+  }, [currentPage, searchTerm, filtroStatus, itemsPerPage]);
 
   const fetchDependencies = useCallback(async () => {
     try {
@@ -171,13 +181,13 @@ export const OrdemServicosPage: React.FC = () => {
         apiService.getServicos({ per_page: 1000, ativo: true }) 
       ]);
       
-      setClientes(clientesRes.data || (Array.isArray(clientesRes) ? clientesRes : []));
-      setDepartamentos(deptosRes.data || (Array.isArray(deptosRes) ? deptosRes : []));
-      
-      const servicosData = servicosRes.data || (Array.isArray(servicosRes) ? servicosRes : []);
-      const servicosFormatados = servicosData.map((s: any) => ({
-        ...s,
-        valor_base: s.valor_unitario || s.valor_base || s.preco_base || 0
+      setClientes(extractData<Cliente>(clientesRes));
+      setDepartamentos(extractData<Departamento>(deptosRes));
+
+      const servicosData = extractData<Servico>(servicosRes);
+      const servicosFormatados = servicosData.map((servico) => ({
+        ...servico,
+        valor_base: servico.valor_unitario ?? servico.valor_base ?? servico.preco_base ?? 0
       }));
       setTodosServicos(servicosFormatados);
 
@@ -311,9 +321,59 @@ export const OrdemServicosPage: React.FC = () => {
     setModalExclusaoOpen(true);
   };
 
+  const downloadOrdemServico = useCallback(async (ordemId: number) => {
+    try {
+      const params = new URLSearchParams({ download: 'true', orientacao: 'paisagem' });
+      const url = apiService.normalizeUrl(`ordens-servico/${ordemId}/pdf?${params.toString()}`);
+      const headers = new Headers();
+      const token = apiService.getValidToken();
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        let detalhes = `Falha ao gerar PDF (HTTP ${response.status})`;
+        try {
+          const data = await response.json();
+          if (typeof data?.error === 'string') {
+            detalhes = data.error;
+          }
+        } catch {
+          // Ignora corpo inválido
+        }
+        showError('Erro ao gerar PDF', detalhes);
+        return;
+      }
+
+  const blob = await response.blob();
+  const downloadUrl = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = `ordem-servico-${ordemId}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  window.open(downloadUrl, '_blank', 'noopener');
+
+  setTimeout(() => URL.revokeObjectURL(downloadUrl), 3000);
+      showSuccess('Download iniciado', 'O PDF da ordem de serviço está sendo baixado.');
+    } catch (err) {
+      console.warn('Download de OS indisponível', err);
+      showError('Erro ao gerar PDF', 'Não foi possível gerar o documento. Tente novamente mais tarde.');
+    }
+  }, [showError, showSuccess]);
+
   // Handlers de CRUD
   const confirmarDeletar = async () => {
     if (!ordemParaDeletar) return;
+    if (ordemParaDeletar.status === 'concluida') {
+      showWarning('Ação não permitida', 'Não é permitido excluir ordens de serviço concluídas.');
+      setModalExclusaoOpen(false);
+      return;
+    }
     setLoading(true);
     try {
       await apiService.deleteOrdemServico(ordemParaDeletar.id);
@@ -357,6 +417,7 @@ export const OrdemServicosPage: React.FC = () => {
             value={filtroStatus}
             onChange={(e) => handleFiltroStatus(e.target.value)}
             className="w-full md:w-56 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+            aria-label="Filtrar por status"
           >
             <option value="">Todos os Status</option>
             {STATUS_OPTIONS.map(opt => (
@@ -425,8 +486,12 @@ export const OrdemServicosPage: React.FC = () => {
         isOpen={isModalVisualizacaoOpen}
         onClose={() => setIsModalVisualizacaoOpen(false)}
         title="Detalhes da Ordem de Serviço"
-        confirmLabel="Fechar"
-        onConfirm={() => setIsModalVisualizacaoOpen(false)}
+        confirmLabel="Download"
+        onConfirm={() => {
+          if (ordemParaVisualizar) {
+            void downloadOrdemServico(ordemParaVisualizar.id);
+          }
+        }}
         size="lg"
       >
         {ordemParaVisualizar && (

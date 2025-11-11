@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
   Settings, List, CheckCircle, User, Plus, Trash2, Save,
-  Calendar, DollarSign, AlertTriangle, X
+  DollarSign, X
 } from 'lucide-react';
 import { apiService } from '../../lib/api';
 import type { PropostaResponse } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
-import { getStatusConfig, STATUS_COLORS } from '../../utils/statusColors';
+import { STATUS_COLORS } from '../../utils/statusColors';
 import { useToast } from '../../context/ToastContext';
 
 interface ModalEdicaoCompletaProps {

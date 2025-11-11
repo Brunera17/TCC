@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from services.departamento_service import DepartamentoService
-from middleware.autenticacao_middleware import token_obrigatório
+from middleware.autenticacao_middleware import token_obrigatorio
+from models.organizacional import Departamento, Usuario
 
 # Criar blueprint
 bp = Blueprint('departamentos', __name__, url_prefix='/api/departamentos')
@@ -8,12 +9,75 @@ bp = Blueprint('departamentos', __name__, url_prefix='/api/departamentos')
 # Inicializar serviço
 departamento_service = DepartamentoService()
 
+
+def _usuario_contexto():
+    conteudo = getattr(request, 'usuario_atual', {}) or {}
+    if not isinstance(conteudo, dict):
+        return {}
+    if isinstance(conteudo.get('user'), dict):
+        return conteudo['user']
+    return conteudo
+
+
+def _empresa_id_usuario():
+    usuario_payload = _usuario_contexto()
+    empresa = usuario_payload.get('empresa')
+    if isinstance(empresa, dict) and empresa.get('id') is not None:
+        return empresa.get('id')
+
+    usuario_id = usuario_payload.get('id')
+    if not usuario_id:
+        return None
+
+    try:
+        usuario_model = Usuario.query.get(usuario_id)
+        if usuario_model and usuario_model.cargo and usuario_model.cargo.departamento:
+            return usuario_model.cargo.departamento.empresa_id
+    except Exception:
+        pass
+
+    return None
+
+
+def _usuario_eh_admin():
+    return _usuario_contexto().get('tipo_usuario') == 'admin'
+
+
+def _usuario_tem_acesso_empresa(empresa_id: int):
+    if empresa_id is None:
+        return False
+    if _usuario_eh_admin():
+        return True
+    return empresa_id == _empresa_id_usuario()
+
+
+def _filtrar_por_empresa(resultado: dict, empresa_id: int):
+    if not resultado or not empresa_id:
+        return resultado
+    dados = resultado.get('data')
+    if isinstance(dados, list):
+        filtrados = [dept for dept in dados if dept.get('empresa_id') == empresa_id]
+        resultado['data'] = filtrados
+        resultado['total'] = len(filtrados)
+    return resultado
+
+
+def _filtrar_por_status(resultado: dict, status: str):
+    if not resultado or not status:
+        return resultado
+    dados = resultado.get('data')
+    if isinstance(dados, list):
+        filtrados = [dept for dept in dados if dept.get('status') == status]
+        resultado['data'] = filtrados
+        resultado['total'] = len(filtrados)
+    return resultado
+
 # ======================================================
 # 📋 ROTAS DE CONSULTA
 # ======================================================
 
 @bp.route('/', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def listar_departamentos():
     """
     Lista todos os departamentos ativos
@@ -25,15 +89,26 @@ def listar_departamentos():
     """
     try:
         # Verificar parâmetros de consulta
-        empresa_id = request.args.get('empresa_id', type=int)
+        empresa_id_param = request.args.get('empresa_id', type=int)
         status = request.args.get('status', type=str)
         search = request.args.get('search', type=str)
+
+        empresa_id_usuario = _empresa_id_usuario()
+        usuario_admin = _usuario_eh_admin()
+
+        if not usuario_admin:
+            if not empresa_id_usuario:
+                return jsonify({'error': 'Usuário não está vinculado a uma empresa.'}), 403
+            if empresa_id_param and empresa_id_param != empresa_id_usuario:
+                return jsonify({'error': 'Acesso negado para a empresa informada.'}), 403
+            empresa_id_param = empresa_id_param or empresa_id_usuario
         
         # Buscar por empresa específica
-        if empresa_id:
-            resultado = departamento_service.get_by_empresa(empresa_id)
+        if empresa_id_param:
+            resultado = departamento_service.get_by_empresa(empresa_id_param)
             if not resultado['success']:
                 return jsonify({'error': resultado['error']}), 404
+            resultado = _filtrar_por_status(resultado, status)
             return jsonify(resultado), 200
         
         # Buscar por termo
@@ -41,6 +116,9 @@ def listar_departamentos():
             resultado = departamento_service.search(search)
             if not resultado['success']:
                 return jsonify({'error': resultado['error']}), 400
+            if not usuario_admin and empresa_id_usuario:
+                resultado = _filtrar_por_empresa(resultado, empresa_id_usuario)
+            resultado = _filtrar_por_status(resultado, status)
             return jsonify(resultado), 200
         
         # Listar todos
@@ -48,14 +126,10 @@ def listar_departamentos():
         if not resultado['success']:
             return jsonify({'error': resultado['error']}), 500
         
-        # Filtrar por status se especificado
-        if status:
-            departamentos_filtrados = [
-                dept for dept in resultado['data'] 
-                if dept.get('status') == status
-            ]
-            resultado['data'] = departamentos_filtrados
-            resultado['total'] = len(departamentos_filtrados)
+        if not usuario_admin and empresa_id_usuario:
+            resultado = _filtrar_por_empresa(resultado, empresa_id_usuario)
+
+        resultado = _filtrar_por_status(resultado, status)
         
         return jsonify(resultado), 200
         
@@ -63,7 +137,7 @@ def listar_departamentos():
         return jsonify({'error': f'Erro interno: {str(e)}'}), 500
 
 @bp.route('/<int:departamento_id>', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def buscar_departamento(departamento_id):
     """
     Busca um departamento específico por ID
@@ -73,6 +147,10 @@ def buscar_departamento(departamento_id):
         
         if not resultado['success']:
             return jsonify({'error': resultado['error']}), 404
+
+        empresa_id = (resultado.get('data') or {}).get('empresa_id')
+        if not _usuario_tem_acesso_empresa(empresa_id):
+            return jsonify({'error': 'Acesso negado para este departamento'}), 403
         
         return jsonify(resultado), 200
         
@@ -80,29 +158,35 @@ def buscar_departamento(departamento_id):
         return jsonify({'error': f'Erro interno: {str(e)}'}), 500
 
 @bp.route('/empresa/<int:empresa_id>', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def listar_por_empresa(empresa_id):
     """
     Lista todos os departamentos de uma empresa específica
     """
     try:
+        if not _usuario_tem_acesso_empresa(empresa_id):
+            return jsonify({'error': 'Acesso negado para a empresa informada'}), 403
+
         resultado = departamento_service.get_by_empresa(empresa_id)
         
         if not resultado['success']:
             return jsonify({'error': resultado['error']}), 404
         
-        return jsonify(resultado), 200
+        return jsonify(_filtrar_por_status(resultado, request.args.get('status'))), 200
         
     except Exception as e:
         return jsonify({'error': f'Erro interno: {str(e)}'}), 500
 
 @bp.route('/empresa/<int:empresa_id>/estatisticas', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def estatisticas_empresa(empresa_id):
     """
     Retorna estatísticas dos departamentos de uma empresa
     """
     try:
+        if not _usuario_tem_acesso_empresa(empresa_id):
+            return jsonify({'error': 'Acesso negado para a empresa informada'}), 403
+
         resultado = departamento_service.get_estatisticas_empresa(empresa_id)
         
         if not resultado['success']:
@@ -118,7 +202,7 @@ def estatisticas_empresa(empresa_id):
 # ======================================================
 
 @bp.route('/', methods=['POST'])
-@token_obrigatório
+@token_obrigatorio
 def criar_departamento():
     """
     Cria um novo departamento
@@ -138,8 +222,17 @@ def criar_departamento():
             return jsonify({'error': 'Dados não fornecidos'}), 400
         
         # Verificar permissões (apenas admin ou gerente pode criar departamentos)
-        if not departamento_service.usuario_eh_admin_ou_gerente(request.usuario_atual['user']['id']):
+        usuario = _usuario_contexto()
+        if not departamento_service.usuario_eh_admin_ou_gerente(usuario.get('id')):
             return jsonify({'error': 'Acesso negado. Apenas administradores e gerentes podem criar departamentos'}), 403
+
+        empresa_id_usuario = _empresa_id_usuario()
+        if not _usuario_eh_admin():
+            if not empresa_id_usuario:
+                return jsonify({'error': 'Usuário não está vinculado a uma empresa.'}), 403
+            if dados.get('empresa_id') and dados['empresa_id'] != empresa_id_usuario:
+                return jsonify({'error': 'Empresa informada não corresponde ao usuário autenticado.'}), 403
+            dados['empresa_id'] = empresa_id_usuario
         
         resultado = departamento_service.create(dados)
         
@@ -152,7 +245,7 @@ def criar_departamento():
         return jsonify({'error': f'Erro interno: {str(e)}'}), 500
 
 @bp.route('/<int:departamento_id>', methods=['PUT'])
-@token_obrigatório
+@token_obrigatorio
 def atualizar_departamento(departamento_id):
     """
     Atualiza um departamento existente
@@ -170,9 +263,21 @@ def atualizar_departamento(departamento_id):
         if not dados:
             return jsonify({'error': 'Dados não fornecidos'}), 400
         
+        departamento = Departamento.query.get(departamento_id)
+        if not departamento:
+            return jsonify({'error': 'Departamento não encontrado'}), 404
+        if not _usuario_tem_acesso_empresa(departamento.empresa_id):
+            return jsonify({'error': 'Acesso negado para este departamento'}), 403
+
         # Verificar permissões
-        if not departamento_service.usuario_eh_admin_ou_gerente(request.usuario_atual['user']['id']):
+        usuario = _usuario_contexto()
+        if not departamento_service.usuario_eh_admin_ou_gerente(usuario.get('id')):
             return jsonify({'error': 'Acesso negado. Apenas administradores e gerentes podem atualizar departamentos'}), 403
+
+        if not _usuario_eh_admin():
+            if dados.get('empresa_id') and dados['empresa_id'] != departamento.empresa_id:
+                return jsonify({'error': 'Não é possível alterar a empresa do departamento'}), 403
+            dados.pop('empresa_id', None)
         
         resultado = departamento_service.update(departamento_id, dados)
         
@@ -185,14 +290,21 @@ def atualizar_departamento(departamento_id):
         return jsonify({'error': f'Erro interno: {str(e)}'}), 500
 
 @bp.route('/<int:departamento_id>', methods=['DELETE'])
-@token_obrigatório
+@token_obrigatorio
 def remover_departamento(departamento_id):
     """
     Remove um departamento (soft delete)
     """
     try:
+        departamento = Departamento.query.get(departamento_id)
+        if not departamento:
+            return jsonify({'error': 'Departamento não encontrado'}), 404
+        if not _usuario_tem_acesso_empresa(departamento.empresa_id):
+            return jsonify({'error': 'Acesso negado para este departamento'}), 403
+
         # Verificar permissões (apenas admin pode deletar)
-        if not departamento_service.usuario_eh_admin(request.usuario_atual['user']['id']):
+        usuario = _usuario_contexto()
+        if not departamento_service.usuario_eh_admin(usuario.get('id')):
             return jsonify({'error': 'Acesso negado. Apenas administradores podem remover departamentos'}), 403
         
         resultado = departamento_service.delete(departamento_id)
@@ -210,7 +322,7 @@ def remover_departamento(departamento_id):
 # ======================================================
 
 @bp.route('/search', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def buscar_departamentos():
     """
     Busca departamentos por termo no nome
@@ -228,6 +340,12 @@ def buscar_departamentos():
         
         if not resultado['success']:
             return jsonify({'error': resultado['error']}), 400
+
+        if not _usuario_eh_admin():
+            empresa_id_usuario = _empresa_id_usuario()
+            if not empresa_id_usuario:
+                return jsonify({'error': 'Usuário não está vinculado a uma empresa.'}), 403
+            resultado = _filtrar_por_empresa(resultado, empresa_id_usuario)
         
         return jsonify(resultado), 200
         
@@ -239,7 +357,7 @@ def buscar_departamentos():
 # ======================================================
 
 @bp.route('/relatorio/geral', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def relatorio_geral():
     """
     Relatório geral de todos os departamentos
@@ -249,7 +367,8 @@ def relatorio_geral():
     """
     try:
         # Verificar permissões
-        if not departamento_service.usuario_eh_admin_ou_gerente(request.usuario_atual['user']['id']):
+        usuario = _usuario_contexto()
+        if not departamento_service.usuario_eh_admin_ou_gerente(usuario.get('id')):
             return jsonify({'error': 'Acesso negado'}), 403
         
         resultado = departamento_service.get_all()
@@ -257,6 +376,12 @@ def relatorio_geral():
         if not resultado['success']:
             return jsonify({'error': resultado['error']}), 500
         
+        empresa_id_usuario = _empresa_id_usuario()
+        if not _usuario_eh_admin():
+            if not empresa_id_usuario:
+                return jsonify({'error': 'Usuário não está vinculado a uma empresa.'}), 403
+            resultado = _filtrar_por_empresa(resultado, empresa_id_usuario)
+
         # Adicionar estatísticas gerais
         departamentos = resultado['data']
         total = len(departamentos)

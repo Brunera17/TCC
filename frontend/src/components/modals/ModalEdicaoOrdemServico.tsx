@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Plus,
   Trash2,
@@ -22,57 +22,45 @@ import type {
   Departamento,
   Servico,
   ItemOrdemServico,
-  OrdemServico, 
-  OrdemServicoUpdateData 
+  OrdemServico,
+  OrdemServicoUpdateData
 } from '../../types';
 
-// Tipos de Status
-type OrdemServicoStatus = 'aberta' | 'em_andamento' | 'pausada' | 'concluida' | 'cancelada';
+type OrdemServicoStatus = OrdemServico['status'];
 
-const STATUS_OPTIONS: { value: OrdemServicoStatus; label: string }[] = [
+const STATUS_OPTIONS: Array<{ value: OrdemServicoStatus; label: string }> = [
   { value: 'aberta', label: 'Aberta' },
-  { value: 'em_andamento', label: 'Em Andamento' },
+  { value: 'em_andamento', label: 'Em andamento' },
   { value: 'pausada', label: 'Pausada' },
   { value: 'concluida', label: 'Concluída' },
-  { value: 'cancelada', label: 'Cancelada' },
+  { value: 'cancelada', label: 'Cancelada' }
 ];
 
-// --- Interfaces locais para o formulário ---
-
-interface ItemOrdemServicoFormData {
-  id?: number; 
-  tempId: string; 
+interface ItemOrdemServicoFormData extends Omit<ItemOrdemServico, 'servico_id'> {
+  tempId: string;
   servico_id: number | '';
-  quantidade: number;
-  valor_unitario: number;
-  desconto: number; 
-  valor_total: number;
 }
 
 interface OrdemServicoFormData {
   protocolo: string;
-  cliente_id: string; // IDs como string para o <select>
-  departamento_id: string; // IDs como string para o <select>
+  cliente_id: string;
+  departamento_id: string;
   vencimento: string;
   observacao: string;
-  status: OrdemServicoStatus; 
+  status: OrdemServicoStatus;
   itens: ItemOrdemServicoFormData[];
   valor_total_os: number;
 }
 
-// --- Props do Modal ---
-
 interface ModalEdicaoOrdemServicoProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaved: () => void; 
-  ordemParaEditar: OrdemServico | null; 
+  onSaved: () => void;
+  ordemParaEditar: OrdemServico | null;
   clientes: Cliente[];
   departamentos: Departamento[];
   servicos: Servico[];
 }
-
-// --- Funções Helper ---
 
 const createEmptyItem = (): ItemOrdemServicoFormData => ({
   tempId: `item-${Date.now()}-${Math.random()}`,
@@ -89,7 +77,8 @@ const calcularValorTotalItem = (item: ItemOrdemServicoFormData): number => {
   return subtotal - descontoValor;
 };
 
-// --- Componente ---
+const calcularValorTotalOS = (itens: ItemOrdemServicoFormData[]): number =>
+  itens.reduce((acc, current) => acc + current.valor_total, 0);
 
 export const ModalEdicaoOrdemServico: React.FC<ModalEdicaoOrdemServicoProps> = ({
   isOpen,
@@ -100,105 +89,145 @@ export const ModalEdicaoOrdemServico: React.FC<ModalEdicaoOrdemServicoProps> = (
   departamentos,
   servicos
 }) => {
-  const { showSuccess, showError } = useToast();
+  const { showSuccess } = useToast();
   const [formData, setFormData] = useState<OrdemServicoFormData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const servicoMap = useMemo(() => {
-    const map = new Map<number, Servico>();
-    servicos.forEach(s => map.set(s.id, s));
-    return map;
+    const mapa = new Map<number, Servico>();
+    servicos.forEach(servico => mapa.set(servico.id, servico));
+    return mapa;
   }, [servicos]);
 
-  // Carrega os dados da OS para edição quando o modal é aberto
   useEffect(() => {
     if (isOpen && ordemParaEditar) {
       setError('');
       setLoading(false);
-      
-      const itensFormatados: ItemOrdemServicoFormData[] = ordemParaEditar.itens.map(item => ({
-        ...item,
-        tempId: `item-db-${item.id}`,
-        servico_id: item.servico_id || '',
-      }));
 
-      // --- CORREÇÃO AQUI ---
-      // Lendo o ID de dentro dos objetos aninhados (cliente.id e departamento.id)
-      // O backend envia o objeto 'cliente', não o 'cliente_id' no nível raiz.
+      const itensExistentes = ordemParaEditar.itens.map<ItemOrdemServicoFormData>((item) => {
+        const tempId = `item-db-${item.id ?? Math.random()}`;
+        const servicoId = item.servico_id ?? '';
+        const valorUnitario =
+          item.valor_unitario ??
+          item.servico?.valor_unitario ??
+          item.servico?.valor_base ??
+          0;
+
+        const itemFormatado: ItemOrdemServicoFormData = {
+          ...item,
+          tempId,
+          servico_id: servicoId,
+          quantidade: item.quantidade ?? 1,
+          valor_unitario: valorUnitario,
+          desconto: item.desconto ?? 0,
+          valor_total: item.valor_total ?? 0,
+        };
+
+        return {
+          ...itemFormatado,
+          valor_total: item.valor_total ?? calcularValorTotalItem(itemFormatado),
+        };
+      });
+
+      const itensForm = itensExistentes.length > 0 ? itensExistentes : [createEmptyItem()];
+      const valorTotal = calcularValorTotalOS(itensForm);
+
+      const clienteIdOrigem = ordemParaEditar.cliente?.id ?? ordemParaEditar.cliente_id;
+      const departamentoIdOrigem = ordemParaEditar.departamento?.id ?? ordemParaEditar.departamento_id;
+
       setFormData({
         protocolo: ordemParaEditar.protocolo,
-        cliente_id: ordemParaEditar.cliente?.id?.toString() || ordemParaEditar.cliente_id?.toString() || '',
-        departamento_id: ordemParaEditar.departamento?.id?.toString() || ordemParaEditar.departamento_id?.toString() || '',
-        vencimento: ordemParaEditar.vencimento ? ordemParaEditar.vencimento.split('T')[0] : '',
-        observacao: ordemParaEditar.observacao || '',
+        cliente_id: clienteIdOrigem ? String(clienteIdOrigem) : '',
+        departamento_id: departamentoIdOrigem ? String(departamentoIdOrigem) : '',
+        vencimento: ordemParaEditar.vencimento
+          ? ordemParaEditar.vencimento.split('T')[0]
+          : '',
+        observacao: ordemParaEditar.observacao ?? '',
         status: ordemParaEditar.status,
-        itens: itensFormatados.length > 0 ? itensFormatados : [createEmptyItem()],
-        valor_total_os: ordemParaEditar.valor_total_os,
+        itens: itensForm,
+        valor_total_os: valorTotal,
       });
-      // --- FIM DA CORREÇÃO ---
-
-    } else {
+    } else if (!isOpen) {
       setFormData(null);
     }
   }, [isOpen, ordemParaEditar]);
 
-  // Recalcula o valor total da OS sempre que os itens mudam
-  useEffect(() => {
-    if (formData) {
-      const total = formData.itens.reduce((acc, item) => acc + item.valor_total, 0);
-      setFormData(prev => (prev ? { ...prev, valor_total_os: total } : null));
-    }
-  }, [formData?.itens]);
-
-  if (!formData) return null;
-
-  const handleInputChange = (
-    field: keyof OrdemServicoFormData,
-    value: string | number
+  const handleInputChange = <K extends keyof OrdemServicoFormData>(
+    field: K,
+    value: OrdemServicoFormData[K]
   ) => {
-    setFormData(prev => (prev ? { ...prev, [field]: String(value) } : null));
+    setFormData(prev => (prev ? { ...prev, [field]: value } : prev));
     setError('');
   };
 
   const handleItemChange = (
     tempId: string,
-    field: keyof ItemOrdemServicoFormData,
-    value: string | number
+    field: keyof Pick<ItemOrdemServicoFormData, 'servico_id' | 'quantidade' | 'valor_unitario' | 'desconto'>,
+    rawValue: string | number
   ) => {
     setFormData(prev => {
-      if (!prev) return null;
-      const novosItens = prev.itens.map(item => {
-        if (item.tempId === tempId) {
-          const updatedItem = { ...item, [field]: value };
+      if (!prev) {
+        return prev;
+      }
 
-          if (field === 'servico_id') {
-            const servico = servicoMap.get(Number(value));
-            const valorBase = servico?.valor_unitario ?? servico?.valor_base ?? 0;
-            updatedItem.valor_unitario = valorBase;
-          }
-          
-          updatedItem.valor_total = calcularValorTotalItem(updatedItem);
-          return updatedItem;
+      const itensAtualizados = prev.itens.map(item => {
+        if (item.tempId !== tempId) {
+          return item;
         }
-        return item;
+
+        const atualizado: ItemOrdemServicoFormData = { ...item };
+
+        if (field === 'servico_id') {
+          const numericId = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+          const servicoId = numericId > 0 ? numericId : '';
+          atualizado.servico_id = servicoId;
+          const servico = typeof servicoId === 'number' ? servicoMap.get(servicoId) : undefined;
+          atualizado.valor_unitario = servico?.valor_unitario ?? servico?.valor_base ?? 0;
+        } else {
+          const numericValue = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+          atualizado[field] = Number.isFinite(numericValue) ? numericValue : 0;
+        }
+
+        atualizado.valor_total = calcularValorTotalItem(atualizado);
+        return atualizado;
       });
-      return { ...prev, itens: novosItens };
+
+      return {
+        ...prev,
+        itens: itensAtualizados,
+        valor_total_os: calcularValorTotalOS(itensAtualizados),
+      };
     });
   };
 
   const handleAdicionarItem = () => {
-    setFormData(prev => (prev ? {
-      ...prev,
-      itens: [...prev.itens, createEmptyItem()]
-    } : null));
+    setFormData(prev => {
+      if (!prev) {
+        return prev;
+      }
+      const novosItens = [...prev.itens, createEmptyItem()];
+      return {
+        ...prev,
+        itens: novosItens,
+        valor_total_os: calcularValorTotalOS(novosItens),
+      };
+    });
   };
 
   const handleRemoverItem = (tempId: string) => {
-    setFormData(prev => (prev ? {
-      ...prev,
-      itens: prev.itens.filter(item => item.tempId !== tempId)
-    } : null));
+    setFormData(prev => {
+      if (!prev) {
+        return prev;
+      }
+      const filtrados = prev.itens.filter(item => item.tempId !== tempId);
+      const itensRestantes = filtrados.length > 0 ? filtrados : [createEmptyItem()];
+      return {
+        ...prev,
+        itens: itensRestantes,
+        valor_total_os: calcularValorTotalOS(itensRestantes),
+      };
+    });
   };
 
   const handleSalvar = async () => {
@@ -207,21 +236,24 @@ export const ModalEdicaoOrdemServico: React.FC<ModalEdicaoOrdemServicoProps> = (
     setError('');
 
     if (!formData.cliente_id) {
-      setError('O Cliente é obrigatório.'); return;
+      setError('O Cliente é obrigatório.');
+      return;
     }
     if (!formData.departamento_id) {
-        setError('O Departamento é obrigatório.'); return;
+      setError('O Departamento é obrigatório.');
+      return;
     }
     const itensInvalidos = formData.itens.some(item => !item.servico_id || item.quantidade < 1);
     if (itensInvalidos) {
-      setError('Todos os itens devem ter um serviço selecionado e quantidade de pelo menos 1.'); return;
+      setError('Todos os itens devem ter um serviço selecionado e quantidade de pelo menos 1.');
+      return;
     }
 
     setLoading(true);
 
     const payloadItens: ItemOrdemServico[] = formData.itens.map(item => ({
       id: item.id,
-      servico_id: Number(item.servico_id),
+      servico_id: typeof item.servico_id === 'number' ? item.servico_id : Number(item.servico_id),
       quantidade: Number(item.quantidade),
       valor_unitario: Number(item.valor_unitario),
       desconto: Number(item.desconto),
@@ -234,7 +266,7 @@ export const ModalEdicaoOrdemServico: React.FC<ModalEdicaoOrdemServicoProps> = (
       vencimento: formData.vencimento,
       observacao: formData.observacao,
       status: formData.status,
-      valor_total_os: formData.valor_total_os,
+      valor_total_os: calcularValorTotalOS(formData.itens),
       itens: payloadItens,
     };
 
@@ -244,13 +276,21 @@ export const ModalEdicaoOrdemServico: React.FC<ModalEdicaoOrdemServicoProps> = (
       onSaved();
       onClose();
     } catch (err) {
-      console.error("Erro ao atualizar Ordem de Serviço:", err);
-      const errorMsg = err instanceof ApiError ? `Erro ${err.status}: ${JSON.stringify(err.details)}` : (err instanceof Error ? err.message : 'Erro desconhecido');
+      console.error('Erro ao atualizar Ordem de Serviço:', err);
+      const errorMsg = err instanceof ApiError
+        ? `Erro ${err.status}: ${JSON.stringify(err.details)}`
+        : err instanceof Error
+          ? err.message
+          : 'Erro desconhecido';
       setError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
+
+  if (!formData) {
+    return null;
+  }
 
   return (
     <ModalPadrao
@@ -381,91 +421,108 @@ export const ModalEdicaoOrdemServico: React.FC<ModalEdicaoOrdemServicoProps> = (
             {formData.itens.length === 0 && (
               <p className="text-center text-gray-500 italic py-4">Nenhum item adicionado.</p>
             )}
-            {formData.itens.map((item) => (
-              <div key={item.tempId} className="grid grid-cols-12 gap-x-3 gap-y-2 p-3 bg-white border rounded-lg shadow-sm">
-                
-                {/* Serviço */}
-                <div className="col-span-12 md:col-span-4">
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <Package className="w-3 h-3 mr-1" /> Serviço *
-                  </label>
-                  <select
-                    value={item.servico_id}
-                    onChange={(e) => handleItemChange(item.tempId, 'servico_id', Number(e.target.value))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md bg-white text-sm"
-                  >
-                    <option value="">{servicos.length === 0 ? 'Carregando...' : 'Selecione'}</option>
-                    {servicos.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.nome} ({formatarMoeda(s.valor_unitario || s.valor_base || s.preco_base || 0)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            {formData.itens.map((item) => {
+              const baseId = item.tempId;
+              return (
+                <div key={item.tempId} className="grid grid-cols-12 gap-x-3 gap-y-2 p-3 bg-white border rounded-lg shadow-sm">
+                  {/* Serviço */}
+                  <div className="col-span-12 md:col-span-4">
+                    <label htmlFor={`edit-servico-${baseId}`} className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                      <Package className="w-3 h-3 mr-1" /> Serviço *
+                    </label>
+                    <select
+                      id={`edit-servico-${baseId}`}
+                      value={item.servico_id === '' ? '' : String(item.servico_id)}
+                      onChange={(e) => handleItemChange(
+                        item.tempId,
+                        'servico_id',
+                        e.target.value === '' ? '' : Number(e.target.value)
+                      )}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md bg-white text-sm"
+                    >
+                      <option value="">{servicos.length === 0 ? 'Carregando...' : 'Selecione'}</option>
+                      {servicos.map(s => (
+                        <option key={s.id} value={s.id.toString()}>
+                          {s.nome} ({formatarMoeda(s.valor_unitario || s.valor_base || s.preco_base || 0)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* Qtd */}
-                <div className="col-span-4 md:col-span-1">
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <Hash className="w-3 h-3 mr-1" /> Qtd *
-                  </label>
-                  <input
-                    type="number" value={item.quantidade}
-                    onChange={(e) => handleItemChange(item.tempId, 'quantidade', Number(e.target.value))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
-                    min="1"
-                  />
-                </div>
-                
-                {/* Valor Unit. */}
-                <div className="col-span-8 md:col-span-2">
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <DollarSign className="w-3 h-3 mr-1" /> Valor Unit.
-                  </label>
-                  <input
-                    type="number" value={item.valor_unitario}
-                    onChange={(e) => handleItemChange(item.tempId, 'valor_unitario', Number(e.target.value))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
-                    step="0.01" min="0"
-                  />
-                </div>
+                  {/* Qtd */}
+                  <div className="col-span-4 md:col-span-1">
+                    <label htmlFor={`edit-quantidade-${baseId}`} className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                      <Hash className="w-3 h-3 mr-1" /> Qtd *
+                    </label>
+                    <input
+                      id={`edit-quantidade-${baseId}`}
+                      type="number"
+                      value={item.quantidade}
+                      onChange={(e) => handleItemChange(item.tempId, 'quantidade', Number(e.target.value))}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
+                      min="1"
+                      placeholder="Quantidade"
+                    />
+                  </div>
 
-                {/* Desconto */}
-                <div className="col-span-4 md:col-span-2">
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <Percent className="w-3 h-3 mr-1" /> Desconto (%)
-                  </label>
-                  <input
-                    type="number" value={item.desconto}
-                    onChange={(e) => handleItemChange(item.tempId, 'desconto', Number(e.target.value))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
-                    min="0" max="100"
-                  />
-                </div>
+                  {/* Valor Unit. */}
+                  <div className="col-span-8 md:col-span-2">
+                    <label htmlFor={`edit-valor-unitario-${baseId}`} className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                      <DollarSign className="w-3 h-3 mr-1" /> Valor Unit.
+                    </label>
+                    <input
+                      id={`edit-valor-unitario-${baseId}`}
+                      type="number"
+                      value={item.valor_unitario}
+                      onChange={(e) => handleItemChange(item.tempId, 'valor_unitario', Number(e.target.value))}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
+                      step="0.01"
+                      min="0"
+                      placeholder="Valor unitário"
+                    />
+                  </div>
 
-                {/* Total Item */}
-                <div className="col-span-6 md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Total Item
-                  </label>
-                  <div className="px-2 py-2 bg-gray-100 rounded-md text-sm font-medium text-gray-900">
-                    {formatarMoeda(item.valor_total)}
+                  {/* Desconto */}
+                  <div className="col-span-4 md:col-span-2">
+                    <label htmlFor={`edit-desconto-${baseId}`} className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                      <Percent className="w-3 h-3 mr-1" /> Desconto (%)
+                    </label>
+                    <input
+                      id={`edit-desconto-${baseId}`}
+                      type="number"
+                      value={item.desconto}
+                      onChange={(e) => handleItemChange(item.tempId, 'desconto', Number(e.target.value))}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
+                      min="0"
+                      max="100"
+                      placeholder="Desconto"
+                    />
+                  </div>
+
+                  {/* Total Item */}
+                  <div className="col-span-6 md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Total Item
+                    </label>
+                    <div className="px-2 py-2 bg-gray-100 rounded-md text-sm font-medium text-gray-900">
+                      {formatarMoeda(item.valor_total)}
+                    </div>
+                  </div>
+
+                  {/* Remover */}
+                  <div className="col-span-2 md:col-span-1 flex items-end">
+                    <IconButton
+                      icon={Trash2}
+                      onClick={() => handleRemoverItem(item.tempId)}
+                      variant="danger"
+                      size="md"
+                      title="Remover Item"
+                      disabled={loading || formData.itens.length <= 1}
+                    />
                   </div>
                 </div>
-
-                {/* Remover */}
-                <div className="col-span-2 md:col-span-1 flex items-end">
-                  <IconButton
-                    icon={Trash2}
-                    onClick={() => handleRemoverItem(item.tempId)}
-                    variant="danger"
-                    size="md"
-                    title="Remover Item"
-                    disabled={loading || formData.itens.length <= 1}
-                  />
-                </div>
-
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         

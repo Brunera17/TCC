@@ -4,9 +4,19 @@ from models.entidadeJuridica import RegimeTributario
 class RegimeTributarioRepository:
     """ Repositório para gerenciar regimes tributários """
 
-    def get_all(self):
-        """Retorna todos os regimes tributários ativos"""
-        return RegimeTributario.query.filter_by(ativo=True).all()
+    @staticmethod
+    def _gerar_codigo(regime: RegimeTributario) -> str:
+        prefixo = ''.join(filter(str.isalnum, regime.nome or ''))[:3].upper()
+        if len(prefixo) < 3:
+            prefixo = prefixo.ljust(3, 'X')
+        return f"{prefixo}{regime.id:03d}"
+
+    def get_all(self, ativo_only: bool = True):
+        """Retorna regimes tributários, filtrando ativos por padrão"""
+        consulta = RegimeTributario.query
+        if ativo_only:
+            consulta = consulta.filter_by(ativo=True)
+        return consulta.all()
     
     def get_by_id(self, regime_id: int):
         """Retorna regime tributário por ID"""
@@ -26,11 +36,16 @@ class RegimeTributarioRepository:
     def create(self, regime: RegimeTributario):
         """Cria um novo regime tributário"""
         db.session.add(regime)
+        db.session.flush()
+        if regime.id:
+            regime.codigo = self._gerar_codigo(regime)
         db.session.commit()
         return regime
     
     def update(self, regime: RegimeTributario):
         """Atualiza um regime tributário existente"""
+        if regime.id:
+            regime.codigo = self._gerar_codigo(regime)
         db.session.commit()
         return regime
     

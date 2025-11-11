@@ -4,6 +4,14 @@ from models.tipoAtividade import TipoAtividade
 class TipoAtividadeRepository:
     """ Repositório para gerenciar tipos de atividade """
 
+    @staticmethod
+    def _gerar_codigo(tipo: TipoAtividade) -> str:
+        # Usa as três primeiras letras alfanuméricas do nome como prefixo
+        prefixo = ''.join(filter(str.isalnum, tipo.nome or ''))[:3].upper()
+        if len(prefixo) < 3:
+            prefixo = prefixo.ljust(3, 'X')
+        return f"{prefixo}{tipo.id:03d}"
+
     def get_all(self):
         """Retorna todos os tipos de atividade ativos"""
         return TipoAtividade.query.filter_by(ativo=True).all()
@@ -12,9 +20,12 @@ class TipoAtividadeRepository:
         """Retorna tipo de atividade por ID"""
         return TipoAtividade.query.filter_by(id=tipo_id, ativo=True).first()
     
-    def get_by_nome(self, nome: str):
+    def get_by_nome(self, nome: str, ativo_only: bool = True):
         """Busca tipo de atividade por nome"""
-        return TipoAtividade.query.filter_by(nome=nome, ativo=True).first()
+        consulta = TipoAtividade.query.filter_by(nome=nome)
+        if ativo_only:
+            consulta = consulta.filter_by(ativo=True)
+        return consulta.first()
     
     def get_by_codigo(self, codigo: str):
         """Busca tipo de atividade por código"""
@@ -30,11 +41,16 @@ class TipoAtividadeRepository:
     def create(self, tipo: TipoAtividade):
         """Cria um novo tipo de atividade"""
         db.session.add(tipo)
+        db.session.flush()
+        if tipo.id and not tipo.codigo:
+            tipo.codigo = self._gerar_codigo(tipo)
         db.session.commit()
         return tipo
     
     def update(self, tipo: TipoAtividade):
         """Atualiza um tipo de atividade existente"""
+        if tipo.id and not tipo.codigo:
+            tipo.codigo = self._gerar_codigo(tipo)
         db.session.commit()
         return tipo
     

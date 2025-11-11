@@ -3,11 +3,11 @@ import { Outlet } from 'react-router-dom'
 
 const Home = () => {
     return(
-        <div className="flex h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 pl-64">
             <Sidebar />
-            <div className="flex-1 p-6">
+            <main className="min-h-screen p-6">
                 <Outlet />
-            </div>
+            </main>
         </div>
     )
 }

@@ -1,3 +1,37 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { Agendamento, AgendamentoPayload, Categoria, Funcionario, RegimeTributario, Servico } from '../types';
+
+export const REFRESH_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
+
+const ACCESS_TOKEN_EXPIRATION_KEY = "access_token_expires_at";
+const REFRESH_TOKEN_EXPIRATION_KEY = "refresh_token_expires_at";
+
+export function markTokensIssued(ttlMs: number = REFRESH_TOKEN_TTL_MS) {
+  const expiresAt = Date.now() + ttlMs;
+  localStorage.setItem(ACCESS_TOKEN_EXPIRATION_KEY, expiresAt.toString());
+  localStorage.setItem(REFRESH_TOKEN_EXPIRATION_KEY, expiresAt.toString());
+}
+
+export function clearTokenMetadata() {
+  localStorage.removeItem(ACCESS_TOKEN_EXPIRATION_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_EXPIRATION_KEY);
+}
+
+function isRefreshWindowValid() {
+  const raw = localStorage.getItem(REFRESH_TOKEN_EXPIRATION_KEY);
+  if (!raw) {
+    return true;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    clearTokenMetadata();
+    return true;
+  }
+
+  return Date.now() <= parsed;
+}
+
 export const API_URL = import.meta.env.DEV
   ? "/api"  // Usa proxy do Vite em desenvolvimento
   : (import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:5000/api");
@@ -8,6 +42,19 @@ export interface PaginatedResponse<T> {
   current_page: number;
   per_page: number;
 }
+
+type AgendamentosListResponse =
+  | Agendamento[]
+  | PaginatedResponse<Agendamento>
+  | {
+      data?: Agendamento[];
+      results?: Agendamento[];
+      items?: Agendamento[];
+      total?: number;
+      per_page?: number;
+    };
+
+type AgendamentosQuery = Record<string, string | number | boolean | undefined>;
 
 export class ApiError extends Error {
   public status: number;
@@ -29,12 +76,18 @@ function log(...args: any[]) {
   if (import.meta.env.DEV) console.log("🧩 ApiService:", ...args);
 }
 
-function buildHeaders(extra: Record<string, string> = {}): Headers {
+function buildHeaders(extra: HeadersInit = {}, includeJsonContentType = true): Headers {
   const headers = new Headers(extra);
   const token = getValidToken();
 
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const hasContentType = headers.has("Content-Type");
+
+  if (includeJsonContentType) {
+    if (!hasContentType) headers.set("Content-Type", "application/json");
+  } else if (hasContentType) {
+    headers.delete("Content-Type");
+  }
 
   return headers;
 }
@@ -46,6 +99,263 @@ function normalizeUrl(path: string): string {
 }
 
 type GenericRecord = Record<string, unknown>;
+
+function toNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function generatePropostaNumero(now: Date = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const time = `${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+  const millis = String(now.getMilliseconds()).padStart(3, "0");
+  return `PROP-${year}${month}${day}-${time}${millis}`;
+}
+
+type BackendPropostaStatus = 'rascunho' | 'enviada' | 'aceita' | 'rejeitada' | 'expirada';
+
+const STATUS_TO_BACKEND: Record<string, BackendPropostaStatus> = {
+  rascunho: 'rascunho',
+  draft: 'rascunho',
+  pendente: 'enviada',
+  aguardando_aprovacao: 'enviada',
+  enviada: 'enviada',
+  aprovada: 'aceita',
+  aceita: 'aceita',
+  aceita_proposta: 'aceita',
+  rejeitada: 'rejeitada',
+  recusada: 'rejeitada',
+  cancelada: 'expirada',
+  expirada: 'expirada'
+};
+
+function normalizePropostaStatusForBackend(status: unknown): BackendPropostaStatus {
+  if (typeof status === 'string') {
+    const key = status.trim().toLowerCase();
+    if (key && STATUS_TO_BACKEND[key]) {
+      return STATUS_TO_BACKEND[key];
+    }
+  }
+  return 'rascunho';
+}
+
+function normalizePropostasResponse(raw: unknown, params?: Record<string, unknown>) {
+  const requestedPage = toNumber(params?.page) ?? 1;
+  const requestedPerPage = toNumber(params?.per_page);
+
+  if (Array.isArray(raw)) {
+    const count = raw.length;
+    return {
+      data: raw,
+      total: count,
+      per_page: requestedPerPage ?? (count || 1),
+      current_page: requestedPage
+    };
+  }
+
+  if (raw && typeof raw === 'object') {
+    const candidates = ['data', 'results', 'items', 'propostas'];
+    for (const key of candidates) {
+      const collection = (raw as Record<string, unknown>)[key];
+      if (Array.isArray(collection)) {
+        const total = toNumber((raw as Record<string, unknown>).total) ?? toNumber((raw as Record<string, unknown>).count) ?? collection.length;
+        const perPage = toNumber((raw as Record<string, unknown>).per_page) ?? toNumber((raw as Record<string, unknown>).page_size) ?? requestedPerPage ?? (collection.length || 1);
+        const current = toNumber((raw as Record<string, unknown>).current_page) ?? toNumber((raw as Record<string, unknown>).page) ?? requestedPage;
+        return {
+          ...(raw as Record<string, unknown>),
+          data: collection,
+          total,
+          per_page: perPage,
+          current_page: current
+        };
+      }
+    }
+  }
+
+  return {
+    data: [],
+    total: 0,
+    per_page: requestedPerPage ?? 1,
+    current_page: requestedPage
+  };
+}
+
+function normalizeFaixaFaturamento(raw: any): any {
+  if (!raw || typeof raw !== "object") return raw;
+
+  const valorInicial =
+    raw.valor_inicial ?? raw.valorInicial ?? raw.valor_minimo ?? raw.valorMinimo ?? raw.min ?? raw.minimo;
+  const valorFinal =
+    raw.valor_final ?? raw.valorFinal ?? raw.valor_maximo ?? raw.valorMaximo ?? raw.max ?? raw.maximo ?? null;
+  const aliquota =
+    raw.aliquota ?? raw.percentual_imposto ?? raw.percentualImposto ?? raw.aliquota_percentual ?? raw.percentual;
+  return {
+
+    function coerceString(value: unknown): string | undefined {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed ? trimmed : undefined;
+      }
+      if (typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
+      }
+      return undefined;
+    }
+
+    function normalizePropostaEntity(raw: unknown) {
+      if (!raw || typeof raw !== 'object') {
+        return raw;
+      }
+
+      const record = raw as Record<string, unknown>;
+      const numero =
+        coerceString(record.numero) ??
+        coerceString(record.numero_proposta) ??
+        coerceString(record.numeroProposta) ??
+        coerceString(record['numeroProposta']) ??
+        coerceString(record['numero_proposta']);
+
+      const responsavel =
+        (record.funcionario_responsavel && typeof record.funcionario_responsavel === 'object')
+          ? record.funcionario_responsavel
+          : (record.responsavel && typeof record.responsavel === 'object')
+            ? record.responsavel
+            : (record.funcionario && typeof record.funcionario === 'object')
+              ? record.funcionario
+              : undefined;
+
+      const responsavelId =
+        toNumber(record.funcionario_responsavel_id) ??
+        toNumber(record.responsavel_id) ??
+        (responsavel && typeof responsavel === 'object'
+          ? toNumber((responsavel as Record<string, unknown>).id)
+          : undefined);
+
+      return {
+        ...record,
+        ...(numero ? { numero, numero_proposta: numero } : {}),
+        ...(responsavel ? { funcionario_responsavel: responsavel } : {}),
+        ...(responsavelId !== undefined ? { funcionario_responsavel_id: responsavelId } : {})
+      };
+    }
+    nome: raw.nome ?? raw.descricao ?? raw.label ?? "",
+    ...raw,
+    valor_inicial: toNumber(valorInicial) ?? 0,
+    valor_final: valorFinal === undefined || valorFinal === null ? null : toNumber(valorFinal) ?? null,
+    aliquota: toNumber(aliquota) ?? toNumber(raw.aliquota) ?? null,
+    regime_tributario_id: raw.regime_tributario_id ?? raw.regimeTributarioId ?? raw.regime_id ?? null,
+        const data = raw.map(item => normalizePropostaEntity(item));
+        const count = data.length;
+}
+          data,
+function normalizeFaixaCollection(response: any): any {
+  if (Array.isArray(response)) {
+    return response.map(normalizeFaixaFaturamento);
+  }
+
+  if (response && typeof response === "object") {
+    if (Array.isArray(response.data)) {
+      return { ...response, data: response.data.map(normalizeFaixaFaturamento) };
+    }
+
+    if (Array.isArray(response.results)) {
+            const total = toNumber((raw as Record<string, unknown>).total) ?? toNumber((raw as Record<string, unknown>).count) ?? collection.length;
+            const normalizedCollection = collection.map(item => normalizePropostaEntity(item));
+    }
+
+    if (Array.isArray(response.items)) {
+      return { ...response, items: response.items.map(normalizeFaixaFaturamento) };
+              data: normalizedCollection,
+  }
+
+  return response;
+}
+
+function normalizeMensalidadeResponse(raw: any): any {
+  if (!raw || typeof raw !== "object") return raw;
+
+  const cloned = { ...raw } as GenericRecord;
+  const mensalidade =
+    raw.valor_mensalidade ?? raw.mensalidade ?? raw.mensalidade_sugerida ?? raw.valorMensalidade;
+  if (mensalidade !== undefined) {
+    const valorNumerico = toNumber(mensalidade);
+    cloned.valor_mensalidade = valorNumerico ?? mensalidade;
+    cloned.mensalidade = valorNumerico ?? mensalidade;
+    cloned.mensalidade_sugerida = toNumber(raw.mensalidade_sugerida) ?? valorNumerico ?? mensalidade;
+  }
+
+  if (cloned.faixa) {
+    cloned.faixa = normalizeFaixaFaturamento(cloned.faixa);
+  }
+
+  if (cloned.data && typeof cloned.data === "object") {
+    cloned.data = normalizeMensalidadeResponse(cloned.data);
+  }
+
+  return cloned;
+}
+
+function normalizeServico(raw: any): Servico {
+  if (!raw || typeof raw !== 'object') {
+    return raw as Servico;
+  }
+
+  const valor = toNumber(raw.valor_base ?? raw.valor_unitario ?? raw.preco_base ?? raw.valor ?? raw.price) ?? 0;
+  const categoriaData = raw.categoria ?? raw.categoria_detalhes ?? raw.categoria_obj ?? raw.category;
+  const categoriaNome = typeof categoriaData === 'string'
+    ? categoriaData
+    : (categoriaData?.nome ?? categoriaData?.name ?? raw.categoria_nome ?? raw.category_name ?? raw.categoria);
+  const categoriaId = raw.categoria_id ?? categoriaData?.id ?? raw.categoriaId ?? raw.category_id ?? null;
+  const tipoCobranca = raw.tipo_cobranca ?? raw.regras_cobranca ?? raw.tipo ?? raw.billing_type ?? raw.regrasCobranca;
+
+  return {
+    ...raw,
+    valor_base: valor,
+    valor_unitario: valor,
+    preco_base: valor,
+    tipo_cobranca: tipoCobranca ?? raw.tipo_cobranca,
+    categoria: categoriaNome ?? raw.categoria ?? '',
+        const response = await postJSON("propostas/", payload);
+        return normalizePropostaEntity(response);
+  } as Servico;
+}
+
+function normalizeServicoCollection(response: any): any {
+  if (Array.isArray(response)) {
+    return response.map(normalizeServico);
+  }
+
+  if (response && typeof response === 'object') {
+        const response = await putJSON(`propostas/${id}/`, payload);
+        return normalizePropostaEntity(response);
+      return { ...response, data: response.data.map(normalizeServico) };
+    }
+
+    if (Array.isArray(response.results)) {
+      return { ...response, results: response.results.map(normalizeServico) };
+    }
+
+    if (Array.isArray(response.items)) {
+      return { ...response, items: response.items.map(normalizeServico) };
+    }
+  }
+
+  return response;
+}
+
+function extractCollection<T>(response: any): T[] {
+  if (Array.isArray(response)) return response as T[];
+  if (response && typeof response === 'object') {
+    if (Array.isArray(response.data)) return response.data as T[];
+    if (Array.isArray(response.results)) return response.results as T[];
+    if (Array.isArray(response.items)) return response.items as T[];
+    if (Array.isArray(response.servicos)) return response.servicos as T[];
+  }
+  return [];
+}
 
 function getValidToken(): string | null {
   const sources = [
@@ -60,6 +370,11 @@ function getValidToken(): string | null {
 }
 
 async function refreshAccessToken(): Promise<boolean> {
+  if (!isRefreshWindowValid()) {
+    console.warn("🚫 Janela de refresh excedida (24h). Usuário precisará realizar novo login.");
+    return false;
+  }
+
   const refresh = localStorage.getItem("refresh_token");
   if (!refresh) {
     console.warn("🚫 Nenhum refresh token encontrado");
@@ -80,6 +395,10 @@ async function refreshAccessToken(): Promise<boolean> {
         if (res.ok) {
           const data = await res.json();
           localStorage.setItem("access_token", data.access_token);
+          if (data.refresh_token) {
+            localStorage.setItem("refresh_token", data.refresh_token);
+          }
+          markTokensIssued();
           log("🔁 Token atualizado com sucesso");
           return true;
         } else {
@@ -105,7 +424,8 @@ async function fetchJSON<T>(
   retry = true
 ): Promise<T> {
   const url = normalizeUrl(path);
-  const headers = buildHeaders(options.headers as Record<string, string>);
+  const isFormDataBody = options.body instanceof FormData;
+  const headers = buildHeaders(options.headers ?? {}, !isFormDataBody);
 
   const config: RequestInit = { ...options, headers };
   const method = (options.method || "GET").toUpperCase();
@@ -116,7 +436,7 @@ async function fetchJSON<T>(
     if (res.status === 401 && retry) {
       const refreshed = await refreshAccessToken();
       if (refreshed) {
-        const newHeaders = buildHeaders(options.headers as Record<string, string>);
+        const newHeaders = buildHeaders(options.headers ?? {}, !isFormDataBody);
         const newConfig = { ...options, headers: newHeaders };
         return fetchJSON<T>(path, newConfig, false); // Passa false para não tentar refresh novamente
       } else {
@@ -125,6 +445,7 @@ async function fetchJSON<T>(
         localStorage.removeItem("jwt_token");
         localStorage.removeItem("token");
         localStorage.removeItem("refresh_token");
+        clearTokenMetadata();
         sessionStorage.removeItem("access_token");
 
         if (!window.location.pathname.includes('/login')) {
@@ -196,6 +517,8 @@ async function deleteJSON<T>(path: string, body?: any): Promise<T> {
   return fetchJSON<T>(path, options);
 }
 
+export { fetchJSON };
+
 function shouldFallbackToUsuarios(error: unknown): error is ApiError {
   return error instanceof ApiError && (error.status === 404 || error.status === 405);
 }
@@ -254,7 +577,18 @@ export const apiService = {
   },
 
   async getPerfil() {
-    return getJSON<any>("usuarios/me/");
+    return getJSON<any>("usuarios/me");
+  },
+
+  async updatePerfil(data: any) {
+    if (data instanceof FormData) {
+      return fetchJSON<any>("usuarios/me", {
+        method: "PUT",
+        body: data,
+      });
+    }
+
+    return putJSON<any>("usuarios/me", data);
   },
 
   // ---------- Funcionários/Usuários ----------
@@ -266,27 +600,27 @@ export const apiService = {
     return getJSON<any>(`funcionarios/${id}/`);
   },
 
-  async createFuncionario(data: any) {
+  async createFuncionario(data: any): Promise<Funcionario> {
     try {
-      return await postJSON("funcionarios/", data);
+      return await postJSON<Funcionario>("funcionarios/", data);
     } catch (error) {
       if (shouldFallbackToUsuarios(error)) {
-        return postJSON("usuarios/", data);
+        return postJSON<Funcionario>("usuarios/", data);
       }
       throw error;
     }
   },
 
-  async updateFuncionario(id: number, data: any) {
+  async updateFuncionario(id: number, data: any): Promise<Funcionario> {
     try {
-      return await putJSON(`funcionarios/${id}/`, data);
+      return await putJSON<Funcionario>(`funcionarios/${id}/`, data);
     } catch (error) {
       if (shouldFallbackToUsuarios(error)) {
         try {
-          return await putJSON(`usuarios/${id}/`, data);
+          return await putJSON<Funcionario>(`usuarios/${id}/`, data);
         } catch (usuariosError) {
           if (shouldFallbackToUsuarios(usuariosError)) {
-            return putJSON(`usuarios/${id}`, data);
+            return putJSON<Funcionario>(`usuarios/${id}`, data);
           }
           throw usuariosError;
         }
@@ -315,7 +649,36 @@ export const apiService = {
 
   // ---------- Serviços ----------
   async getServicos(params?: any): Promise<any> { // Alterado para 'any' para aceitar PaginatedResponse ou Array
-    return getJSON<any>("servicos/", params);
+    const response = await getJSON<any>("servicos/", params);
+    return normalizeServicoCollection(response);
+  },
+
+  async getServicosPorRegime(regimeTributarioId: number, params?: Record<string, any>): Promise<Servico[]> {
+    const primaryParams = { ...(params ?? {}), regime_tributario_id: regimeTributarioId };
+    const attempts: Array<{ path: string; params?: Record<string, any> }> = [
+      { path: 'servicos/', params: primaryParams },
+      { path: `servicos/regime/${regimeTributarioId}`, params },
+      { path: `regimes-tributarios/${regimeTributarioId}/servicos`, params }
+    ];
+
+    for (let index = 0; index < attempts.length; index += 1) {
+      const { path, params: attemptParams } = attempts[index];
+      try {
+        const response = await getJSON<any>(path, attemptParams);
+        const normalized = normalizeServicoCollection(response);
+        const items = extractCollection<Servico>(normalized);
+        if (items.length > 0 || index === attempts.length - 1) {
+          return items;
+        }
+      } catch (error) {
+        if (error instanceof ApiError && (error.status === 404 || error.status === 405)) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    return [];
   },
 
   async getServico(id: number) {
@@ -353,12 +716,12 @@ export const apiService = {
   },
 
   // ---------- Categorias ----------
-  async getCategorias(params?: any): Promise<any[]> {
-    return getJSON<any[]>("categorias-servicos/", params);
+  async getCategorias(params?: any): Promise<Categoria[]> {
+    return getJSON<Categoria[]>("categorias-servicos/", params);
   },
 
-  async createCategoria(data: any) {
-    return postJSON("categorias-servicos/", data);
+  async createCategoria(data: any): Promise<Categoria> {
+    return postJSON<Categoria>("categorias-servicos/", data);
   },
 
   // ---------- Clientes ----------
@@ -401,7 +764,8 @@ export const apiService = {
 
   // ---------- Propostas ----------
   async getPropostas(params?: any): Promise<any> { 
-    return getJSON<any>("propostas/", params);
+    const response = await getJSON<any>("propostas/", params);
+    return normalizePropostasResponse(response, params);
   },
 
   async getProposta(id: number): Promise<any> {
@@ -409,11 +773,49 @@ export const apiService = {
   },
 
   async createProposta(data: any) {
-    return postJSON("propostas/", data);
+    const payload = { ...data };
+    delete payload.percentual_desconto;
+    delete payload.valor_desconto;
+    // Garante numero_proposta para satisfazer a constraint do backend.
+    const numeroExistente =
+      typeof payload.numero_proposta === 'string' && payload.numero_proposta.trim()
+        ? payload.numero_proposta.trim()
+        : typeof payload.numero === 'string' && payload.numero.trim()
+          ? payload.numero.trim()
+          : typeof payload.propostaNumero === 'string' && payload.propostaNumero.trim()
+            ? payload.propostaNumero.trim()
+            : typeof payload.numeroProposta === 'string' && payload.numeroProposta.trim()
+              ? payload.numeroProposta.trim()
+              : null;
+
+    payload.numero_proposta = numeroExistente ?? generatePropostaNumero();
+    delete payload.numero;
+    delete payload.propostaNumero;
+    delete payload.numeroProposta;
+
+  payload.status = normalizePropostaStatusForBackend(payload.status);
+
+    if (Array.isArray(payload.itens)) {
+      payload.itens = payload.itens.map((item: any) => ({
+        servico_id: item.servico_id,
+        quantidade: item.quantidade,
+        valor_unitario: item.valor_unitario,
+        valor_total: item.valor_total,
+        descricao_personalizada: item.descricao_personalizada ?? null
+      }));
+    }
+
+    return postJSON("propostas/", payload);
   },
 
   async updateProposta(id: number, data: any) {
-    return putJSON(`propostas/${id}/`, data);
+    const payload = { ...data };
+
+    if (payload.status !== undefined) {
+      payload.status = normalizePropostaStatusForBackend(payload.status);
+    }
+
+    return putJSON(`propostas/${id}/`, payload);
   },
 
   async deleteProposta(id: number, observacao?: string): Promise<any> { 
@@ -440,14 +842,14 @@ export const apiService = {
   async getRegimesTributarios(params?: any): Promise<any> {
     return getJSON("regimes-tributarios/", params);
   },
-  async getRegimeTributario(id: number): Promise<any> {
-    return getJSON(`regimes-tributarios/${id}/`);
+  async getRegimeTributario(id: number): Promise<RegimeTributario> {
+    return getJSON<RegimeTributario>(`regimes-tributarios/${id}/`);
   },
-  async createRegime(data: any): Promise<any> {
-    return postJSON("regimes-tributarios/", data);
+  async createRegime(data: any): Promise<RegimeTributario> {
+    return postJSON<RegimeTributario>("regimes-tributarios/", data);
   },
-  async updateRegime(id: number, data: any): Promise<any> {
-    return putJSON(`regimes-tributarios/${id}/`, data);
+  async updateRegime(id: number, data: any): Promise<RegimeTributario> {
+    return putJSON<RegimeTributario>(`regimes-tributarios/${id}/`, data);
   },
   async deleteRegimeTributario(id: number): Promise<any> {
     return deleteJSON(`regimes-tributarios/${id}`);
@@ -469,7 +871,8 @@ export const apiService = {
 
   // ---------- Faixas de Faturamento ----------
   async getFaixasFaturamento(params?: any): Promise<any> {
-    return getJSON("faixas-faturamento/", params);
+    const response = await getJSON("faixas-faturamento/", params);
+    return normalizeFaixaCollection(response);
   },
 
   // ---------- Cargos ----------
@@ -497,7 +900,8 @@ export const apiService = {
     regime_tributario_id: number;
     faixa_faturamento_id?: number;
   }): Promise<any> {
-    return postJSON("mensalidades/buscar/", config);
+    const response = await postJSON("mensalidades/buscar/", config);
+    return normalizeMensalidadeResponse(response);
   },
 
   // ---------- Notificações ----------
@@ -509,6 +913,18 @@ export const apiService = {
   },
   async marcarTodasNotificacoesComoLidas(): Promise<any> {
     return postJSON("notificacoes/ler-todas/", {});
+  },
+
+  async getNotificacoesVencimento(params?: any): Promise<any> {
+    return getJSON("notificacoes/vencimento/", params);
+  },
+
+  async marcarNotificacaoVencimentoComoLida(id: number): Promise<any> {
+    return postJSON(`notificacoes/vencimento/${id}/marcar-lida/`, {});
+  },
+
+  async marcarTodasNotificacoesVencimentoComoLidas(): Promise<any> {
+    return postJSON("notificacoes/vencimento/marcar-todas-lidas/", {});
   },
 
   // ---------- Ordens de Serviço ----------
@@ -556,6 +972,27 @@ export const apiService = {
   // ---------- Relatórios (mantido genérico) ----------
   async getRelatorios(): Promise<any[]> {
     return getJSON<any[]>("relatorios/");
+  },
+
+  // ---------- Agendamentos ----------
+  async getAgendamentos(params?: AgendamentosQuery): Promise<AgendamentosListResponse> {
+    return getJSON<AgendamentosListResponse>("agendamentos/", params);
+  },
+
+  async getAgendamento(id: number): Promise<Agendamento> {
+    return getJSON<Agendamento>(`agendamentos/${id}`);
+  },
+
+  async createAgendamento(data: AgendamentoPayload): Promise<Agendamento> {
+    return postJSON<Agendamento>("agendamentos/", data);
+  },
+
+  async updateAgendamento(id: number, data: Partial<AgendamentoPayload>): Promise<Agendamento> {
+    return putJSON<Agendamento>(`agendamentos/${id}`, data);
+  },
+
+  async deleteAgendamento(id: number): Promise<void> {
+    return deleteJSON<void>(`agendamentos/${id}`);
   },
 
   // ---------- Util ----------

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, Clock, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Bell, AlertTriangle, Info } from 'lucide-react';
 import { apiService } from '../../lib/api';
 
 interface Notificacao {
@@ -45,7 +45,7 @@ export const NotificacoesDropdown: React.FC<NotificacoesDropdownProps> = ({
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const buscarNotificacoes = async () => {
+  const buscarNotificacoes = useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiService.getNotificacoes();
@@ -60,18 +60,18 @@ export const NotificacoesDropdown: React.FC<NotificacoesDropdownProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [onNotificationCountChange]);
 
   useEffect(() => {
     if (isOpen) {
       buscarNotificacoes();
     }
-  }, [isOpen]);
+  }, [isOpen, buscarNotificacoes]);
 
   // Buscar notificações inicialmente
   useEffect(() => {
     buscarNotificacoes();
-  }, []);
+  }, [buscarNotificacoes]);
 
   const handleClickNotificacao = async (notificacao: Notificacao) => {
     try {

@@ -114,7 +114,9 @@ class RegimeTributario(db.Model, TimestampMixin, ActiveMixin):
     __tablename__ = 'regimes_tributarios'
 
     id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(20), nullable=False, unique=True, index=True)
     nome = db.Column(db.String(100), nullable=False, unique=True, index=True)
+    aplicavel_pj = db.Column(db.Boolean, default=True)
     descricao = db.Column(db.String(255), nullable=True)
 
     # Relacionamentos
@@ -133,7 +135,9 @@ class RegimeTributario(db.Model, TimestampMixin, ActiveMixin):
     def to_json(self):
         return{
             'id': self.id,
+            'codigo': self.codigo,
             'nome': self.nome,
+            'aplicavel_pj': self.aplicavel_pj,
             'descricao': self.descricao,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),

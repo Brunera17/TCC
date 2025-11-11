@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { History, User, Clock, ArrowRight, RefreshCw } from 'lucide-react';
-import { Modal } from '../modals/Modal';
 import { Button } from '../forms/Button';
+import { ModalPadrao } from '../ui/ModalPadrao';
 import { LoadingSpinner } from './LoadingSpinner';
 import type { OrdemServico } from '../../types';
 
@@ -23,11 +23,12 @@ interface HistoricoProps {
   onClose: () => void;
 }
 
-const statusLabels = {
-  'aberta': 'Aberta',
-  'em_andamento': 'Em Andamento',
-  'finalizada': 'Finalizada',
-  'cancelada': 'Cancelada'
+const statusLabels: Record<OrdemServico['status'], string> = {
+  aberta: 'Aberta',
+  em_andamento: 'Em Andamento',
+  pausada: 'Pausada',
+  concluida: 'Concluída',
+  cancelada: 'Cancelada'
 };
 
 export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
@@ -76,6 +77,10 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
           observacao: 'Status atualizado'
         });
       }
+
+      historicoSimulado.sort((a, b) => (
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      ));
 
       setHistorico(historicoSimulado);
     } catch (err) {
@@ -131,7 +136,12 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
   };
 
   const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
+    const parsed = new Date(dateString);
+    const hasTimezoneInfo = /[zZ]|[+-]\d{2}:?\d{2}$/.test(dateString);
+    const date = hasTimezoneInfo
+      ? parsed
+      : new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000);
+
     return date.toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -142,11 +152,12 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
   };
 
   return (
-    <Modal
+    <ModalPadrao
       isOpen={isOpen}
       onClose={onClose}
       title="Histórico de Alterações"
       size="lg"
+      showFooter={false}
     >
       <div className="space-y-6">
         {/* Cabeçalho */}
@@ -263,7 +274,11 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
                 <div>
                   <span className="text-blue-600">Última alteração:</span>
                   <span className="ml-2 font-medium">
-                    {formatDateTime(ordemServico.updated_at)}
+                    {formatDateTime(
+                      historico.length > 0
+                        ? historico[historico.length - 1].created_at
+                        : ordemServico.updated_at
+                    )}
                   </span>
                 </div>
                 <div>
@@ -278,23 +293,23 @@ export const HistoricoAlteracoes: React.FC<HistoricoProps> = ({
         )}
 
         {/* Ações */}
-        <div className="flex justify-between pt-4">
+        <div className="flex flex-col gap-3 pt-4 border-t border-gray-200 md:flex-row md:items-center md:justify-between">
           <Button
             onClick={carregarHistorico}
             variant="outline"
             disabled={loading}
+            leftIcon={<RefreshCw className="w-4 h-4" />}
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar
+            {loading ? 'Atualizando...' : 'Atualizar'}
           </Button>
           <Button
             onClick={onClose}
-            variant="outline"
+            variant="secondary"
           >
             Fechar
           </Button>
         </div>
       </div>
-    </Modal>
+    </ModalPadrao>
   );
 };

@@ -104,6 +104,45 @@ POST /api/usuarios/registro
 }
 ```
 
+> **Observação:** ao tentar criar um usuário com `username`, `email` ou `cpf` já associados a um registro inativo, a API reativa o cadastro existente e substitui os dados pelos enviados (respeitando as regras de unicidade). Para registros ativos, a API retorna erro `400`.
+
+---
+
+### 👥 **1.1 FUNCIONÁRIOS** (`/api/funcionarios`)
+
+Alias direto dos usuários para uso no módulo de funcionários. As respostas usam o mesmo modelo de dados (`Usuario.to_json()`) e exigem autenticação com token Bearer.
+
+```bash
+GET    /api/funcionarios                     # Listar funcionários ativos
+POST   /api/funcionarios                     # Criar ou reativar funcionário
+GET    /api/funcionarios/{id}                # Buscar funcionário por ID
+PUT    /api/funcionarios/{id}                # Atualizar funcionário existente
+DELETE /api/funcionarios/{id}                # Desativar funcionário (soft delete)
+GET    /api/funcionarios/buscar?termo={q}    # Buscar por nome, e-mail ou username
+```
+
+**Payload mínimo para criação/reativação:**
+
+```json
+POST /api/funcionarios
+{
+  "nome": "Ana Paula",
+  "email": "ana.paula@empresa.com",
+  "username": "apaula",
+  "senha": "Senha@2025",
+  "tipo_usuario": "funcionario",
+  "cpf": "98765432100",          // opcional
+  "eh_gerente": false,            // aceita boolean, "true", "1", "sim"
+  "cargo_id": 3                   // opcional
+}
+```
+
+#### Comportamentos importantes
+
+- Se existir funcionário inativo com o mesmo `username`, `email` ou `cpf`, ele é reativado automaticamente com os dados novos (senha redefinida).
+- Soft delete (`DELETE`) apenas marca `ativo=false` mantendo histórico.
+- Busca (`/buscar`) exige `termo` com pelo menos 2 caracteres e filtra por nome/e-mail/username.
+
 ---
 
 ### 👥 **2. CLIENTES** (`/api/clientes`)

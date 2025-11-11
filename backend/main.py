@@ -33,12 +33,13 @@ from controllers.cargo_controller import bp as cargo_bp
 from controllers.regime_tributario_controller import bp as regime_tributario_bp
 from controllers.funcionarios_controller import bp as funcionarios_bp
 from controllers.tipo_atividade_controller import bp as tipo_atividade_bp
+from controllers.notificacao_controller import bp as notificacoes_bp
+from controllers.faixa_faturamento_controller import bp as faixa_faturamento_bp
+from controllers.mensalidade_controller import bp as mensalidades_bp
 
-# ✅ CONFIGURAR APLICAÇÃO DEPOIS DE IMPORTAR MODELOS
 with app.app_context():
     try:
         db.create_all()
-        print("✅ Tabelas criadas com sucesso!")
     except Exception as e:
         print(f"❌ Erro ao criar tabelas: {e}")
 
@@ -58,6 +59,9 @@ app.register_blueprint(cargo_bp)
 app.register_blueprint(regime_tributario_bp)
 app.register_blueprint(funcionarios_bp)
 app.register_blueprint(tipo_atividade_bp)
+app.register_blueprint(notificacoes_bp)
+app.register_blueprint(faixa_faturamento_bp)
+app.register_blueprint(mensalidades_bp)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

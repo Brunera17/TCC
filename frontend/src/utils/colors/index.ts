@@ -13,12 +13,12 @@
 // ============================================================================
 
 // Sistema de cores
-export { default as colorSystem } from './colorSystem';
-export * from './colorSystem';
+export { default as colorSystem } from '../colorSystem';
+export * from '../colorSystem';
 
 // Funções utilitárias
-export { default as colorUtils } from './colorUtils';
-export * from './colorUtils';
+export { default as colorUtils } from '../colorUtils';
+export * from '../colorUtils';
 
 // ============================================================================
 // 🎯 EXPORTAÇÕES CONVENIENTES
@@ -33,7 +33,7 @@ export {
     getButtonClasses,
     getInputClasses,
     getCardClasses
-} from './colorUtils';
+} from '../colorUtils';
 
 // Funções de validação
 export {
@@ -41,7 +41,7 @@ export {
     isLightColor,
     getContrastingTextColor,
     getContrastRatio
-} from './colorUtils';
+} from '../colorUtils';
 
 // Funções de conversão
 export {
@@ -50,7 +50,7 @@ export {
     generateColorPalette,
     toCssColor,
     generateCssVariables
-} from './colorUtils';
+} from '../colorUtils';
 
 // ============================================================================
 // 🎯 TIPOS E INTERFACES
@@ -64,4 +64,4 @@ export type {
     PropostaStatus,
     ColorConfig,
     TailwindClasses
-} from './colorUtils';
+} from '../colorUtils';

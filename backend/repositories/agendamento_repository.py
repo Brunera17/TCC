@@ -7,7 +7,7 @@ class AgendamentoRepository:
         return Agendamento.query.filter_by(ativo=True).all()
 
     def get_by_id(self, agendamento_id: int):
-        return Agendamento.query.filter_by(agendamento_id, ativo=True).first()
+        return Agendamento.query.filter_by(id=agendamento_id, ativo=True).first()
     
     def get_by_funcionario(self, funcionario_id: int):
         return Agendamento.query.filter_by(funcionario_id=funcionario_id, ativo=True).all()
@@ -16,10 +16,12 @@ class AgendamentoRepository:
         db.session.add(agendamento)
         db.session.commit()
         return agendamento
+
     def update(self, agendamento: Agendamento):
         db.session.commit()
         return agendamento
+
     def delete(self, agendamento: Agendamento):
         agendamento.desativar()
         db.session.commit()
-        return agendamento  
+        return agendamento

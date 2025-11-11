@@ -1,9 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { API_URL } from '../lib/api';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { API_URL, markTokensIssued, clearTokenMetadata } from '../lib/api';
 
 interface EmpresaInfo {
   id?: number;
   nome?: string;
+}
+
+interface CargoInfo {
+  id?: number;
+  nome?: string | null;
 }
 
 interface User {
@@ -16,6 +21,9 @@ interface User {
   empresa?: EmpresaInfo;
   cargo_id?: number;
   gerente?: boolean;
+  foto?: string | null;
+  tipo_usuario?: string | null;
+  cargo?: CargoInfo | null;
 }
 
 interface AuthContextType {
@@ -25,7 +33,9 @@ interface AuthContextType {
   login: (identificador: string, senha: string) => Promise<User>;
   logout: () => void;
   loading: boolean;
-  getAuthHeaders: () => { Authorization?: string }; 
+  getAuthHeaders: () => { Authorization?: string };
+  syncUser: (rawUser: unknown) => User | null;
+  reloadUser: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -146,6 +156,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const applyNormalizedUser = (raw: unknown): User => {
+    const mappedUser = normalizeApiUser(raw);
+    localStorage.setItem('user', JSON.stringify(mappedUser));
+    setUser(mappedUser);
+    setIsAuthenticated(true);
+    return mappedUser;
+  };
+
   const getAuthHeaders = (): { Authorization?: string } => {
     const currentToken = token || localStorage.getItem('access_token');
     if (currentToken) {
@@ -155,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {};
   };
 
-  const loadUserInfo = async () => {
+  const loadUserInfo = useCallback(async (): Promise<User | null> => {
     try {
       const storedToken = localStorage.getItem('access_token');
       if (!storedToken) {
@@ -176,11 +194,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const userInfo = await response.json();
-      const mappedUser = normalizeApiUser(userInfo);
-      
-      localStorage.setItem('user', JSON.stringify(mappedUser));
-      setUser(mappedUser);
-      setIsAuthenticated(true);
+      const mappedUser = applyNormalizedUser(userInfo);
+  markTokensIssued();
+      return mappedUser;
     } catch (error) {
       console.error('Erro ao carregar informações do usuário:', error);
       setIsAuthenticated(false);
@@ -191,10 +207,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('autenticado');
+      clearTokenMetadata();
+      return null;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -205,7 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       setLoading(false);
     }
-  }, []);
+  }, [loadUserInfo]);
 
   const login = async (identificador: string, senha: string): Promise<User> => {
     try {
@@ -229,14 +247,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('refresh_token', data.refresh_token);
       localStorage.setItem('token', data.access_token);
       localStorage.setItem('autenticado', 'true');
+  markTokensIssued();
 
       setToken(data.access_token);
 
-      const mappedUser = normalizeApiUser(data.user);
-
-      localStorage.setItem('user', JSON.stringify(mappedUser));
-      setUser(mappedUser);
-      setIsAuthenticated(true);
+      const mappedUser = applyNormalizedUser(data.user);
       return mappedUser;
     } catch (error) {
       console.error('Erro no login:', error);
@@ -250,9 +265,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('autenticado');
+    clearTokenMetadata();
     setIsAuthenticated(false);
     setUser(null);
     setToken(null);
+  };
+
+  const syncUser = (rawUser: unknown): User | null => {
+    try {
+      return applyNormalizedUser(rawUser);
+    } catch (error) {
+      console.error('Não foi possível sincronizar o usuário com os dados fornecidos:', error);
+      return null;
+    }
+  };
+
+  const reloadUser = async (): Promise<User | null> => {
+    try {
+      const storedToken = token || localStorage.getItem('access_token');
+      if (!storedToken) {
+        console.warn('Reload de usuário ignorado: token ausente');
+        return null;
+      }
+
+      const response = await fetch(`${API_URL}/usuarios/me`, {
+        headers: {
+          Authorization: `Bearer ${storedToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reload user info');
+      }
+
+      const freshData = await response.json();
+  const updatedUser = applyNormalizedUser(freshData);
+  markTokensIssued();
+  return updatedUser;
+    } catch (error) {
+      console.error('Erro ao recarregar informações do usuário:', error);
+      return null;
+    }
   };
 
   return (
@@ -263,7 +317,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login, 
       logout, 
       loading,
-      getAuthHeaders
+      getAuthHeaders,
+      syncUser,
+      reloadUser
     }}>
       {children}
     </AuthContext.Provider>
@@ -271,6 +327,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

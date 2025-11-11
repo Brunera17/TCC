@@ -27,3 +27,11 @@ body > *:first-child {
     margin-top: 0;
     padding-top: 0;
 }
+@keyframes toast-progress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

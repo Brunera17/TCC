@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ModalPadrao } from '../ui/ModalPadrao'; // Importa o componente base
+import { ModalPadrao } from '../ui/ModalPadrao';
 import { apiService, ApiError } from '../../lib/api';
-// Importa ícones
-import { X, Tag, Hash, FileText, User, Building, Power, AlertCircle } from 'lucide-react';
-// Ajuste o caminho se a interface estiver em types/index.ts
-// Assumindo que a interface está na página, mas idealmente estaria em 'types'
-import type { RegimeTributarioPage } from '../../pages/RegimesTributariosPage';
+import { Tag, Hash, FileText, User, Building, Power, AlertCircle } from 'lucide-react';
+import type { RegimeTributario } from '../../types';
 
 interface ModalCadastroRegimeTributarioProps {
   isOpen: boolean;
   onClose: () => void;
-  onRegimeCadastrado: (regime: RegimeTributarioPage) => void;
-  regimeParaEditar?: RegimeTributarioPage | null;
+  onRegimeCadastrado: (regime: RegimeTributario) => void;
+  regimeParaEditar?: RegimeTributario | null;
 }
 
 export const ModalCadastroRegimeTributario: React.FC<ModalCadastroRegimeTributarioProps> = ({
@@ -44,8 +41,8 @@ export const ModalCadastroRegimeTributario: React.FC<ModalCadastroRegimeTributar
             nome: regimeParaEditar.nome,
             // codigo: regimeParaEditar.codigo, // REMOVIDO
             descricao: regimeParaEditar.descricao || '',
-            aplicavel_pf: regimeParaEditar.aplicavel_pf,
-            aplicavel_pj: regimeParaEditar.aplicavel_pj,
+            aplicavel_pf: regimeParaEditar.aplicavel_pf ?? false,
+            aplicavel_pj: regimeParaEditar.aplicavel_pj ?? false,
             ativo: regimeParaEditar.ativo,
         });
         } else {
@@ -73,25 +70,15 @@ export const ModalCadastroRegimeTributario: React.FC<ModalCadastroRegimeTributar
     // O backend agora exige 'codigo' na rota, mas o 'service' o ignora.
     // Vamos enviar um placeholder ou string vazia para passar na validação da ROTA.
     // O ideal seria a ROTA não validar o 'codigo' na criação.
-    const dadosParaApi = {
-        ...formData,
-        codigo: regimeParaEditar ? regimeParaEditar.codigo : 'TEMP', // Envia o código antigo na edição, ou 'TEMP' na criação
-    };
-
-    // Se a lógica do service (criar_servico) foi atualizada para POP 'codigo',
-    // podemos enviar os dados do formulário diretamente
-    const dadosParaApiCorreto = { ...formData };
-
-
     try {
-        let regimeSalvo: RegimeTributarioPage;
+    let regimeSalvo: RegimeTributario;
         
         if (isEditing && regimeParaEditar) {
             // Na atualização, o backend ignora o 'codigo' se tentarmos mudar
-            regimeSalvo = await apiService.updateRegime(regimeParaEditar.id, dadosParaApiCorreto);
+      regimeSalvo = await apiService.updateRegime(regimeParaEditar.id, formData);
         } else {
             // Na criação, o backend gera o 'codigo'
-            regimeSalvo = await apiService.createRegime(dadosParaApiCorreto);
+      regimeSalvo = await apiService.createRegime(formData);
         }
 
         onRegimeCadastrado(regimeSalvo);
@@ -111,9 +98,9 @@ export const ModalCadastroRegimeTributario: React.FC<ModalCadastroRegimeTributar
     }
   };
 
-  const handleInputChange = (field: keyof typeof formData, value: any) => {
+  const handleInputChange = <K extends keyof typeof formData>(field: K, value: (typeof formData)[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-     if(error) setError('');
+    if (error) setError('');
   };
 
   const handleClose = () => {

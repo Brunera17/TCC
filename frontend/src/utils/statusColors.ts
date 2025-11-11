@@ -6,11 +6,8 @@ import {
     CheckCircle,
     XCircle,
     Clock,
-    AlertCircle,
     CheckSquare,
-    XSquare,
-    Circle,
-    AlertTriangle
+    XSquare
 } from 'lucide-react';
 
 // ✅ Tipos de Status das Propostas
@@ -29,10 +26,12 @@ export interface StatusConfig {
     bgColor: string;
     textColor: string;
     borderColor: string;
-    icon: React.ComponentType<any>;
+    icon: React.ComponentType<{ className?: string }>;
     description: string;
     priority: number; // Para ordenação
 }
+
+type PropostaWithStatus = { status: string };
 
 // ✅ Sistema Unificado de Cores
 export const STATUS_COLORS: Record<StatusProposta, StatusConfig> = {
@@ -147,16 +146,16 @@ export const getStatusPriority = (status: StatusProposta) => {
 export const STATUS_ORDERED = Object.keys(STATUS_COLORS) as StatusProposta[];
 
 // ✅ Função para ordenar propostas por status
-export const sortPropostasByStatus = (propostas: any[]) => {
+export const sortPropostasByStatus = (propostas: PropostaWithStatus[]) => {
     return propostas.sort((a, b) => {
-        const priorityA = getStatusPriority(a.status);
-        const priorityB = getStatusPriority(b.status);
+        const priorityA = getStatusPriority(normalizeStatus(a.status));
+        const priorityB = getStatusPriority(normalizeStatus(b.status));
         return priorityA - priorityB;
     });
 };
 
 // ✅ Função para obter contadores de status
-export const getStatusCounters = (propostas: any[]) => {
+export const getStatusCounters = (propostas: PropostaWithStatus[]) => {
     const counters: Record<StatusProposta, number> = {
         RASCUNHO: 0,
         PENDENTE: 0,
@@ -176,18 +175,18 @@ export const getStatusCounters = (propostas: any[]) => {
 };
 
 // ✅ Função para obter status mais comum
-export const getMostCommonStatus = (propostas: any[]): StatusProposta | null => {
+export const getMostCommonStatus = (propostas: PropostaWithStatus[]): StatusProposta | null => {
     const counters = getStatusCounters(propostas);
     const maxCount = Math.max(...Object.values(counters));
 
     if (maxCount === 0) return null;
 
-    const mostCommon = Object.entries(counters).find(([_, count]) => count === maxCount);
+    const mostCommon = Object.entries(counters).find(([, count]) => count === maxCount);
     return mostCommon ? mostCommon[0] as StatusProposta : null;
 };
 
 // ✅ Função para obter resumo de status
-export const getStatusSummary = (propostas: any[]) => {
+export const getStatusSummary = (propostas: PropostaWithStatus[]) => {
     const counters = getStatusCounters(propostas);
     const total = propostas.length;
     const mostCommon = getMostCommonStatus(propostas);
@@ -205,11 +204,36 @@ export const getStatusSummary = (propostas: any[]) => {
 
 // ✅ Validação de status
 export const isValidStatus = (status: string): status is StatusProposta => {
-    return status in STATUS_COLORS;
+    const key = status.toUpperCase();
+    return key in STATUS_COLORS;
+};
+
+const STATUS_ALIAS: Record<string, StatusProposta> = {
+    rascunho: 'RASCUNHO',
+    draft: 'RASCUNHO',
+    pendente: 'PENDENTE',
+    enviada: 'PENDENTE',
+    aguardando_aprovacao: 'PENDENTE',
+    aprovada: 'APROVADA',
+    aceita: 'APROVADA',
+    aceita_proposta: 'APROVADA',
+    rejeitada: 'REJEITADA',
+    recusada: 'REJEITADA',
+    cancelada: 'CANCELADA',
+    expirada: 'CANCELADA'
 };
 
 // ✅ Função para normalizar status (converter para maiúsculo)
 export const normalizeStatus = (status: string): StatusProposta => {
-    const normalized = status.toUpperCase() as StatusProposta;
-    return isValidStatus(normalized) ? normalized : 'RASCUNHO';
+    if (!status) {
+        return 'RASCUNHO';
+    }
+
+    const upper = status.toUpperCase() as StatusProposta;
+    if (isValidStatus(upper)) {
+        return upper;
+    }
+
+    const aliasKey = status.toLowerCase();
+    return STATUS_ALIAS[aliasKey] || 'RASCUNHO';
 };

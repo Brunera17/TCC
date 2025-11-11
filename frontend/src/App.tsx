@@ -13,19 +13,7 @@ import { CargosPage } from './pages/CargosPage'
 import { TiposAtividadePage } from './pages/TiposAtividadePage'
 import { RegimesTributariosPage } from './pages/RegimesTributariosPage'
 import ServicosPage from './pages/ServicosPage'
-
-const AgendaPage = () => (
-  <div className="space-y-6">
-    <div className="mb-6">
-      <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
-      <p className="text-sm text-gray-500">Gerencie compromissos e agendamentos</p>
-    </div>
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-      <h2 className="text-xl font-bold mb-4">Calendário de Agenda</h2>
-      <p>Página em desenvolvimento...</p>
-    </div>
-  </div>
-);
+import AgendaPage from './pages/AgendaPage'
 
 function App() {
   return (

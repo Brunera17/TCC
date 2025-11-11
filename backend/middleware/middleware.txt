@@ -1,0 +1,356 @@
+# middleware/autenticacao_middleware.py
+
+from functools import wraps
+from flask import request, jsonify
+import jwt
+import datetime
+import os
+import traceback
+import logging
+import redis # Importar redis
+from redis.exceptions import ConnectionError, RedisError # Importar exceções do Redis
+
+from config import app
+
+# Configurar um logger básico (melhor configurar centralmente no app Flask)
+# logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO) # Ajuste o nível conforme necessário
+
+# --- Configuração ---
+
+# Chaves secretas - OBRIGATÓRIAS no ambiente
+SECRET_KEY = app.config.get('SECRET_KEY', 'alohomora')
+REFRESH_SECRET_KEY = app.config.get('REFRESH_SECRET_KEY', 'expectopatronum')
+
+if not SECRET_KEY or not REFRESH_SECRET_KEY:
+    raise ValueError("As variáveis de ambiente SECRET_KEY e REFRESH_SECRET_KEY devem ser configuradas.")
+
+# Tempos de expiração (configuráveis via ambiente, com padrões)
+ACCESS_TOKEN_EXPIRE_MINUTES = int(app.config.get('ACCESS_TOKEN_EXPIRE_MINUTES', 15))
+REFRESH_TOKEN_EXPIRE_DAYS = int(app.config.get('REFRESH_TOKEN_EXPIRE_DAYS', 7))
+REFRESH_TOKEN_EXPIRE_SECONDS = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+
+# Configuração do Redis (idealmente vinda de config/env)
+REDIS_HOST = app.config.get('REDIS_HOST', 'localhost')
+REDIS_PORT = int(app.config.get('REDIS_PORT', 6379))
+REDIS_DB = int(app.config.get('REDIS_DB', 0))
+REDIS_REQUIRED = app.config.get('REDIS_REQUIRED', False)
+REDIS_AVAILABLE = False
+
+
+def _normalize_identity(identity: dict) -> dict:
+    """Garante que a identidade armazenada no token siga o padrão {'user': {...}}."""
+    if not isinstance(identity, dict):
+        raise TypeError("Payload de identidade do usuário deve ser um dicionário.")
+
+    normalized = identity.copy()
+
+    if 'user' in normalized and isinstance(normalized['user'], dict):
+        user_info = normalized['user'].copy()
+    else:
+        user_info = {}
+
+    user_id = user_info.get('id') or normalized.get('user_id') or normalized.get('id')
+    if user_id is None:
+        raise TypeError("Identidade do usuário deve conter 'id' ou 'user_id'.")
+
+    user_info['id'] = user_id
+
+    if 'eh_gerente' in normalized and 'eh_gerente' not in user_info:
+        user_info['eh_gerente'] = normalized['eh_gerente']
+    if 'email' in normalized and 'email' not in user_info:
+        user_info['email'] = normalized['email']
+    if 'nome' in normalized and 'nome' not in user_info:
+        user_info['nome'] = normalized['nome']
+
+    return {'user': user_info}
+
+
+def _extract_user_id(identity: dict):
+    """Obtém o identificador do usuário a partir da identidade."""
+    if not isinstance(identity, dict):
+        return None
+
+    if 'user_id' in identity:
+        return identity.get('user_id')
+
+    user_info = identity.get('user')
+    if isinstance(user_info, dict):
+        return user_info.get('id')
+
+    return identity.get('id')
+
+# Tentar conectar ao Redis
+try:
+    redis_conn = redis.StrictRedis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        decode_responses=True # Decodificar respostas de bytes para strings
+    )
+    redis_conn.ping() # Verifica a conexão
+    # logger.info(f"Conectado ao Redis em {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB}")
+    REDIS_AVAILABLE = True
+except ConnectionError as e:
+    # logger.error(f"Não foi possível conectar ao Redis: {e}", exc_info=True)
+    # Decide o que fazer - falhar ao iniciar ou continuar sem persistência de token?
+    # Por segurança, é melhor falhar se a persistência é crucial.
+    if REDIS_REQUIRED:
+        raise ConnectionError(f"Falha ao conectar ao Redis: {e}") from e
+    redis_conn = None
+    REDIS_AVAILABLE = False
+
+# --- Funções Auxiliares Redis ---
+
+def _get_redis_key_for_jti(jti):
+    """Cria uma chave padronizada para armazenar no Redis."""
+    return f"refresh_token:{jti}"
+
+def _add_jti_to_allowlist(jti, identity):
+    """Adiciona o JTI à allowlist no Redis com expiração."""
+    if not REDIS_AVAILABLE or redis_conn is None:
+        return True  # Nenhuma persistência, mas não falhar
+    try:
+        key = _get_redis_key_for_jti(jti)
+        user_id = _extract_user_id(identity) or 'anonymous'
+        # Armazena o user_id (ou apenas 'anonymous') com expiração igual ao token
+        redis_conn.setex(key, REFRESH_TOKEN_EXPIRE_SECONDS, str(user_id))
+        # logger.debug(f"JTI {jti} adicionado à allowlist do Redis com TTL de {REFRESH_TOKEN_EXPIRE_SECONDS}s.")
+        return True
+    except (ConnectionError, RedisError) as e:
+        # logger.error(f"Erro ao adicionar JTI {jti} ao Redis: {e}", exc_info=True)
+        return False
+
+def _is_jti_in_allowlist(jti):
+    """Verifica se o JTI existe na allowlist do Redis."""
+    if not REDIS_AVAILABLE or redis_conn is None:
+        return True  # Não validar quando Redis indisponível
+    try:
+        key = _get_redis_key_for_jti(jti)
+        exists = redis_conn.exists(key)
+        # logger.debug(f"Verificação de JTI {jti} na allowlist do Redis: {'Existe' if exists else 'Não existe'}")
+        return exists
+    except (ConnectionError, RedisError) as e:
+        # logger.error(f"Erro ao verificar JTI {jti} no Redis: {e}", exc_info=True)
+        # Em caso de erro de conexão, consideramos o token inválido por segurança? Ou permitimos?
+        # Por segurança, é melhor falhar fechado.
+        return False
+
+def _remove_jti_from_allowlist(jti):
+    """Remove o JTI da allowlist no Redis."""
+    if not REDIS_AVAILABLE or redis_conn is None:
+        return True
+    try:
+        key = _get_redis_key_for_jti(jti)
+        deleted_count = redis_conn.delete(key)
+        # logger.info(f"Tentativa de remover JTI {jti} da allowlist do Redis. Removido: {deleted_count > 0}")
+        return deleted_count > 0
+    except (ConnectionError, RedisError) as e:
+        # logger.error(f"Erro ao remover JTI {jti} do Redis: {e}", exc_info=True)
+        return False
+
+# --- Geração de Tokens ---
+
+def gerar_token(user_identity):
+    user_identity = _normalize_identity(user_identity)
+    payload = {
+        "identity": user_identity,
+        "type": "access",
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        "iat": datetime.datetime.utcnow(),
+        "jti": os.urandom(16).hex()
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+def gerar_refresh_token(user_identity):
+    user_identity = _normalize_identity(user_identity)
+    payload = {
+        "identity": user_identity,
+        "type": "refresh",
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        "iat": datetime.datetime.utcnow(),
+        "jti": os.urandom(16).hex()
+    }
+    token = jwt.encode(payload, REFRESH_SECRET_KEY, algorithm="HS256")
+
+    # Adiciona o JTI à allowlist no Redis
+    if not _add_jti_to_allowlist(payload['jti'], user_identity):
+        # Falha ao salvar no Redis - O que fazer? Lançar exceção? Logar erro grave?
+        # Depende do requisito. Se for crítico, lançar exceção.
+        # logger.critical(f"Falha CRÍTICA ao adicionar JTI {payload['jti']} para user_id {user_identity['user_id']} à allowlist do Redis.")
+        if REDIS_REQUIRED:
+            raise RedisError("Não foi possível registrar o refresh token.")
+
+    return token
+
+# --- Verificação de Tokens ---
+
+def verificar_token(token):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if payload.get('type') != 'access':
+            return None, "Tipo de token inválido (esperado: access)"
+
+        return payload, None
+    except jwt.ExpiredSignatureError:
+        return None, "Token expirado"
+    except jwt.InvalidTokenError as e:
+        return None, "Token inválido"
+    except Exception as e:
+        traceback.print_exc()
+        return None, "Erro ao verificar token"
+
+def verificar_refresh_token(token):
+    try:
+        # Decodifica sem verificar assinatura para pegar JTI (mais rápido que decodificar tudo)
+        unverified_payload = jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
+        jti = unverified_payload.get('jti')
+
+        if not jti:
+            return None, "Refresh token inválido (sem JTI)"
+
+        # Verifica se o JTI está na allowlist do Redis
+        if not _is_jti_in_allowlist(jti):
+            return None, "Refresh token inválido ou revogado"
+
+        # Agora decodifica completamente para verificar assinatura e expiração
+        payload = jwt.decode(token, REFRESH_SECRET_KEY, algorithms=["HS256"])
+        if payload.get('type') != 'refresh':
+            return None, "Tipo de token inválido (esperado: refresh)"
+
+        # Confirma JTI caso haja manipulação entre as decodificações (pouco provável)
+        if payload.get('jti') != jti:
+            return None, "Inconsistência de JTI no refresh token"
+
+        return payload, None
+    except jwt.ExpiredSignatureError:
+        # A expiração do Redis deve lidar com isso, mas é bom ter o fallback
+        jti_expired = jwt.decode(token, options={"verify_signature": False}).get('jti')
+        if jti_expired:
+            _remove_jti_from_allowlist(jti_expired) # Tenta limpar do Redis
+        return None, "Refresh token expirado"
+    except jwt.InvalidTokenError as e:
+        return None, "Refresh token inválido"
+    except Exception as e:
+        traceback.print_exc()
+        return None, "Erro ao verificar refresh token"
+
+# --- Revogação e Renovação ---
+
+def revogar_refresh_token(token):
+    try:
+        payload = jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
+        jti = payload.get('jti')
+
+        if jti:
+            _remove_jti_from_allowlist(jti)
+        else:
+             pass # Log warning: Tentativa de revogar token sem JTI
+
+    except Exception as e:
+         pass # Log error: Erro ao tentar revogar
+
+def renovar_token(refresh_token):
+    payload, erro = verificar_refresh_token(refresh_token)
+    if erro:
+        return None, erro
+
+    user_identity = payload.get('identity')
+    if not user_identity or _extract_user_id(user_identity) is None:
+        return None, "Payload de usuário inválido no refresh token"
+
+    novo_access_token = gerar_token(user_identity)
+    return novo_access_token, None
+
+# --- Decorators (sem mudanças na lógica interna, apenas logging/prints removidos) ---
+
+def token_obrigatório(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+
+        if not auth_header:
+            return jsonify({'erro': 'Token de acesso não fornecido'}), 401
+
+        token = None
+        parts = auth_header.split()
+        if len(parts) == 2 and parts[0].lower() == 'bearer':
+            token = parts[1]
+        elif len(parts) == 1:
+            token = parts[0]
+        else:
+            return jsonify({'erro': 'Formato de header Authorization inválido. Use: Bearer <token>'}), 401
+
+        if not token:
+            return jsonify({'erro': 'Token não encontrado no header Authorization'}), 401
+
+        payload, erro = verificar_token(token)
+        if erro:
+            status_code = 401
+            return jsonify({'erro': erro}), status_code
+
+        user_identity = payload.get('identity', {})
+        user_info = {}
+        if isinstance(user_identity, dict):
+            user_info = user_identity.get('user') if isinstance(user_identity.get('user'), dict) else {}
+
+        user_id = _extract_user_id(user_identity)
+        if user_id is not None:
+            payload['user_id'] = user_id
+
+        payload['user'] = user_info
+        request.usuario_atual = payload
+
+        return f(*args, **kwargs)
+
+    return decorated
+
+def gerente_requerido(f):
+    @wraps(f)
+    @token_obrigatório
+    def decorated(*args, **kwargs):
+        if not hasattr(request, 'usuario_atual') or not request.usuario_atual:
+            return jsonify({'erro': 'Erro interno de autenticação'}), 500
+
+        user_info = request.usuario_atual.get('user') or {}
+
+        if not user_info or user_info.get('id') is None:
+            return jsonify({'erro': 'Payload de identidade inválido no token'}), 401
+
+        is_gerente = user_info.get('eh_gerente') is True
+
+        if not is_gerente:
+            user_id = user_info.get('id', 'N/A')
+            return jsonify({'erro': 'Acesso negado. Permissões de gerente necessárias.'}), 403
+
+        return f(*args, **kwargs)
+    return decorated
+
+def usuario_opcional(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        request.usuario_atual = None
+
+        if auth_header:
+            token = None
+            parts = auth_header.split()
+            if len(parts) == 2 and parts[0].lower() == 'bearer':
+                token = parts[1]
+            elif len(parts) == 1:
+                token = parts[0]
+
+            if token:
+                payload, erro = verificar_token(token)
+                if payload and not erro:
+                    user_identity = payload.get('identity', {})
+                    user_info = user_identity.get('user') if isinstance(user_identity.get('user'), dict) else {}
+                    payload['user'] = user_info
+                    user_id = _extract_user_id(user_identity)
+                    if user_id is not None:
+                        payload['user_id'] = user_id
+                    request.usuario_atual = payload
+
+        return f(*args, **kwargs)
+
+    return decorated

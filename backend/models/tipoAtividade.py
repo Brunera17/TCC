@@ -13,6 +13,7 @@ class TipoAtividade(db.Model, TimestampMixin, ActiveMixin):
     nome = db.Column(db.String(100), nullable=False, unique=True, index=True)
     descricao = db.Column(db.String(255), nullable=True)
     codigo = db.Column(db.String(20), nullable=True, unique=True)  # CNAE ou código interno
+    aplicavel_pj = db.Column(db.Boolean, default=True, nullable=False)
     
     # Validadores
     @validates('nome')
@@ -35,6 +36,7 @@ class TipoAtividade(db.Model, TimestampMixin, ActiveMixin):
             'nome': self.nome,
             'descricao': self.descricao,
             'codigo': self.codigo,
+            'aplicavel_pj': self.aplicavel_pj,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'ativo': self.ativo

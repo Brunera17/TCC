@@ -81,11 +81,18 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='SET NULL'), nullable=True, index=True)
     entidade_juridica_id = db.Column(db.Integer, db.ForeignKey('entidades_juridicas.id', ondelete='SET NULL'), nullable=True, index=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('funcionarios.id', ondelete='SET NULL'), nullable=True, index=True)
+    tipo_atividade_id = db.Column(db.Integer, db.ForeignKey('tipos_atividade.id', ondelete='SET NULL'), nullable=True, index=True)
+    regime_tributario_id = db.Column(db.Integer, db.ForeignKey('regimes_tributarios.id', ondelete='SET NULL'), nullable=True, index=True)
+    faixa_faturamento_id = db.Column(db.Integer, db.ForeignKey('faixas_faturamento.id', ondelete='SET NULL'), nullable=True, index=True)
+    valor_mensalidade = db.Column(db.Float, nullable=True)
     
     # Relationships
     cliente = db.relationship('Cliente', back_populates='propostas', lazy='joined')
     entidade_juridica = db.relationship('EntidadeJuridica', back_populates='propostas', lazy='joined')
     usuario = db.relationship('Usuario', back_populates='propostas', lazy='joined')
+    tipo_atividade = db.relationship('TipoAtividade', lazy='joined')
+    regime_tributario = db.relationship('RegimeTributario', lazy='joined')
+    faixa_faturamento = db.relationship('FaixaFaturamento', lazy='joined')
     itens = db.relationship('ItemProposta', back_populates='proposta', lazy='joined', cascade="all, delete-orphan")
     
     # Validadores
@@ -196,11 +203,13 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
         return{
             'id': self.id,
             'numero_proposta': self.numero_proposta,
+            'numero': self.numero_proposta,
             'validade': self.validade.isoformat() if self.validade else None,
             'observacao': self.observacao,
             'status': self.status,
             'porcentagem_desconto': self.porcentagem_desconto,
             'valor_total': self.valor_total,
+                'valor_mensalidade': self.valor_mensalidade,
             'requer_aprovacao': self.requer_aprovacao,
             'aprovado_por': self.aprovado_por,
             'data_aprovacao': self.data_aprovacao.isoformat() if self.data_aprovacao else None,
@@ -208,9 +217,16 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
             'pdf_gerado': self.pdf_gerado,
             'pdf_caminho': self.pdf_caminho,
             'pdf_gerado_em': self.pdf_gerado_em.isoformat() if self.pdf_gerado_em else None,
+                'tipo_atividade_id': self.tipo_atividade_id,
+                'regime_tributario_id': self.regime_tributario_id,
+                'faixa_faturamento_id': self.faixa_faturamento_id,
             'cliente': self.cliente.to_json() if self.cliente else None,
             'entidade_juridica': self.entidade_juridica.to_json() if self.entidade_juridica else None,
             'usuario': self.usuario.to_json() if self.usuario else None,
+            'responsavel': self.usuario.to_json() if self.usuario else None,
+                'tipo_atividade': self.tipo_atividade.to_json() if self.tipo_atividade else None,
+                'regime_tributario': self.regime_tributario.to_json() if self.regime_tributario else None,
+                'faixa_faturamento': self.faixa_faturamento.to_json() if self.faixa_faturamento else None,
             'itens': [item.to_json() for item in self.itens],
             'ativo': self.ativo,
             'created_at': self.created_at.isoformat(),

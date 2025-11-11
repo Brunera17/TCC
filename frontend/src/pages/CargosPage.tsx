@@ -389,9 +389,9 @@ export const CargosPage: React.FC = () => {
               {searchTerm ? `Nenhum cargo encontrado para "${searchTerm}"` : "Nenhum cargo cadastrado."}
             </p>
             {!searchTerm && (
-               <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
-                 + Cadastrar Novo Cargo
-               </button>
+              <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                + Cadastrar Novo Cargo
+              </button>
              )}
           </div>
         }

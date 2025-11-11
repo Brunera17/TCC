@@ -1,16 +1,27 @@
 from flask import Blueprint, request, jsonify
 from services.tipo_atividade_service import TipoAtividadeService
-from middleware.autenticacao_middleware import token_obrigatório
+from middleware.autenticacao_middleware import token_obrigatorio
 
 bp = Blueprint('tipo_atividade', __name__, url_prefix='/api/tipos-atividade')
 service = TipoAtividadeService()
+
+
+def _usuario_eh_admin_ou_gerente():
+    contexto = getattr(request, 'usuario_atual', {}) or {}
+    if isinstance(contexto, dict) and isinstance(contexto.get('user'), dict):
+        usuario = contexto['user']
+    elif isinstance(contexto, dict):
+        usuario = contexto
+    else:
+        usuario = {}
+    return usuario.get('eh_gerente') is True or usuario.get('tipo_usuario') == 'admin'
 
 # ==============================================
 # 📋 ENDPOINTS PARA TIPOS DE ATIVIDADE
 # ==============================================
 
 @bp.route('/', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def get_tipos():
     """Lista todos os tipos de atividade"""
     try:
@@ -20,7 +31,7 @@ def get_tipos():
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/<int:tipo_id>', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def get_tipo_por_id(tipo_id):
     """Busca tipo de atividade por ID"""
     try:
@@ -32,7 +43,7 @@ def get_tipo_por_id(tipo_id):
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/buscar', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def buscar_tipos():
     """Busca tipos de atividade por nome"""
     try:
@@ -48,14 +59,12 @@ def buscar_tipos():
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/', methods=['POST'])
-@token_obrigatório
+@token_obrigatorio
 def criar_tipo():
     """Cria um novo tipo de atividade"""
     try:
-        # Verificar se é gerente
-        usuario_atual = request.usuario_atual
-        if not usuario_atual['user'].get('eh_gerente'):
-            return jsonify({'error': 'Acesso negado. Apenas gerentes podem criar tipos de atividade.'}), 403
+        if not _usuario_eh_admin_ou_gerente():
+            return jsonify({'error': 'Acesso negado. Apenas administradores ou gerentes podem criar tipos de atividade.'}), 403
         
         data = request.get_json()
         if not data:
@@ -69,14 +78,12 @@ def criar_tipo():
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/<int:tipo_id>', methods=['PUT'])
-@token_obrigatório
+@token_obrigatorio
 def atualizar_tipo(tipo_id):
     """Atualiza um tipo de atividade existente"""
     try:
-        # Verificar se é gerente
-        usuario_atual = request.usuario_atual
-        if not usuario_atual['user'].get('eh_gerente'):
-            return jsonify({'error': 'Acesso negado. Apenas gerentes podem atualizar tipos de atividade.'}), 403
+        if not _usuario_eh_admin_ou_gerente():
+            return jsonify({'error': 'Acesso negado. Apenas administradores ou gerentes podem atualizar tipos de atividade.'}), 403
         
         data = request.get_json()
         if not data:
@@ -90,14 +97,12 @@ def atualizar_tipo(tipo_id):
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/<int:tipo_id>', methods=['DELETE'])
-@token_obrigatório
+@token_obrigatorio
 def deletar_tipo(tipo_id):
     """Remove um tipo de atividade"""
     try:
-        # Verificar se é gerente
-        usuario_atual = request.usuario_atual
-        if not usuario_atual['user'].get('eh_gerente'):
-            return jsonify({'error': 'Acesso negado. Apenas gerentes podem deletar tipos de atividade.'}), 403
+        if not _usuario_eh_admin_ou_gerente():
+            return jsonify({'error': 'Acesso negado. Apenas administradores ou gerentes podem deletar tipos de atividade.'}), 403
         
         service.deletar_tipo(tipo_id)
         return jsonify({'message': 'Tipo de atividade removido com sucesso'}), 200

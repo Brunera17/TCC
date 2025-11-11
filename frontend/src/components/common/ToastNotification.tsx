@@ -24,7 +24,7 @@ const ToastNotification: React.FC<ToastProps> = ({
         setIsLeaving(true);
         setTimeout(() => {
             onClose(id);
-        }, 200);
+        }, 300); // Aumentado para 300ms para a animação de saída
     }, [id, onClose]);
 
     useEffect(() => {
@@ -37,47 +37,65 @@ const ToastNotification: React.FC<ToastProps> = ({
         }
     }, [duration, handleClose]);
 
+    // --- ESTILOS ATUALIZADOS ---
+    const typeStyles = {
+        success: {
+            bg: "bg-green-50",
+            border: "border-green-200",
+            iconColor: "text-green-500",
+            titleColor: "text-green-900", // Título mais escuro
+            messageColor: "text-green-700", // Mensagem mais clara
+            progressColor: "#10B981" // Cor #hex para a barra
+        },
+        error: {
+            bg: "bg-red-50",
+            border: "border-red-200",
+            iconColor: "text-red-500",
+            titleColor: "text-red-900",
+            messageColor: "text-red-700",
+            progressColor: "#EF4444"
+        },
+        warning: {
+            bg: "bg-yellow-50",
+            border: "border-yellow-200",
+            iconColor: "text-yellow-500",
+            titleColor: "text-yellow-900",
+            messageColor: "text-yellow-700",
+            progressColor: "#F59E0B"
+        },
+        info: {
+            bg: "bg-blue-50",
+            border: "border-blue-200",
+            iconColor: "text-blue-500",
+            titleColor: "text-blue-900",
+            messageColor: "text-blue-700",
+            progressColor: "#3B82F6"
+        }
+    };
+
+    const config = typeStyles[type];
+
     const getToastStyles = () => {
-        const baseStyles = "flex items-start p-4 rounded-lg shadow-lg border transition-all duration-300 transform";
+        // Adiciona overflow-hidden para conter a barra de progresso
+        const baseStyles = "relative flex items-start p-4 rounded-lg shadow-lg border transition-all duration-300 transform w-full max-w-sm overflow-hidden";
         
         if (isLeaving) {
-            return `${baseStyles} translate-x-full opacity-0`;
+            return `${baseStyles} ${config.bg} ${config.border} translate-x-full opacity-0`;
         }
 
-        const typeStyles = {
-            success: "bg-green-50 border-green-200 text-green-800",
-            error: "bg-red-50 border-red-200 text-red-800",
-            warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
-            info: "bg-blue-50 border-blue-200 text-blue-800"
-        };
-
-        return `${baseStyles} ${typeStyles[type]} translate-x-0 opacity-100`;
+        // Adiciona animação de entrada
+        return `${baseStyles} ${config.bg} ${config.border} translate-x-0 opacity-100`;
     };
 
     const getIcon = () => {
-        const iconProps = { className: "w-5 h-5 mt-0.5 flex-shrink-0" };
+        const iconProps = { className: `w-6 h-6 flex-shrink-0 ${config.iconColor}` };
         
         switch (type) {
-            case 'success':
-                return <CheckCircle {...iconProps} className="w-5 h-5 mt-0.5 flex-shrink-0 text-green-500" />;
-            case 'error':
-                return <XCircle {...iconProps} className="w-5 h-5 mt-0.5 flex-shrink-0 text-red-500" />;
-            case 'warning':
-                return <AlertTriangle {...iconProps} className="w-5 h-5 mt-0.5 flex-shrink-0 text-yellow-500" />;
-            case 'info':
-                return <Info {...iconProps} className="w-5 h-5 mt-0.5 flex-shrink-0 text-blue-500" />;
-            default:
-                return <Info {...iconProps} />;
-        }
-    };
-
-    const getProgressBarColor = () => {
-        switch (type) {
-            case 'success': return 'bg-green-500';
-            case 'error': return 'bg-red-500';
-            case 'warning': return 'bg-yellow-500';
-            case 'info': return 'bg-blue-500';
-            default: return 'bg-gray-500';
+            case 'success': return <CheckCircle {...iconProps} />;
+            case 'error': return <XCircle {...iconProps} />;
+            case 'warning': return <AlertTriangle {...iconProps} />;
+            case 'info': return <Info {...iconProps} />;
+            default: return <Info {...iconProps} />;
         }
     };
 
@@ -90,32 +108,37 @@ const ToastNotification: React.FC<ToastProps> = ({
 
             {/* Conteúdo */}
             <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold">
+                <h4 className={`text-sm font-semibold ${config.titleColor}`}>
                     {title}
                 </h4>
-                <p className="text-sm mt-1 opacity-90">
+                <p className={`text-sm mt-1 ${config.messageColor}`}>
                     {message}
                 </p>
-
-                {/* Barra de progresso */}
-                {duration > 0 && (
-                    <div className="mt-2 w-full bg-black bg-opacity-10 rounded-full h-1">
-                        <div 
-                            className={`h-1 rounded-full ${getProgressBarColor()} transition-all ease-linear w-full`}
-                        />
-                    </div>
-                )}
             </div>
 
-            {/* Botão de fechar */}
+            {/* Botão de fechar ATUALIZADO */}
             <button
                 onClick={handleClose}
-                className="ml-3 flex-shrink-0 p-1 rounded-full hover:bg-black hover:bg-opacity-10 transition-colors"
+                className={`ml-3 -mr-1 -mt-1 flex-shrink-0 p-1 rounded-full ${config.messageColor} opacity-70 hover:opacity-100 hover:bg-black/10 transition-all`}
                 title="Fechar notificação"
                 aria-label="Fechar notificação"
             >
                 <X className="w-4 h-4" />
             </button>
+
+            {/* Barra de progresso ANIMADA */}
+            {duration > 0 && (
+                <div 
+                    className="absolute bottom-0 left-0 h-1"
+                    style={{
+                        width: '100%',
+                        backgroundColor: config.progressColor,
+                        // Aplica a animação CSS que definimos no index.css
+                        animation: `toast-progress ${duration}ms linear forwards`,
+                        opacity: 0.7
+                    }}
+                />
+            )}
         </div>
     );
 };

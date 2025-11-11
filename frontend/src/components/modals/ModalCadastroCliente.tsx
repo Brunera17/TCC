@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
-import { X, User, Building, Check, AlertCircle, MapPin } from 'lucide-react';
+import { User, Building, Check, AlertCircle, MapPin } from 'lucide-react';
+import { ModalPadrao } from '../ui/ModalPadrao';
 import { apiService } from '../../lib/api';
 import type { Cliente } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -582,31 +583,25 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
     return true;
   };
 
+  const tituloModal = clienteParaEditar ? 'Editar Cliente' : 'Cadastrar Novo Cliente';
+  const descricaoModal = clienteParaEditar
+    ? 'Atualize os dados do cliente.'
+    : 'Preencha as informações do novo cliente.';
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4">
-      <div className="relative w-full max-w-2xl overflow-hidden rounded-xl bg-gray-100 shadow-xl">
-        <div className="flex max-h-[90vh] flex-col">
-          <div className="flex items-center justify-between border-b border-gray-200 bg-gray-100 px-6 py-5">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                {clienteParaEditar ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}
-              </h2>
-              <p className="text-sm text-gray-500">
-                {clienteParaEditar ? 'Atualize os dados do cliente.' : 'Preencha as informações do novo cliente.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-gray-400 transition-colors hover:text-gray-600"
-              aria-label="Fechar modal"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
+    <ModalPadrao
+      isOpen={isOpen}
+      onClose={onClose}
+      title={tituloModal}
+      size="2xl"
+      showFooter={false}
+    >
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-gray-500">{descricaoModal}</p>
 
+        <div className="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
           <div className="flex border-b border-gray-200 bg-gray-100">
             <button
               type="button"
@@ -649,7 +644,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto bg-gray-100 px-6 py-6">
+          <div className="max-h-[60vh] overflow-y-auto px-6 py-6">
             {abaAtiva === 'cliente' && (
               <div className="space-y-4">
                 <div>
@@ -674,7 +669,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">CPF</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">CPF <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={formData.cliente.cpf || ''}
@@ -687,7 +682,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                     className={`w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
                       errors.cliente?.cpf ? 'border-red-500' : 'border-gray-300'
                     }`}
-                    placeholder="000.000.000-00 (opcional)"
+                    placeholder="000.000.000-00"
                     maxLength={14}
                   />
                   {errors.cliente?.cpf && (
@@ -1010,36 +1005,36 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
               </div>
             )}
           </div>
+        </div>
 
-          <div className="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-100 px-6 py-5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleSalvar}
-              disabled={loading || !podeSalvar()}
-              className="flex items-center gap-2 rounded-lg bg-custom-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-custom-blue-light disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
-                  <span>Salvando...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="h-4 w-4" />
-                  <span>{clienteParaEditar ? 'Atualizar Cliente' : 'Salvar Cliente'}</span>
-                </>
-              )}
-            </button>
-          </div>
+        <div className="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-100 px-6 py-5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSalvar}
+            disabled={loading || !podeSalvar()}
+            className="flex items-center gap-2 rounded-lg bg-custom-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-custom-blue-light disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                <span>Salvando...</span>
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4" />
+                <span>{clienteParaEditar ? 'Atualizar Cliente' : 'Salvar Cliente'}</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
-    </div>
+    </ModalPadrao>
   );
 };

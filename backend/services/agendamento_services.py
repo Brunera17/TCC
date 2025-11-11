@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from models.agendamento import Agendamento
 from repositories.agendamento_repository import AgendamentoRepository
 
@@ -18,8 +19,7 @@ class AgendamentoService:
         return self.repo.get_by_funcionario(funcionario_id)
 
     def criar_agendamento(self, **data):
-        if 'data_fim' in data and isinstance(data['data_fim'], str):
-            data['data_fim'] = datetime.fromisoformat(data['data_fim'])
+        data = self._prepare_datas(data)
         agendamento = Agendamento(**data)
         return self.repo.create(agendamento)
     
@@ -29,6 +29,8 @@ class AgendamentoService:
         if not agendamento:
             raise ValueError("Agendamento não encontrado")
         
+        data = self._prepare_datas(data)
+
         for key, value in data.items():
             setattr(agendamento, key, value)
         return self.repo.update(agendamento)
@@ -39,3 +41,21 @@ class AgendamentoService:
         if not agendamento:
             raise ValueError("Agendamento não encontrado")
         return self.repo.delete(agendamento)
+
+    @staticmethod
+    def _prepare_datas(data: dict) -> dict:
+        def _parse(valor):
+            if isinstance(valor, str):
+                cleaned = valor.strip()
+                if cleaned.endswith('Z'):
+                    cleaned = cleaned[:-1] + '+00:00'
+                try:
+                    return datetime.fromisoformat(cleaned)
+                except ValueError as exc:
+                    raise ValueError('Formato de data inválido. Utilize ISO 8601.') from exc
+            return valor
+
+        for field in ('data_inicio', 'data_fim'):
+            if field in data and data[field] is not None:
+                data[field] = _parse(data[field])
+        return data

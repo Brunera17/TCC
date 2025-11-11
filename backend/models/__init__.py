@@ -23,6 +23,9 @@ from .agendamento import Agendamento
 from .proposta import ItemProposta, Proposta
 from .ordemServico import ItemOrdemServico, OrdemServico
 
+# Modelos de autenticação
+from .token import ActiveRefreshToken
+
 # Lista de todos os modelos para facilitar imports
 __all__ = [
     'TimestampMixin',
@@ -46,5 +49,6 @@ __all__ = [
     'ItemProposta', 
     'Proposta',
     'ItemOrdemServico', 
-    'OrdemServico'
+    'OrdemServico',
+    'ActiveRefreshToken'
 ]

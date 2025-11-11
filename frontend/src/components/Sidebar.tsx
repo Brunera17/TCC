@@ -1,29 +1,78 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { 
-  Home, 
-  Users, 
-  UserCheck, 
-  Building2, 
-  FileText, 
-  Calculator, 
-  Settings,
-  Handshake,
-  BarChart3,
-  Shield,
-  LogOut,
-  Bell,
-  User,
-  Calendar,
-  Briefcase
+import type { LucideIcon } from 'lucide-react';
+import {
+    Home,
+    Users,
+    UserCheck,
+    Building2,
+    FileText,
+    Calculator,
+    Settings,
+    Handshake,
+    BarChart3,
+    Shield,
+    LogOut,
+    Bell,
+    User,
+    Calendar,
+    Briefcase
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../lib/api';
 
 interface MenuItem {
-  id: string;
-  label: string;
-  icon: React.ComponentType<any>;
-  section: string;
-  route: string; // Adicionar rota
+    id: string;
+    label: string;
+    icon: LucideIcon;
+    section: string;
+    route: string;
 }
+
+type ExtendedUser = {
+    foto?: string | null;
+    cargo?: { nome?: string | null } | null;
+    tipo_usuario?: string | null;
+};
+
+type SidebarUser = ExtendedUser & {
+    nome?: string | null;
+    username?: string | null;
+    gerente?: boolean | null;
+};
+
+const resolveAvatarUrl = (foto?: string | null): string | null => {
+    if (!foto) return null;
+    if (/^(https?:|data:)/i.test(foto)) return foto;
+    const sanitized = foto.replace(/^\/+/, '');
+    const apiBase = API_URL.replace(/\/+$/g, '');
+    if (apiBase.startsWith('http')) {
+        const base = apiBase.replace(/\/api$/i, '') || apiBase;
+        return `${base}/${sanitized}`;
+    }
+    return `/${sanitized}`;
+};
+
+const getInitials = (nome?: string | null, username?: string | null): string => {
+    const fonte = nome?.trim() || username?.trim() || '';
+    if (!fonte) return '';
+    const partes = fonte.split(/\s+/).filter(Boolean);
+    if (partes.length === 0) return '';
+    return partes
+        .slice(0, 2)
+        .map((parte) => parte[0]?.toUpperCase() ?? '')
+        .join('');
+};
+
+const formatRole = (user: SidebarUser | null): string => {
+    if (!user) return 'Usuario';
+    if (user.cargo?.nome) return user.cargo.nome;
+    if (user.gerente) return 'Gerente';
+    if (typeof user.tipo_usuario === 'string' && user.tipo_usuario.trim()) {
+        const valor = user.tipo_usuario.trim();
+        return valor.charAt(0).toUpperCase() + valor.slice(1).toLowerCase();
+    }
+    return 'Usuario';
+};
 
 const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Home, section: 'main', route: '/home' },
@@ -42,6 +91,12 @@ const menuItems: MenuItem[] = [
 
 const Sidebar: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const sidebarUser = (user as SidebarUser | null) ?? null;
+    const avatarUrl = resolveAvatarUrl(sidebarUser?.foto ?? null);
+    const displayName = sidebarUser?.nome?.trim() || sidebarUser?.username?.trim() || 'Usuario';
+    const roleLabel = formatRole(sidebarUser);
+    const initials = avatarUrl ? '' : getInitials(sidebarUser?.nome ?? null, sidebarUser?.username ?? null);
 
     const getSectionTitle = (section: string) => {
         switch (section) {
@@ -97,7 +152,7 @@ const Sidebar: React.FC = () => {
     };
 
     return(
-        <div className="w-64 bg-white text-gray-900 border-r border-gray-200 flex flex-col h-screen">
+        <div className="fixed inset-y-0 left-0 z-30 flex h-screen w-64 flex-col border-r border-gray-200 bg-white text-gray-900">
             <div className="flex items-center p-4 border-b border-gray-200">
                 <div className="flex items-center">
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -119,12 +174,20 @@ const Sidebar: React.FC = () => {
             <div className="border-t border-gray-200 p-3">
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                            <User className="w-4 h-4 text-gray-600" />
-                        </div>
+                        {avatarUrl ? (
+                            <img
+                                src={avatarUrl}
+                                alt={`Foto de ${displayName}`}
+                                className="h-10 w-10 rounded-full border border-gray-200 object-cover"
+                            />
+                        ) : (
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-600">
+                                {initials || <User className="h-5 w-5 text-gray-500" />}
+                            </div>
+                        )}
                         <div className="text-left">
-                            <p className="text-sm font-medium text-gray-900">Usuário</p>
-                            <p className="text-xs text-gray-500">Administrador</p>
+                            <p className="text-sm font-medium text-gray-900">{displayName}</p>
+                            <p className="text-xs text-gray-500">{roleLabel}</p>
                         </div>
                     </div>
                     <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100">

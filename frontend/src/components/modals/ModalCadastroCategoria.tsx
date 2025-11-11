@@ -1,10 +1,9 @@
 // src/components/modals/ModalCadastroCategoria.tsx
 import React, { useState } from 'react';
-import { ModalPadrao } from '../ui/ModalPadrao'; // Ajuste o caminho conforme sua estrutura
-import { apiService, ApiError } from '../../lib/api'; // Ajuste o caminho e importe ApiError
-// Ajuste o caminho para importar a interface Categoria corretamente
-import type { Categoria } from '../../pages/ServicosPage'; // Ou de 'types/index.ts' se movido
-import { Tag } from 'lucide-react'; // Ícone opcional
+import { ModalPadrao } from '../ui/ModalPadrao';
+import { apiService, ApiError } from '../../lib/api';
+import type { Categoria } from '../../types';
+import { Tag } from 'lucide-react';
 
 interface ModalCadastroCategoriaProps {
   isOpen: boolean;
@@ -30,7 +29,7 @@ export const ModalCadastroCategoria: React.FC<ModalCadastroCategoriaProps> = ({
     setError(null);
     try {
       // A lógica de reativação está no backend agora
-      const novaCategoria = await apiService.createCategoria({ nome: nomeCategoria.trim(), ativo: true });
+  const novaCategoria = await apiService.createCategoria({ nome: nomeCategoria.trim(), ativo: true });
       onCategoriaCadastrada(novaCategoria);
       handleClose();
     } catch (err) {

@@ -42,6 +42,19 @@ class EnderecoService:
             setattr(endereco, key, value)
         
         return self.repo.update(endereco)
+
+    def atualizar_endereco_por_id(self, endereco_id: int, **dados):
+        endereco = self.repo.get_by_id(endereco_id)
+
+        if not endereco:
+            raise ValueError("Endereço não encontrado")
+
+        for key, value in dados.items():
+            if key == 'id':
+                continue
+            setattr(endereco, key, value)
+
+        return self.repo.update(endereco)
     
     def deletar_endereco(self, endereco_id: int):
         endereco = self.repo.get_by_id(endereco_id)

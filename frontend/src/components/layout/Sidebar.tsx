@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import type { ComponentType } from 'react';
 import {
   Home,
   Users,
@@ -11,7 +12,6 @@ import {
   BarChart3,
   Shield,
   LogOut,
-  User,
   Calendar,
   Briefcase
 } from 'lucide-react';
@@ -27,7 +27,7 @@ interface SidebarProps {
 interface MenuItem {
   id: string;
   label: string;
-  icon: React.ComponentType<any>;
+  icon: ComponentType<{ className?: string }>;
   section: string;
 }
 
@@ -52,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigateToProposta
 }) => {
   const { logout, user } = useAuth();
-  const [notificationCount, setNotificationCount] = useState(0);
+  const [, setNotificationCount] = useState(0);
 
   const handleNotificationCountChange = (count: number) => {
     setNotificationCount(count);

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from middleware.autenticacao_middleware import token_obrigatório
+from middleware.autenticacao_middleware import token_obrigatorio
 from services.servico_services import ServicoService, CategoriaServicoService
 
 # Criando o blueprint
@@ -13,7 +13,7 @@ categoria_service = CategoriaServicoService()
 # ==================== ENDPOINTS DE SERVIÇOS ====================
 
 @bp.route('/', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def listar_servicos():
     """Lista todos os serviços ativos"""
     try:
@@ -23,7 +23,7 @@ def listar_servicos():
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/<int:servico_id>', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def buscar_servico(servico_id):
     """Busca um serviço específico por ID"""
     try:
@@ -35,7 +35,7 @@ def buscar_servico(servico_id):
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/', methods=['POST'])
-@token_obrigatório
+@token_obrigatorio
 def criar_servico():
     """Cria um novo serviço"""
     data = request.get_json()
@@ -43,7 +43,7 @@ def criar_servico():
         return jsonify({'error': 'Dados não fornecidos'}), 400
     
     # Campos obrigatórios
-    campos_obrigatorios = ['codigo', 'nome', 'valor_unitario']
+    campos_obrigatorios = [ 'nome', 'valor_unitario']
     for campo in campos_obrigatorios:
         if campo not in data:
             return jsonify({'error': f'Campo {campo} é obrigatório'}), 400
@@ -57,7 +57,7 @@ def criar_servico():
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/<int:servico_id>', methods=['PUT'])
-@token_obrigatório
+@token_obrigatorio
 def atualizar_servico(servico_id):
     """Atualiza um serviço existente"""
     data = request.get_json()
@@ -73,7 +73,7 @@ def atualizar_servico(servico_id):
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/<int:servico_id>', methods=['DELETE'])
-@token_obrigatório
+@token_obrigatorio
 def deletar_servico(servico_id):
     """Exclui (desativa) um serviço"""
     try:
@@ -85,7 +85,7 @@ def deletar_servico(servico_id):
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/categoria/<int:categoria_id>', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def listar_servicos_por_categoria(categoria_id):
     """Lista serviços por categoria"""
     try:
@@ -95,7 +95,7 @@ def listar_servicos_por_categoria(categoria_id):
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/codigo/<string:codigo>', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def buscar_servico_por_codigo(codigo):
     """Busca um serviço por código"""
     try:
@@ -107,7 +107,7 @@ def buscar_servico_por_codigo(codigo):
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/nome/<string:nome>', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def buscar_servico_por_nome(nome):
     """Busca um serviço por nome"""
     try:
@@ -121,7 +121,7 @@ def buscar_servico_por_nome(nome):
 # ==================== ENDPOINTS DE CATEGORIAS DE SERVIÇOS ====================
 
 @categoria_bp.route('/', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def listar_categorias():
     """Lista todas as categorias de serviços ativas"""
     try:
@@ -131,7 +131,7 @@ def listar_categorias():
         return jsonify({'error': str(e)}), 500
 
 @categoria_bp.route('/<int:categoria_id>', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def buscar_categoria(categoria_id):
     """Busca uma categoria específica por ID"""
     try:
@@ -143,7 +143,7 @@ def buscar_categoria(categoria_id):
         return jsonify({'error': str(e)}), 500
 
 @categoria_bp.route('/', methods=['POST'])
-@token_obrigatório
+@token_obrigatorio
 def criar_categoria():
     """Cria uma nova categoria de serviço"""
     data = request.get_json()
@@ -163,7 +163,7 @@ def criar_categoria():
         return jsonify({'error': str(e)}), 500
 
 @categoria_bp.route('/<int:categoria_id>', methods=['PUT'])
-@token_obrigatório
+@token_obrigatorio
 def atualizar_categoria(categoria_id):
     """Atualiza uma categoria existente"""
     data = request.get_json()
@@ -179,7 +179,7 @@ def atualizar_categoria(categoria_id):
         return jsonify({'error': str(e)}), 500
 
 @categoria_bp.route('/<int:categoria_id>', methods=['DELETE'])
-@token_obrigatório
+@token_obrigatorio
 def deletar_categoria(categoria_id):
     """Exclui (desativa) uma categoria"""
     try:
@@ -191,7 +191,7 @@ def deletar_categoria(categoria_id):
         return jsonify({'error': str(e)}), 500
 
 @categoria_bp.route('/<int:categoria_id>/servicos', methods=['GET'])
-@token_obrigatório
+@token_obrigatorio
 def listar_servicos_da_categoria(categoria_id):
     """Lista todos os serviços de uma categoria específica"""
     try:

@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, Clock, AlertTriangle, X, Eye } from 'lucide-react';
 import { apiService } from '../../lib/api';
-import type { OrdemServico } from '../../types';
+import type {
+  ListarNotificacoesVencimentoResponse,
+  NotificacaoVencimento,
+  NotificacoesVencimentoFiltro,
+  OrdemServico,
+} from '../../types';
+import type { PaginatedResponse } from '../../lib/api';
 
-interface NotificacaoVencimento {
-  id: number;
-  ordem_servico: OrdemServico;
-  tipo: 'vencendo' | 'vencida' | 'critica';
-  dias_restantes: number;
-  lida: boolean;
-  created_at: string;
-}
+const FILTRO_PADRAO: NotificacoesVencimentoFiltro = {
+  dias: 7,
+  incluir_atrasadas: true,
+};
 
 interface NotificacoesVencimentoProps {
   onNotificacaoClick?: (ordemServico: OrdemServico) => void;
@@ -22,76 +24,169 @@ export const NotificacoesVencimento: React.FC<NotificacoesVencimentoProps> = ({
   const [notificacoes, setNotificacoes] = useState<NotificacaoVencimento[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    carregarNotificacoes();
-    // Atualizar notificações a cada 5 minutos
-    const interval = setInterval(carregarNotificacoes, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+  const normalizarNotificacoes = useCallback((
+    payload: ListarNotificacoesVencimentoResponse | NotificacaoVencimento[] | null | undefined
+  ): NotificacaoVencimento[] => {
+    if (!payload) {
+      return [];
+    }
+
+    const itens = Array.isArray(payload) ? payload : payload.data ?? [];
+
+    return itens
+      .map((item) => {
+        if (!item?.ordem_servico) return null;
+
+        const { ordem_servico } = item;
+
+        const calculoDias = () => {
+          const { vencimento } = ordem_servico;
+          if (!vencimento) return 0;
+          const hoje = new Date();
+          const dataVenc = new Date(vencimento);
+          const diffTime = dataVenc.getTime() - hoje.getTime();
+          return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        };
+
+        const dias = typeof item.dias_restantes === 'number'
+          ? item.dias_restantes
+          : calculoDias();
+
+        const tipo = item.tipo ?? (dias < 0 ? 'vencida' : dias <= 2 ? 'critica' : 'vencendo');
+
+        const normalizada: NotificacaoVencimento = {
+          id: item.id ?? ordem_servico.id,
+          ordem_servico,
+          tipo,
+          dias_restantes: dias,
+          lida: Boolean(item.lida),
+          created_at: item.created_at ?? new Date().toISOString(),
+        };
+
+        if (item.mensagem !== undefined) {
+          normalizada.mensagem = item.mensagem;
+        }
+
+        return normalizada;
+      })
+      .filter((item): item is NotificacaoVencimento => Boolean(item));
   }, []);
 
-  const carregarNotificacoes = async () => {
+  const gerarFallbackNotificacoes = useCallback(async (): Promise<NotificacaoVencimento[]> => {
     try {
-      setLoading(true);
-      const response = await apiService.getOrdensServico({ 
+      const response = await apiService.getOrdensServico({
         per_page: 100,
-        status: 'aberta,em_andamento' 
+        status: 'aberta,em_andamento',
       });
-      
+
+      const lista = Array.isArray((response as PaginatedResponse<OrdemServico>)?.data)
+        ? (response as PaginatedResponse<OrdemServico>).data
+        : Array.isArray(response)
+          ? (response as OrdemServico[])
+          : [];
+
       const hoje = new Date();
-      const notificacoesGeradas: NotificacaoVencimento[] = [];
 
-      // Verificar se response.data existe e é um array
-      if (response?.data && Array.isArray(response.data)) {
-        response.data.forEach((os) => {
-          const vencimento = new Date(os.vencimento);
-          const diffTime = vencimento.getTime() - hoje.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const notificacoesCalculadas = lista
+        .map((ordem): NotificacaoVencimento | null => {
+          if (!ordem?.vencimento) return null;
 
-          let tipo: 'vencendo' | 'vencida' | 'critica' = 'vencendo';
-          
-          if (diffDays < 0) {
-            tipo = 'vencida';
-          } else if (diffDays <= 2) {
-            tipo = 'critica';
-          } else if (diffDays <= 7) {
-            tipo = 'vencendo';
-          } else {
-            return; // Não criar notificação se ainda há muito tempo
-          }
+          const vencimento = new Date(ordem.vencimento);
+          const diffDias = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
 
-          notificacoesGeradas.push({
-            id: os.id,
-            ordem_servico: os,
+          if (diffDias > (FILTRO_PADRAO.dias ?? 7) && diffDias >= 0) return null;
+
+          let tipo: NotificacaoVencimento['tipo'] = 'vencendo';
+          if (diffDias < 0) tipo = 'vencida';
+          else if (diffDias <= 2) tipo = 'critica';
+          else if (diffDias > 2 && diffDias <= 7) tipo = 'vencendo';
+          else return null;
+
+          return {
+            id: ordem.id,
+            ordem_servico: ordem,
             tipo,
-            dias_restantes: diffDays,
+            dias_restantes: diffDias,
             lida: false,
-            created_at: new Date().toISOString()
-          });
-        });
-      }
+            created_at: new Date().toISOString(),
+            mensagem: diffDias < 0
+              ? `${ordem.protocolo} venceu há ${Math.abs(diffDias)} dia(s)`
+              : `${ordem.protocolo} vence em ${diffDias} dia(s)`,
+          };
+        })
+        .filter((item): item is NotificacaoVencimento => Boolean(item));
 
-      // Ordenar por criticidade
-      notificacoesGeradas.sort((a, b) => {
-        const prioridade = { vencida: 3, critica: 2, vencendo: 1 };
+      notificacoesCalculadas.sort((a, b) => {
+        const prioridade = { vencida: 3, critica: 2, vencendo: 1 } as const;
         return prioridade[b.tipo] - prioridade[a.tipo];
       });
 
-      setNotificacoes(notificacoesGeradas);
+      return notificacoesCalculadas;
+    } catch (fallbackError) {
+      console.warn('Fallback de notificações falhou', fallbackError);
+      return [];
+    }
+  }, []);
+
+  const carregarNotificacoes = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+  const response = await apiService.getNotificacoesVencimento(FILTRO_PADRAO);
+      const notificacoesNormalizadas = normalizarNotificacoes(response);
+
+      if (notificacoesNormalizadas.length > 0) {
+        notificacoesNormalizadas.sort((a, b) => {
+          const prioridade = { vencida: 3, critica: 2, vencendo: 1 } as const;
+          return prioridade[b.tipo] - prioridade[a.tipo];
+        });
+
+        setNotificacoes(notificacoesNormalizadas);
+        return;
+      }
+
+      const fallback = await gerarFallbackNotificacoes();
+      setNotificacoes(fallback);
     } catch (error) {
       console.error('Erro ao carregar notificações:', error);
+      const mensagem = error instanceof Error ? error.message : 'Erro ao carregar notificações';
+      setError(mensagem);
+      setNotificacoes([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [normalizarNotificacoes, gerarFallbackNotificacoes]);
 
-  const marcarComoLida = async (notificacaoId: number) => {
-    setNotificacoes(prev => 
-      prev.map(n => 
+  useEffect(() => {
+    carregarNotificacoes();
+    const interval = setInterval(carregarNotificacoes, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [carregarNotificacoes]);
+
+  const marcarComoLida = useCallback(async (notificacaoId: number) => {
+    setNotificacoes(prev =>
+      prev.map(n =>
         n.id === notificacaoId ? { ...n, lida: true } : n
       )
     );
-  };
+
+    try {
+      await apiService.marcarNotificacaoVencimentoComoLida(notificacaoId);
+    } catch (err) {
+      console.warn('Não foi possível marcar notificação como lida', err);
+    }
+  }, []);
+
+  const marcarTodasComoLidas = useCallback(async () => {
+    setNotificacoes(prev => prev.map(n => ({ ...n, lida: true })));
+    try {
+      await apiService.marcarTodasNotificacoesVencimentoComoLidas();
+    } catch (err) {
+      console.warn('Não foi possível marcar todas notificações como lidas', err);
+    }
+  }, []);
 
   const handleNotificacaoClick = (notificacao: NotificacaoVencimento) => {
     marcarComoLida(notificacao.id);
@@ -127,23 +222,23 @@ export const NotificacoesVencimento: React.FC<NotificacoesVencimentoProps> = ({
   };
 
   const getTextoNotificacao = (notificacao: NotificacaoVencimento) => {
-    const { tipo, dias_restantes, ordem_servico } = notificacao;
+    const { tipo, dias_restantes, ordem_servico, mensagem } = notificacao;
     
     switch (tipo) {
       case 'vencida':
         return {
           titulo: 'Ordem de Serviço Vencida',
-          descricao: `${ordem_servico.protocolo} venceu há ${Math.abs(dias_restantes)} dia(s)`
+          descricao: mensagem ?? `${ordem_servico.protocolo} venceu há ${Math.abs(dias_restantes)} dia(s)`
         };
       case 'critica':
         return {
           titulo: 'Vencimento Crítico',
-          descricao: `${ordem_servico.protocolo} vence em ${dias_restantes} dia(s)`
+          descricao: mensagem ?? `${ordem_servico.protocolo} vence em ${dias_restantes} dia(s)`
         };
       case 'vencendo':
         return {
           titulo: 'Vencimento Próximo',
-          descricao: `${ordem_servico.protocolo} vence em ${dias_restantes} dia(s)`
+          descricao: mensagem ?? `${ordem_servico.protocolo} vence em ${dias_restantes} dia(s)`
         };
     }
   };
@@ -187,6 +282,10 @@ export const NotificacoesVencimento: React.FC<NotificacoesVencimentoProps> = ({
             {loading ? (
               <div className="p-4 text-center text-gray-500">
                 Carregando...
+              </div>
+            ) : error ? (
+              <div className="p-4 text-center text-red-500 text-sm">
+                {error}
               </div>
             ) : notificacoes.length === 0 ? (
               <div className="p-4 text-center text-gray-500">
@@ -232,6 +331,13 @@ export const NotificacoesVencimento: React.FC<NotificacoesVencimentoProps> = ({
                 disabled={loading}
               >
                 {loading ? 'Atualizando...' : 'Atualizar'}
+              </button>
+              <button
+                onClick={marcarTodasComoLidas}
+                className="ml-4 text-sm text-gray-600 hover:text-gray-800"
+                disabled={loading || notificacaoesNaoLidas.length === 0}
+              >
+                Marcar todas como lidas
               </button>
             </div>
           )}

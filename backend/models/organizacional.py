@@ -1,11 +1,13 @@
 """ Modelos de dados para organização da empresa """
 
 from datetime import datetime
+import re
+
 from config import db
 from sqlalchemy.orm import validates
-from werkzeug.security import generate_password_hash, check_password_hash
-from .base import TimestampMixin, ActiveMixin
-import re
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from .base import ActiveMixin, TimestampMixin
 
 
 # ======================================================
@@ -237,6 +239,8 @@ class Usuario(db.Model, TimestampMixin, ActiveMixin):
     
     # transformação para JSON
     def to_json(self):
+        departamento = self.cargo.departamento if self.cargo and self.cargo.departamento else None
+        empresa = departamento.empresa if departamento and departamento.empresa else None
         return {
             'id': self.id,
             'nome': self.nome,
@@ -249,6 +253,10 @@ class Usuario(db.Model, TimestampMixin, ActiveMixin):
             'status': self.status,
             'cargo_id': self.cargo_id,
             'cargo': self.cargo.to_json() if self.cargo else None,
+            'departamento': departamento.to_json() if departamento else None,
+            'departamento_id': departamento.id if departamento else None,
+            'empresa': empresa.to_json() if empresa else None,
+            'empresa_id': empresa.id if empresa else None,
             'ultimo_login': self.ultimo_login.isoformat() if self.ultimo_login else None,
             'tentativas_login': self.tentativas_login,
             'bloqueado_ate': self.bloqueado_ate.isoformat() if self.bloqueado_ate else None,

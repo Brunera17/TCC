@@ -59,7 +59,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = ''
     },
     'em_andamento': { // Vindo do backend com underscore
       icon: Loader2, // Ícone de "carregando"
-      className: 'bg-yellow-100 text-yellow-800 border-yellow-200 animate-spin', // Adiciona animação de spin
+      className: 'bg-yellow-100 text-yellow-800 border-yellow-200',
       label: 'Em Andamento'
     },
     pausada: {

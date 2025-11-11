@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Plus,
   Trash2,
@@ -10,7 +10,6 @@ import {
   FileText,
   Hash,
   AlertTriangle,
-  Tag,
   Percent
 } from 'lucide-react';
 // --- CORREÇÃO AQUI ---
@@ -103,7 +102,7 @@ export const ModalCadastroOrdemServico: React.FC<ModalCadastroOrdemServicoProps>
   servicos,
   usuarioId
 }) => {
-  const { showSuccess, showError } = useToast();
+  const { showSuccess } = useToast();
   const [formData, setFormData] = useState<OrdemServicoFormData>(createInitialFormData());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -359,91 +358,104 @@ export const ModalCadastroOrdemServico: React.FC<ModalCadastroOrdemServicoProps>
             {formData.itens.length === 0 && (
               <p className="text-center text-gray-500 italic py-4">Nenhum item adicionado.</p>
             )}
-            {formData.itens.map((item, index) => (
-              <div key={item.tempId} className="grid grid-cols-12 gap-x-3 gap-y-2 p-3 bg-white border rounded-lg shadow-sm">
-                
-                {/* Serviço */}
-                <div className="col-span-12 md:col-span-4">
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <Package className="w-3 h-3 mr-1" /> Serviço *
-                  </label>
-                  <select
-                    value={item.servico_id}
-                    onChange={(e) => handleItemChange(item.tempId, 'servico_id', Number(e.target.value))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md bg-white text-sm"
-                  >
-                    <option value="">{servicos.length === 0 ? 'Carregando...' : 'Selecione'}</option>
-                    {servicos.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.nome} ({formatarMoeda(s.valor_unitario || s.valor_base || s.preco_base || 0)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            {formData.itens.map((item) => {
+              const baseId = item.tempId;
+              return (
+                <div key={item.tempId} className="grid grid-cols-12 gap-x-3 gap-y-2 p-3 bg-white border rounded-lg shadow-sm">
+                  {/* Serviço */}
+                  <div className="col-span-12 md:col-span-4">
+                    <label htmlFor={`servico-${baseId}`} className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                      <Package className="w-3 h-3 mr-1" /> Serviço *
+                    </label>
+                    <select
+                      id={`servico-${baseId}`}
+                      value={item.servico_id}
+                      onChange={(e) => handleItemChange(item.tempId, 'servico_id', Number(e.target.value))}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md bg-white text-sm"
+                    >
+                      <option value="">{servicos.length === 0 ? 'Carregando...' : 'Selecione'}</option>
+                      {servicos.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.nome} ({formatarMoeda(s.valor_unitario || s.valor_base || s.preco_base || 0)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* Qtd */}
-                <div className="col-span-4 md:col-span-1">
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <Hash className="w-3 h-3 mr-1" /> Qtd *
-                  </label>
-                  <input
-                    type="number" value={item.quantidade}
-                    onChange={(e) => handleItemChange(item.tempId, 'quantidade', Number(e.target.value))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
-                    min="1"
-                  />
-                </div>
-                
-                {/* Valor Unit. */}
-                <div className="col-span-8 md:col-span-2">
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <DollarSign className="w-3 h-3 mr-1" /> Valor Unit.
-                  </label>
-                  <input
-                    type="number" value={item.valor_unitario}
-                    onChange={(e) => handleItemChange(item.tempId, 'valor_unitario', Number(e.target.value))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
-                    step="0.01" min="0"
-                  />
-                </div>
+                  {/* Qtd */}
+                  <div className="col-span-4 md:col-span-1">
+                    <label htmlFor={`quantidade-${baseId}`} className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                      <Hash className="w-3 h-3 mr-1" /> Qtd *
+                    </label>
+                    <input
+                      id={`quantidade-${baseId}`}
+                      type="number"
+                      value={item.quantidade}
+                      onChange={(e) => handleItemChange(item.tempId, 'quantidade', Number(e.target.value))}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
+                      min="1"
+                      placeholder="Quantidade"
+                    />
+                  </div>
 
-                {/* Desconto */}
-                <div className="col-span-4 md:col-span-2">
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <Percent className="w-3 h-3 mr-1" /> Desconto (%)
-                  </label>
-                  <input
-                    type="number" value={item.desconto}
-                    onChange={(e) => handleItemChange(item.tempId, 'desconto', Number(e.target.value))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
-                    min="0" max="100"
-                  />
-                </div>
+                  {/* Valor Unit. */}
+                  <div className="col-span-8 md:col-span-2">
+                    <label htmlFor={`valor-unitario-${baseId}`} className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                      <DollarSign className="w-3 h-3 mr-1" /> Valor Unit.
+                    </label>
+                    <input
+                      id={`valor-unitario-${baseId}`}
+                      type="number"
+                      value={item.valor_unitario}
+                      onChange={(e) => handleItemChange(item.tempId, 'valor_unitario', Number(e.target.value))}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
+                      step="0.01"
+                      min="0"
+                      placeholder="Valor unitário"
+                    />
+                  </div>
 
-                {/* Total Item */}
-                <div className="col-span-6 md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Total Item
-                  </label>
-                  <div className="px-2 py-2 bg-gray-100 rounded-md text-sm font-medium text-gray-900">
-                    {formatarMoeda(item.valor_total)}
+                  {/* Desconto */}
+                  <div className="col-span-4 md:col-span-2">
+                    <label htmlFor={`desconto-${baseId}`} className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                      <Percent className="w-3 h-3 mr-1" /> Desconto (%)
+                    </label>
+                    <input
+                      id={`desconto-${baseId}`}
+                      type="number"
+                      value={item.desconto}
+                      onChange={(e) => handleItemChange(item.tempId, 'desconto', Number(e.target.value))}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
+                      min="0"
+                      max="100"
+                      placeholder="Desconto"
+                    />
+                  </div>
+
+                  {/* Total Item */}
+                  <div className="col-span-6 md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Total Item
+                    </label>
+                    <div className="px-2 py-2 bg-gray-100 rounded-md text-sm font-medium text-gray-900">
+                      {formatarMoeda(item.valor_total)}
+                    </div>
+                  </div>
+
+                  {/* Remover */}
+                  <div className="col-span-12 flex justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoverItem(item.tempId)}
+                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                      disabled={formData.itens.length === 1}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" /> Remover
+                    </button>
                   </div>
                 </div>
-
-                {/* Remover */}
-                <div className="col-span-2 md:col-span-1 flex items-end">
-                  <IconButton
-                    icon={Trash2}
-                    onClick={() => handleRemoverItem(item.tempId)}
-                    variant="danger"
-                    size="md"
-                    title="Remover Item"
-                    disabled={loading || formData.itens.length <= 1} // Não permite remover o último item
-                  />
-                </div>
-
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         

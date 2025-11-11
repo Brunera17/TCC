@@ -12,7 +12,7 @@ def get_propostas():
     propostas = service.get_all()
     return jsonify([proposta.to_json() for proposta in propostas])
 
-@bp.route('/<int:proposta_id>', methods=['GET'])
+@bp.route('/<int:proposta_id>', methods=['GET'], strict_slashes=False)
 def get_proposta_especifica(proposta_id):
     proposta = service.get_by_id(proposta_id)
     if not proposta:
@@ -36,7 +36,7 @@ def criar_proposta():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     
-@bp.route('/<int:proposta_id>', methods=['PUT'])
+@bp.route('/<int:proposta_id>', methods=['PUT'], strict_slashes=False)
 def altera_proposta(proposta_id):   
     data = request.get_json()
     if not data:
@@ -48,7 +48,7 @@ def altera_proposta(proposta_id):
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     
-@bp.route('/<int:proposta_id>', methods=['DELETE'])
+@bp.route('/<int:proposta_id>', methods=['DELETE'], strict_slashes=False)
 def deletar_proposta(proposta_id):
     try:
         service.deletar_proposta(proposta_id)

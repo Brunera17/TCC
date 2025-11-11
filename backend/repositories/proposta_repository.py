@@ -7,7 +7,7 @@ class PropostaRepository:
         return Proposta.query.filter_by(ativo=True).all()
 
     def get_by_id(self, proposta_id: int):
-        return Proposta.query.filter_by(proposta_id, ativo=True).first()
+        return Proposta.query.filter_by(id=proposta_id, ativo=True).first()
     
     def get_by_cliente(self, cliente_id: int):
         return Proposta.query.filter_by(cliente_id=cliente_id, ativo=True).all()

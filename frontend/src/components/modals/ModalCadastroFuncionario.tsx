@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, User, Mail, Building, Shield, Check, AlertCircle } from 'lucide-react';
+import { X, User, Building, Check, AlertCircle } from 'lucide-react';
 import { apiService } from '../../lib/api';
 import type { Funcionario } from '../../types';
 
@@ -77,8 +77,8 @@ export const ModalCadastroFuncionario: React.FC<ModalCadastroFuncionarioProps> =
         email: funcionarioParaEditar.email,
         senha: '', // Não carregar senha para edição
         gerente: funcionarioParaEditar.gerente,
-        cargo_id: funcionarioParaEditar.cargo_id,
-        empresa_id: funcionarioParaEditar.empresa_id,
+        cargo_id: funcionarioParaEditar.cargo_id ?? 0,
+        empresa_id: funcionarioParaEditar.empresa_id ?? 0,
         ativo: funcionarioParaEditar.ativo
       });
     } else if (isOpen) {
@@ -113,7 +113,7 @@ export const ModalCadastroFuncionario: React.FC<ModalCadastroFuncionarioProps> =
     }
   };
 
-  const handleInputChange = (field: keyof FuncionarioForm, value: any) => {
+  const handleInputChange = <K extends keyof FuncionarioForm>(field: K, value: FuncionarioForm[K]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -185,8 +185,9 @@ export const ModalCadastroFuncionario: React.FC<ModalCadastroFuncionarioProps> =
         onClose();
       }, 1500);
 
-    } catch (error: any) {
-      setError(error.message || 'Erro ao salvar funcionário');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao salvar funcionário';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -218,6 +219,7 @@ export const ModalCadastroFuncionario: React.FC<ModalCadastroFuncionarioProps> =
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Fechar modal"
           >
             <X className="w-6 h-6" />
           </button>
@@ -363,10 +365,11 @@ export const ModalCadastroFuncionario: React.FC<ModalCadastroFuncionarioProps> =
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Empresa */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="empresa-select" className="block text-sm font-medium text-gray-700 mb-2">
                         Empresa *
                       </label>
                       <select
+                        id="empresa-select"
                         value={formData.empresa_id}
                         onChange={(e) => handleInputChange('empresa_id', parseInt(e.target.value))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -382,10 +385,11 @@ export const ModalCadastroFuncionario: React.FC<ModalCadastroFuncionarioProps> =
 
                     {/* Cargo */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="cargo-select" className="block text-sm font-medium text-gray-700 mb-2">
                         Cargo *
                       </label>
                       <select
+                        id="cargo-select"
                         value={formData.cargo_id}
                         onChange={(e) => handleInputChange('cargo_id', parseInt(e.target.value))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"

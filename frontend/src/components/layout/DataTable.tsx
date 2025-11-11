@@ -2,13 +2,12 @@ import React from 'react';
 import { cn } from '../../utils/cn';
 import { Button } from '../forms/Button';
 import { Input } from '../forms/Input';
-import { Select } from '../forms/Select';
 import { Search, Filter, Download, Plus } from 'lucide-react';
 
 export interface Column<T> {
   key: string;
   header: string;
-  render?: (item: T) => React.ReactNode;
+  render?: (value: T[keyof T], item: T) => React.ReactNode;
   sortable?: boolean;
   width?: string;
 }
@@ -22,7 +21,7 @@ export interface DataTableProps<T> {
   sortable?: boolean;
   pagination?: boolean;
   onSearch?: (query: string) => void;
-  onFilter?: (filters: Record<string, any>) => void;
+  onFilter?: (filters: Record<string, unknown>) => void;
   onSort?: (key: string, direction: 'asc' | 'desc') => void;
   onExport?: () => void;
   onAdd?: () => void;
@@ -31,7 +30,7 @@ export interface DataTableProps<T> {
   searchPlaceholder?: string;
 }
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T extends Record<string, unknown>>({
   data = [],
   columns = [],
   loading = false,
@@ -66,12 +65,20 @@ export function DataTable<T extends Record<string, any>>({
     onSort?.(key, newDirection);
   };
 
-  const renderCell = (item: T, column: Column<T>) => {
+  const renderCell = (item: T, column: Column<T>): React.ReactNode => {
+    const value = item[column.key as keyof T];
     if (column.render) {
-      return column.render(item);
+      return column.render(value, item);
     }
-    return item[column.key] || '-';
+
+    if (value === null || value === undefined) {
+      return '-';
+    }
+
+    return value as React.ReactNode;
   };
+
+  const shouldRenderPagination = pagination && data.length > 0;
 
   return (
     <div className={cn('space-y-4', className)}>
@@ -96,6 +103,7 @@ export function DataTable<T extends Record<string, any>>({
               variant="outline"
               size="sm"
               leftIcon={<Filter className="w-4 h-4" />}
+              onClick={() => onFilter?.({})}
             >
               Filtros
             </Button>
@@ -185,6 +193,13 @@ export function DataTable<T extends Record<string, any>>({
           </table>
         </div>
       </div>
+
+        {shouldRenderPagination && (
+          <div className="flex items-center justify-end text-sm text-gray-500">
+            {/* Placeholder de paginação – ajustar quando lógica real estiver disponível */}
+            Paginação disponível em breve
+          </div>
+        )}
     </div>
   );
 }
