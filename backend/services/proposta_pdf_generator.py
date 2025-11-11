@@ -376,21 +376,16 @@ class PropostaPDFGenerator:
         valor_desconto = valor_servicos * (percentual_desconto / 100.0) if percentual_desconto > 0 else 0.0
         requer_aprovacao = getattr(proposta, "requer_aprovacao", True)
 
-        # Observação personalizada do usuário
-        if getattr(proposta, "observacao", None):
-            observacoes.append(f"{proposta.observacao}")
+        # Observação personalizada do usuário (apenas se não contiver texto automático antigo)
+        obs = getattr(proposta, "observacao", None)
+        if obs:
+            texto_antigo = "INFORMAÇÕES DE DESCONTO"
+            if texto_antigo not in obs:
+                observacoes.append(obs)
 
-        # Novo bloco organizado, sem separadores antigos
+        # Apenas novo bloco organizado, sem texto antigo
         if percentual_desconto > 0:
             observacoes.append(f"Percentual de desconto aplicado: {percentual_desconto:.0f}%")
-            observacoes.append(f"Valor do desconto: R$ {valor_desconto:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-        observacoes.append(f"Valor dos serviços: R$ {valor_servicos:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-        if valor_mensalidade > 0:
-            observacoes.append(f"Valor da mensalidade: R$ {valor_mensalidade:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-        observacoes.append(f"Valor final da proposta: R$ {valor_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
         if requer_aprovacao:
             observacoes.append("Proposta requer aprovação administrativa.")
