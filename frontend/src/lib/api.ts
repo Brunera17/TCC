@@ -142,14 +142,68 @@ function normalizePropostaStatusForBackend(status: unknown): BackendPropostaStat
   return 'rascunho';
 }
 
+function coerceString(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return undefined;
+}
+
+function normalizePropostaEntity(raw: unknown) {
+  if (!raw || typeof raw !== 'object') {
+    return raw;
+  }
+
+  const record = raw as Record<string, unknown>;
+
+  const numero =
+    coerceString(record.numero) ??
+    coerceString(record.numero_proposta) ??
+    coerceString(record.numeroProposta) ??
+    coerceString((record as GenericRecord)['numeroProposta']) ??
+    coerceString((record as GenericRecord)['numero_proposta']);
+
+  const responsavel =
+    (typeof record.funcionario_responsavel === 'object' && record.funcionario_responsavel !== null)
+      ? record.funcionario_responsavel
+      : (typeof (record as GenericRecord)['responsavel'] === 'object' && (record as GenericRecord)['responsavel'] !== null)
+        ? (record as GenericRecord)['responsavel']
+        : (typeof (record as GenericRecord)['funcionario'] === 'object' && (record as GenericRecord)['funcionario'] !== null)
+          ? (record as GenericRecord)['funcionario']
+          : undefined;
+
+  const responsavelId =
+    toNumber(record.funcionario_responsavel_id) ??
+    toNumber((record as GenericRecord)['responsavel_id']) ??
+    (responsavel && typeof responsavel === 'object'
+      ? toNumber((responsavel as Record<string, unknown>).id)
+      : undefined);
+
+  return {
+    ...record,
+    ...(numero ? { numero, numero_proposta: numero } : {}),
+    ...(responsavel ? { funcionario_responsavel: responsavel } : {}),
+    ...(responsavelId !== undefined ? { funcionario_responsavel_id: responsavelId } : {})
+  };
+}
+
 function normalizePropostasResponse(raw: unknown, params?: Record<string, unknown>) {
   const requestedPage = toNumber(params?.page) ?? 1;
   const requestedPerPage = toNumber(params?.per_page);
 
+  const normalizeCollection = (items: unknown[]): unknown[] => items.map(item => normalizePropostaEntity(item));
+
   if (Array.isArray(raw)) {
-    const count = raw.length;
+    const data = normalizeCollection(raw);
+    const count = data.length;
     return {
-      data: raw,
+      data,
       total: count,
       per_page: requestedPerPage ?? (count || 1),
       current_page: requestedPage
@@ -161,12 +215,13 @@ function normalizePropostasResponse(raw: unknown, params?: Record<string, unknow
     for (const key of candidates) {
       const collection = (raw as Record<string, unknown>)[key];
       if (Array.isArray(collection)) {
-        const total = toNumber((raw as Record<string, unknown>).total) ?? toNumber((raw as Record<string, unknown>).count) ?? collection.length;
-        const perPage = toNumber((raw as Record<string, unknown>).per_page) ?? toNumber((raw as Record<string, unknown>).page_size) ?? requestedPerPage ?? (collection.length || 1);
+        const normalizedCollection = normalizeCollection(collection);
+        const total = toNumber((raw as Record<string, unknown>).total) ?? toNumber((raw as Record<string, unknown>).count) ?? normalizedCollection.length;
+        const perPage = toNumber((raw as Record<string, unknown>).per_page) ?? toNumber((raw as Record<string, unknown>).page_size) ?? requestedPerPage ?? (normalizedCollection.length || 1);
         const current = toNumber((raw as Record<string, unknown>).current_page) ?? toNumber((raw as Record<string, unknown>).page) ?? requestedPage;
         return {
           ...(raw as Record<string, unknown>),
-          data: collection,
+          data: normalizedCollection,
           total,
           per_page: perPage,
           current_page: current
@@ -192,65 +247,17 @@ function normalizeFaixaFaturamento(raw: any): any {
     raw.valor_final ?? raw.valorFinal ?? raw.valor_maximo ?? raw.valorMaximo ?? raw.max ?? raw.maximo ?? null;
   const aliquota =
     raw.aliquota ?? raw.percentual_imposto ?? raw.percentualImposto ?? raw.aliquota_percentual ?? raw.percentual;
+
   return {
-
-    function coerceString(value: unknown): string | undefined {
-      if (typeof value === 'string') {
-        const trimmed = value.trim();
-        return trimmed ? trimmed : undefined;
-      }
-      if (typeof value === 'number' || typeof value === 'boolean') {
-        return String(value);
-      }
-      return undefined;
-    }
-
-    function normalizePropostaEntity(raw: unknown) {
-      if (!raw || typeof raw !== 'object') {
-        return raw;
-      }
-
-      const record = raw as Record<string, unknown>;
-      const numero =
-        coerceString(record.numero) ??
-        coerceString(record.numero_proposta) ??
-        coerceString(record.numeroProposta) ??
-        coerceString(record['numeroProposta']) ??
-        coerceString(record['numero_proposta']);
-
-      const responsavel =
-        (record.funcionario_responsavel && typeof record.funcionario_responsavel === 'object')
-          ? record.funcionario_responsavel
-          : (record.responsavel && typeof record.responsavel === 'object')
-            ? record.responsavel
-            : (record.funcionario && typeof record.funcionario === 'object')
-              ? record.funcionario
-              : undefined;
-
-      const responsavelId =
-        toNumber(record.funcionario_responsavel_id) ??
-        toNumber(record.responsavel_id) ??
-        (responsavel && typeof responsavel === 'object'
-          ? toNumber((responsavel as Record<string, unknown>).id)
-          : undefined);
-
-      return {
-        ...record,
-        ...(numero ? { numero, numero_proposta: numero } : {}),
-        ...(responsavel ? { funcionario_responsavel: responsavel } : {}),
-        ...(responsavelId !== undefined ? { funcionario_responsavel_id: responsavelId } : {})
-      };
-    }
-    nome: raw.nome ?? raw.descricao ?? raw.label ?? "",
     ...raw,
+    nome: raw.nome ?? raw.descricao ?? raw.label ?? "",
     valor_inicial: toNumber(valorInicial) ?? 0,
     valor_final: valorFinal === undefined || valorFinal === null ? null : toNumber(valorFinal) ?? null,
     aliquota: toNumber(aliquota) ?? toNumber(raw.aliquota) ?? null,
     regime_tributario_id: raw.regime_tributario_id ?? raw.regimeTributarioId ?? raw.regime_id ?? null,
-        const data = raw.map(item => normalizePropostaEntity(item));
-        const count = data.length;
+  };
 }
-          data,
+
 function normalizeFaixaCollection(response: any): any {
   if (Array.isArray(response)) {
     return response.map(normalizeFaixaFaturamento);
@@ -262,13 +269,12 @@ function normalizeFaixaCollection(response: any): any {
     }
 
     if (Array.isArray(response.results)) {
-            const total = toNumber((raw as Record<string, unknown>).total) ?? toNumber((raw as Record<string, unknown>).count) ?? collection.length;
-            const normalizedCollection = collection.map(item => normalizePropostaEntity(item));
+      return { ...response, results: response.results.map(normalizeFaixaFaturamento) };
     }
 
     if (Array.isArray(response.items)) {
       return { ...response, items: response.items.map(normalizeFaixaFaturamento) };
-              data: normalizedCollection,
+    }
   }
 
   return response;
@@ -308,7 +314,6 @@ function normalizeServico(raw: any): Servico {
   const categoriaNome = typeof categoriaData === 'string'
     ? categoriaData
     : (categoriaData?.nome ?? categoriaData?.name ?? raw.categoria_nome ?? raw.category_name ?? raw.categoria);
-  const categoriaId = raw.categoria_id ?? categoriaData?.id ?? raw.categoriaId ?? raw.category_id ?? null;
   const tipoCobranca = raw.tipo_cobranca ?? raw.regras_cobranca ?? raw.tipo ?? raw.billing_type ?? raw.regrasCobranca;
 
   return {
@@ -318,8 +323,6 @@ function normalizeServico(raw: any): Servico {
     preco_base: valor,
     tipo_cobranca: tipoCobranca ?? raw.tipo_cobranca,
     categoria: categoriaNome ?? raw.categoria ?? '',
-        const response = await postJSON("propostas/", payload);
-        return normalizePropostaEntity(response);
   } as Servico;
 }
 
@@ -329,8 +332,7 @@ function normalizeServicoCollection(response: any): any {
   }
 
   if (response && typeof response === 'object') {
-        const response = await putJSON(`propostas/${id}/`, payload);
-        return normalizePropostaEntity(response);
+    if (Array.isArray(response.data)) {
       return { ...response, data: response.data.map(normalizeServico) };
     }
 
@@ -776,7 +778,7 @@ export const apiService = {
     const payload = { ...data };
     delete payload.percentual_desconto;
     delete payload.valor_desconto;
-    // Garante numero_proposta para satisfazer a constraint do backend.
+
     const numeroExistente =
       typeof payload.numero_proposta === 'string' && payload.numero_proposta.trim()
         ? payload.numero_proposta.trim()
@@ -793,7 +795,14 @@ export const apiService = {
     delete payload.propostaNumero;
     delete payload.numeroProposta;
 
-  payload.status = normalizePropostaStatusForBackend(payload.status);
+    if (payload.status !== undefined) {
+      payload.status = normalizePropostaStatusForBackend(payload.status);
+    }
+
+    if (payload.funcionario_responsavel_id !== undefined) {
+      const responsavelId = toNumber(payload.funcionario_responsavel_id);
+      payload.funcionario_responsavel_id = responsavelId ?? payload.funcionario_responsavel_id;
+    }
 
     if (Array.isArray(payload.itens)) {
       payload.itens = payload.itens.map((item: any) => ({
@@ -805,7 +814,8 @@ export const apiService = {
       }));
     }
 
-    return postJSON("propostas/", payload);
+    const response = await postJSON("propostas/", payload);
+    return normalizePropostaEntity(response);
   },
 
   async updateProposta(id: number, data: any) {
@@ -815,7 +825,13 @@ export const apiService = {
       payload.status = normalizePropostaStatusForBackend(payload.status);
     }
 
-    return putJSON(`propostas/${id}/`, payload);
+    if (payload.funcionario_responsavel_id !== undefined) {
+      const responsavelId = toNumber(payload.funcionario_responsavel_id);
+      payload.funcionario_responsavel_id = responsavelId ?? payload.funcionario_responsavel_id;
+    }
+
+    const response = await putJSON(`propostas/${id}/`, payload);
+    return normalizePropostaEntity(response);
   },
 
   async deleteProposta(id: number, observacao?: string): Promise<any> { 
