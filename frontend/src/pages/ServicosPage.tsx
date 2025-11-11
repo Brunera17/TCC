@@ -1,6 +1,6 @@
 // src/pages/ServicosPage.tsx
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Trash2,Wrench , Edit2, Eye, Info, Tag, AlignLeft, Calendar, Type as IconType } from 'lucide-react'; // Ícones adicionados/mantidos
+import { Plus, Trash2, Wrench, Edit2, Eye, Info, Tag, AlignLeft, Calendar, Type as IconType } from 'lucide-react'; // Ícones adicionados/mantidos
 import { apiService, ApiError } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
@@ -67,7 +67,7 @@ export default function ServicosPage() {
   const [error, setError] = useState<string | null>(null);
   const [isCarregando, setIsCarregando] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalCategoriaOpen, setIsModalCategoriaOpen] = useState(false); 
+  const [isModalCategoriaOpen, setIsModalCategoriaOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -127,69 +127,69 @@ export default function ServicosPage() {
     setIsModalCategoriaOpen(false);
     fetchCategorias();
     if (novaCategoria?.id) {
-        setFormData(prev => ({ ...prev, categoria_id: novaCategoria.id.toString() }));
+      setFormData(prev => ({ ...prev, categoria_id: novaCategoria.id.toString() }));
     }
   };
-// =============================
+  // =============================
   const columns: Column<Servico>[] = [
-    { 
-      key: 'nome', 
-      label: 'Nome', 
-      render: (_, item) => (  
+    {
+      key: 'nome',
+      label: 'Nome',
+      render: (_, item) => (
         <div className="flex items-center">
           <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
             <Wrench className="w-4 h-4 text-indigo-600" />
           </div>
           <div>
-                <div className="text-sm font-medium text-gray-900">
-                  {item.nome}
-                </div>
+            <div className="text-sm font-medium text-gray-900">
+              {item.nome}
+            </div>
           </div>
-        </div> 
+        </div>
       )
     },
-    { 
+    {
       key: 'codigo',
-      label: 'Código', 
+      label: 'Código',
       render: (_, item) => (
         <span className="text-sm font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
           {item.codigo || 'N/A'}
         </span>
       )
     },
-    { 
-      key: 'valor_unitario', 
-      label: 'Valor', 
+    {
+      key: 'valor_unitario',
+      label: 'Valor',
       render: (_, item) => (
         <span className="inline-flex items-center text-green-600 font-medium">
           {formatarValor(item.valor_unitario)}
         </span>
-      ) 
+      )
     },
-    { 
-      key: 'regras_cobranca', 
-      label: 'Cobrança', 
+    {
+      key: 'regras_cobranca',
+      label: 'Cobrança',
       render: (_, item) => (
         <span className="text-sm text-gray-700">
           {opcoesRegrasCobranca.find(
             o => o.value === item.regras_cobranca
           )?.label || item.regras_cobranca || '-'}
         </span>
-      ) 
+      )
     },
-    { 
-      key: 'categoria_id', 
-      label: 'Categoria', 
-      render: (_, item) =>(
+    {
+      key: 'categoria_id',
+      label: 'Categoria',
+      render: (_, item) => (
         <span className="text-sm text-gray-500">
           {item.categoria_id ?
-          categoryMap.get(item.categoria_id) || '-' 
-          : '-' }
+            categoryMap.get(item.categoria_id) || '-'
+            : '-'}
         </span>
-      ) 
+      )
     },
   ];
-// =============================
+  // =============================
   const fetchServicos = useCallback(async () => {
     try {
       setIsCarregando(true);
@@ -202,7 +202,7 @@ export default function ServicosPage() {
     } finally { setIsCarregando(false); }
   }, []);
 
-// =============================
+  // =============================
 
   const fetchCategorias = useCallback(async () => {
     try {
@@ -218,7 +218,7 @@ export default function ServicosPage() {
     fetchServicos();
     fetchCategorias();
   }, [fetchServicos, fetchCategorias, user]);
-// =============================
+  // =============================
   const handleCadastroSubmit = async () => {
     setError(null);
     if (!formData.nome.trim() || !formData.valor_unitario || !formData.regras_cobranca) { setError('Nome, Valor Unitário e Tipo de Cobrança são obrigatórios.'); return; }
@@ -277,12 +277,17 @@ export default function ServicosPage() {
 
   const handleEditClick = (servico: Servico) => {
     resetForm(); setServicoParaEditar(servico);
+    // Garante que regras_cobranca seja sempre um valor válido
+    const regrasValidas = opcoesRegrasCobranca.map(o => o.value);
+    const regra = regrasValidas.includes(servico.regras_cobranca)
+      ? servico.regras_cobranca
+      : opcoesRegrasCobranca[0].value;
     setFormData({
       nome: servico.nome,
       descricao: servico.descricao || '',
       valor_unitario: servico.valor_unitario.toString(),
       categoria_id: servico.categoria_id?.toString() || '',
-      regras_cobranca: servico.regras_cobranca || opcoesRegrasCobranca[0].value, 
+      regras_cobranca: regra,
     });
     setError(null); setIsModalEdicaoOpen(true);
   };
@@ -348,21 +353,21 @@ export default function ServicosPage() {
             </div>
 
             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-center mb-3">
-                    <h3 className="text-lg font-semibold text-gray-800">Valores</h3>
+              <div className="flex items-center mb-3">
+                <h3 className="text-lg font-semibold text-gray-800">Valores</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><DollarSign className="w-3 h-3 mr-1" /> Valor Unitário</label>
+                  <p className="text-green-700 font-bold text-base">{formatarValor(servicoParaVisualizar.valor_unitario)}</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                    <div>
-                        <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><DollarSign className="w-3 h-3 mr-1" /> Valor Unitário</label>
-                        <p className="text-green-700 font-bold text-base">{formatarValor(servicoParaVisualizar.valor_unitario)}</p>
-                    </div>
-                      <div>
-                        <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><IconType className="w-3 h-3 mr-1" /> Tipo de Cobrança</label>
-                        <p className="text-gray-900">
-                          {opcoesRegrasCobranca.find(o => o.value === servicoParaVisualizar.regras_cobranca)?.label || servicoParaVisualizar.regras_cobranca || <span className="italic text-gray-400">Não informado</span>}
-                        </p>
-                      </div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><IconType className="w-3 h-3 mr-1" /> Tipo de Cobrança</label>
+                  <p className="text-gray-900">
+                    {opcoesRegrasCobranca.find(o => o.value === servicoParaVisualizar.regras_cobranca)?.label || servicoParaVisualizar.regras_cobranca || <span className="italic text-gray-400">Não informado</span>}
+                  </p>
                 </div>
+              </div>
             </div>
 
             {servicoParaVisualizar.descricao && (
@@ -383,17 +388,17 @@ export default function ServicosPage() {
         )}
       </ModalPadrao>
 
-      <ConfirmDialog open={modalExclusaoOpen} onCancel={() => setModalExclusaoOpen(false)} onConfirm={handleExcluirConfirm} title="Excluir Serviço" message={`Tem certeza que deseja excluir o serviço "${servicoParaExcluir?.nome}" (Código: ${servicoParaExcluir?.codigo})? Esta ação marcará o serviço como inativo.`} confirmLabel="Sim, Excluir" variant="danger"/>
+      <ConfirmDialog open={modalExclusaoOpen} onCancel={() => setModalExclusaoOpen(false)} onConfirm={handleExcluirConfirm} title="Excluir Serviço" message={`Tem certeza que deseja excluir o serviço "${servicoParaExcluir?.nome}" (Código: ${servicoParaExcluir?.codigo})? Esta ação marcará o serviço como inativo.`} confirmLabel="Sim, Excluir" variant="danger" />
 
       <ModalPadrao isOpen={isModalCadastroOpen} onClose={handleCadastroClose} title="Cadastrar Novo Serviço" confirmLabel={isCarregando ? 'Cadastrando...' : 'Cadastrar'} onConfirm={handleCadastroSubmit} size="lg">
         <div className="space-y-4">
           {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative text-sm" role="alert">{error}</div>}
-          <input type="text" placeholder="Nome do Serviço *" className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500" value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })}/>
-          <textarea placeholder="Descrição (opcional)" className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500" value={formData.descricao} onChange={(e) => setFormData({ ...formData, descricao: e.target.value })} rows={3}/>
+          <input type="text" placeholder="Nome do Serviço *" className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500" value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} />
+          <textarea placeholder="Descrição (opcional)" className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500" value={formData.descricao} onChange={(e) => setFormData({ ...formData, descricao: e.target.value })} rows={3} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="valor_unitario_cad" className="block text-sm font-medium text-gray-700 mb-1">Valor Unitário *</label>
-              <div className="flex items-center space-x-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 px-3"><span className="text-gray-500">R$</span><input type="number" id="valor_unitario_cad" placeholder="0.00" step="0.01" min="0" className="flex-grow py-2 border-0 focus:ring-0" value={formData.valor_unitario} onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })}/></div>
+              <div className="flex items-center space-x-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 px-3"><span className="text-gray-500">R$</span><input type="number" id="valor_unitario_cad" placeholder="0.00" step="0.01" min="0" className="flex-grow py-2 border-0 focus:ring-0" value={formData.valor_unitario} onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })} /></div>
             </div>
             <div>
               <label htmlFor="regras_cobranca_cad" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Cobrança *</label>
@@ -425,17 +430,17 @@ export default function ServicosPage() {
         <div className="space-y-4">
           {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative text-sm" role="alert">{error}</div>}
           <div><label className="block text-sm font-medium text-gray-500 mb-1">Código</label><p className="text-sm text-gray-900 bg-gray-100 p-2 rounded">{servicoParaEditar?.codigo}</p></div>
-          <input type="text" placeholder="Nome do Serviço *" className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500" value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })}/>
-          <textarea placeholder="Descrição (opcional)" className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500" value={formData.descricao} onChange={(e) => setFormData({ ...formData, descricao: e.target.value })} rows={3}/>
+          <input type="text" placeholder="Nome do Serviço *" className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500" value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} />
+          <textarea placeholder="Descrição (opcional)" className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500" value={formData.descricao} onChange={(e) => setFormData({ ...formData, descricao: e.target.value })} rows={3} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                  <label htmlFor="valor_unitario_edit" className="block text-sm font-medium text-gray-700 mb-1">Valor Unitário *</label>
-                  <div className="flex items-center space-x-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 px-3"><span className="text-gray-500">R$</span><input type="number" id="valor_unitario_edit" placeholder="0.00" step="0.01" min="0" className="flex-grow py-2 border-0 focus:ring-0" value={formData.valor_unitario} onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })}/></div>
-              </div>
-              <div>
-                  <label htmlFor="regras_cobranca_edit" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Cobrança *</label>
-                  <select id="regras_cobranca_edit" title="Tipo de Cobrança" className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500 bg-white" value={formData.regras_cobranca} onChange={(e) => setFormData({ ...formData, regras_cobranca: e.target.value })}>{opcoesRegrasCobranca.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}</select>
-              </div>
+            <div>
+              <label htmlFor="valor_unitario_edit" className="block text-sm font-medium text-gray-700 mb-1">Valor Unitário *</label>
+              <div className="flex items-center space-x-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 px-3"><span className="text-gray-500">R$</span><input type="number" id="valor_unitario_edit" placeholder="0.00" step="0.01" min="0" className="flex-grow py-2 border-0 focus:ring-0" value={formData.valor_unitario} onChange={(e) => setFormData({ ...formData, valor_unitario: e.target.value })} /></div>
+            </div>
+            <div>
+              <label htmlFor="regras_cobranca_edit" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Cobrança *</label>
+              <select id="regras_cobranca_edit" title="Tipo de Cobrança" className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500 bg-white" value={formData.regras_cobranca} onChange={(e) => setFormData({ ...formData, regras_cobranca: e.target.value })}>{opcoesRegrasCobranca.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}</select>
+            </div>
           </div>
           <div>
             <label htmlFor="categoria_id_edit" className="block text-sm font-medium text-gray-700 mb-1">Categoria (opcional)</label>
@@ -444,13 +449,13 @@ export default function ServicosPage() {
                 <option value="">Selecione uma categoria</option>
                 {categorias.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
               </select>
-              <IconButton icon={Plus} onClick={() => setIsModalCategoriaOpen(true)} variant="outline" size="md" title="Adicionar Nova Categoria"/>
+              <IconButton icon={Plus} onClick={() => setIsModalCategoriaOpen(true)} variant="outline" size="md" title="Adicionar Nova Categoria" />
             </div>
           </div>
         </div>
       </ModalPadrao>
 
-      <ModalCadastroCategoria isOpen={isModalCategoriaOpen} onClose={() => setIsModalCategoriaOpen(false)} onCategoriaCadastrada={handleCategoriaCadastrada}/>
+      <ModalCadastroCategoria isOpen={isModalCategoriaOpen} onClose={() => setIsModalCategoriaOpen(false)} onCategoriaCadastrada={handleCategoriaCadastrada} />
 
     </PageLayout>
   );

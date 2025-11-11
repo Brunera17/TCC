@@ -729,15 +729,18 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
 };
 
 // Componente de Configurações Tributárias
-const ConfiguracoesTributariasEdit: React.FC<{
+interface ConfiguracoesTributariasEditProps {
   dados: DadosProposta;
-  setDados: (dados: DadosProposta) => void;
+  setDados: React.Dispatch<React.SetStateAction<DadosProposta>>;
   tiposAtividade: TipoAtividade[];
   regimesTributarios: RegimeTributario[];
   faixasFaturamento: FaixaFaturamento[];
   onRegimeChange: (regimeId: number) => void;
   onMensalidadeEncontrada?: (mensalidade: any) => void;
-}> = ({ dados, setDados, tiposAtividade, regimesTributarios, faixasFaturamento, onRegimeChange, onMensalidadeEncontrada }) => {
+}
+
+const ConfiguracoesTributariasEdit: React.FC<ConfiguracoesTributariasEditProps> = ({ dados, setDados, tiposAtividade, regimesTributarios, faixasFaturamento, onRegimeChange, onMensalidadeEncontrada, proposta }) => {
+  // ...interface já declarada acima...
 
   const [buscandoMensalidade, setBuscandoMensalidade] = useState(false);
   const [mensalidadeEncontrada, setMensalidadeEncontrada] = useState<any>(null);
@@ -931,12 +934,15 @@ const ConfiguracoesTributariasEdit: React.FC<{
 };
 
 // Componente de Serviços corrigido
-const ServicosEditCorrigido: React.FC<{
+interface ServicosEditCorrigidoProps {
   dados: DadosProposta;
-  setDados: (dados: DadosProposta) => void;
+  setDados: React.Dispatch<React.SetStateAction<DadosProposta>>;
   todosServicos: Servico[];
   formatarMoeda: (valor: number) => string;
-}> = ({ dados, setDados, todosServicos, formatarMoeda }) => {
+  proposta?: PropostaResponse | null;
+}
+
+const ServicosEditCorrigido: React.FC<ServicosEditCorrigidoProps> = ({ dados, setDados, todosServicos, formatarMoeda, proposta }) => {
 
   const adicionarServico = () => {
     const novoServico: DadosProposta['servicosSelecionados'][number] = {
@@ -950,21 +956,21 @@ const ServicosEditCorrigido: React.FC<{
       servico: null
     };
 
-    setDados((prev) => ({
+    setDados((prev: DadosProposta) => ({
       ...prev,
       servicosSelecionados: [...prev.servicosSelecionados, novoServico]
     }));
   };
 
   const removerServico = (index: number) => {
-    setDados((prev) => ({
+    setDados((prev: DadosProposta) => ({
       ...prev,
       servicosSelecionados: prev.servicosSelecionados.filter((_, i) => i !== index)
     }));
   };
 
   const atualizarServico = (index: number, campo: string, valor: any) => {
-    setDados((prev) => ({
+    setDados((prev: DadosProposta) => ({
       ...prev,
       servicosSelecionados: prev.servicosSelecionados.map((servico, i) => {
         if (i === index) {
@@ -1070,6 +1076,7 @@ const ServicosEditCorrigido: React.FC<{
                     value={servico.valor_unitario}
                     onChange={(e) => atualizarServico(index, 'valor_unitario', parseFloat(e.target.value) || 0)}
                     className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                    proposta={proposta}
                   />
                 </div>
               </div>

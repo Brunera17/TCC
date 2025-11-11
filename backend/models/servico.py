@@ -6,6 +6,17 @@ import re
 
 
 class Servico(db.Model, TimestampMixin, ActiveMixin):
+    REGRAS_COBRANCA_VALIDAS = [
+        'VALOR_UNICO', 'MENSAL', 'POR_HORA', 'PERCENTUAL', 'POR_NF'
+    ]
+    @validates('regras_cobranca')
+    def validar_regras_cobranca(self, key, valor):
+        if valor is None:
+            return None
+        valor = str(valor).upper()
+        if valor not in self.REGRAS_COBRANCA_VALIDAS:
+            raise ValueError(f"Tipo de cobrança inválido: {valor}. Use uma das opções: {', '.join(self.REGRAS_COBRANCA_VALIDAS)}")
+        return valor
     """ Modelo de Serviço """
     __tablename__ = 'servicos'
 

@@ -46,15 +46,20 @@ const Login = () => {
         }
     };
 
-    return(
+    return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
                 <div className="bg-white rounded-lg shadow-xl p-8">
-                    <div className="text-center mb-8">
-                        <h1 className="text-2xl font-bold text-gray-900">ContaGest</h1>
-                        <p className="text-gray-600 mt-2">Faça login para continuar</p>
+                    <div className="flex flex-col items-center justify-center mb-4">
+                        <img
+                            src="/logo contagest.png"
+                            alt="Logo ContaGest"
+                            className="w-20 h-20 rounded-full object-cover mb-3"
+                        />
+                        <h1 className="text-2xl font-bold text-gray-800">ContaGest</h1>
+                        <p className="text-sm text-gray-500">Faça login para continuar</p>
                     </div>
-                    
+
                     {erro && (
                         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-6">
                             {erro}
@@ -79,7 +84,7 @@ const Login = () => {
                                 />
                             </div>
                         </div>
-                        
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Senha
@@ -105,14 +110,14 @@ const Login = () => {
                             </div>
                         </div>
 
-                        <button 
-                            type="submit" 
+                        <button
+                            type="submit"
                             disabled={carregando}
                             className="w-full bg-gradient-to-br from-blue-500 to-blue-900 text-white py-3 px-4 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                         >
                             {carregando ? 'Entrando...' : 'Entrar'}
                         </button>
-                    </form>                    
+                    </form>
                 </div>
             </div>
         </div>

@@ -177,8 +177,9 @@ class PropostaService:
         return self.repo.delete(proposta)
 
     def _gerar_numero_proposta(self) -> str:
-        """Gera identificador no formato PROP-<ano><mes><dia><hora><minuto><segundo>."""
-        base = datetime.now().strftime("PROP-%Y%m%d%H%M%S")
+        """Gera identificador no formato PROP<ano><mes><dia><hora><minuto><segundo> no fuso de Brasília."""
+        from zoneinfo import ZoneInfo
+        base = datetime.now(ZoneInfo('America/Sao_Paulo')).strftime("PROP%Y%m%d%H%M%S")
 
         if not Proposta.query.filter_by(numero_proposta=base).first():
             return base

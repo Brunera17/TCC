@@ -469,7 +469,9 @@
             {% endfor %}
         </ol>
 
-        <div class="section-title">Orçamento</div>
+
+        {% if tem_servicos_mensais %}
+        <div class="section-title">Serviços Mensais</div>
         <table>
             <thead>
                 <tr>
@@ -483,7 +485,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for item in itens %}
+                {% for item in itens_mensais %}
                 <tr>
                     <td>{{ item.nome }}</td>
                     <td>{{ item.quantidade|int }}</td>
@@ -494,19 +496,53 @@
                     <td>{{ item.valor_total|currency }}</td>
                 </tr>
                 {% endfor %}
-                {# Mensalidade já é incluída como item pelo backend, não repetir aqui #}
                 <tr class="table-subtotal">
-                    <td
-                        colspan="{% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}4{% else %}3{% endif %}">
-                        <strong>Subtotal</strong>
-                    </td>
-                    <td>{{ subtotal|currency }}</td>
+                    <td colspan="{% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}4{% else %}3{% endif %}"><strong>Subtotal</strong></td>
+                    <td>{{ subtotal_mensais|currency }}</td>
                 </tr>
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if tem_servicos_valor_unico %}
+        <div class="section-title">Serviços Únicos</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Serviço ou Produto</th>
+                    <th>Quantidade</th>
+                    <th>Preço Unitário</th>
+                    {% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}
+                    <th>Desconto</th>
+                    {% endif %}
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in itens_valor_unico %}
+                <tr>
+                    <td>{{ item.nome }}</td>
+                    <td>{{ item.quantidade|int }}</td>
+                    <td>{{ item.valor_unitario|currency }}</td>
+                    {% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}
+                    <td>{{ item.valor_desconto|currency }}</td>
+                    {% endif %}
+                    <td>{{ item.valor_total|currency }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="table-subtotal">
+                    <td colspan="{% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}4{% else %}3{% endif %}"><strong>Subtotal</strong></td>
+                    <td>{{ subtotal_valor_unico|currency }}</td>
+                </tr>
+            </tbody>
+        </table>
+        {% endif %}
+
+        <div class="section-title">Total da Proposta</div>
+        <table>
+            <tbody>
                 <tr class="table-total">
-                    <td
-                        colspan="{% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}4{% else %}3{% endif %}">
-                        <strong>Total</strong>
-                    </td>
+                    <td colspan="{% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}4{% else %}3{% endif %}"><strong>Total</strong></td>
                     <td>{{ proposta.valor_total|currency }}</td>
                 </tr>
             </tbody>

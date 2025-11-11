@@ -126,16 +126,18 @@ class PropostaPDFGenerator:
 
             servico = getattr(item, "servico", None)
             if servico:
+                tipo_cobranca = getattr(servico, "tipo_cobranca", "VALOR_UNICO")
                 servico_dict = {
                     "nome": servico.nome,
                     "descricao": servico.descricao,
-                    "tipo_cobranca": getattr(servico, "tipo_cobranca", "VALOR_UNICO")
+                    "tipo_cobranca": tipo_cobranca
                 }
             else:
+                tipo_cobranca = "VALOR_UNICO"
                 servico_dict = {
                     "nome": f"Serviço {item.id}",
                     "descricao": "Serviço não especificado",
-                    "tipo_cobranca": "VALOR_UNICO"
+                    "tipo_cobranca": tipo_cobranca
                 }
 
             valor_unitario = float(getattr(item, "valor_unitario", 0.0) or 0.0)
@@ -157,15 +159,16 @@ class PropostaPDFGenerator:
                 "valor_unitario": valor_unitario,
                 "valor_desconto": valor_desconto if percentual_desconto > 0 else 0.0,
                 "valor_total": valor_total_com_desconto,
-                "tipo_cobranca": servico_dict["tipo_cobranca"],
+                "tipo_cobranca": tipo_cobranca,
             }
 
-            if servico_dict["tipo_cobranca"] == "MENSAL":
-                itens_mensais.append(item_completo)
-                subtotal_mensais += valor_total_com_desconto
-            else:
+            # Nova lógica de separação
+            if tipo_cobranca in ["POR_HORA", "VALOR_UNICO"]:
                 itens_valor_unico.append(item_completo)
                 subtotal_valor_unico += valor_total_com_desconto
+            else:
+                itens_mensais.append(item_completo)
+                subtotal_mensais += valor_total_com_desconto
 
             itens_completos.append(item_completo)
 

@@ -1,4 +1,5 @@
-from  datetime import datetime
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from config import db
 from sqlalchemy.orm import validates
 from .base import TimestampMixin, ActiveMixin
@@ -50,8 +51,8 @@ class ItemProposta(db.Model, TimestampMixin, ActiveMixin):
             'valor_unitario': self.valor_unitario,
             'valor_total': self.valor_total,
             'ativo': self.ativo,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': self.created_at.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat(),
+            'updated_at': self.updated_at.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat(),
         }
     def __repr__(self):
         return f"<ItemProposta {self.id}>"
@@ -208,8 +209,8 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
             'entidade_juridica_id': self.entidade_juridica_id,
             'usuario_id': self.usuario_id,
             'funcionario_responsavel_id': self.usuario_id,  # Alias para compatibilidade
-            'validade': self.validade.isoformat() if self.validade else None,
-            'data_validade': self.validade.isoformat() if self.validade else None,  # Alias para compatibilidade
+            'validade': self.validade.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat() if self.validade else None,
+            'data_validade': self.validade.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat() if self.validade else None,  # Alias para compatibilidade
             'observacao': self.observacao,
             'status': self.status,
             'porcentagem_desconto': self.porcentagem_desconto,
@@ -218,11 +219,11 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
                 'valor_mensalidade': self.valor_mensalidade,
             'requer_aprovacao': self.requer_aprovacao,
             'aprovado_por': self.aprovado_por,
-            'data_aprovacao': self.data_aprovacao.isoformat() if self.data_aprovacao else None,
+            'data_aprovacao': self.data_aprovacao.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat() if self.data_aprovacao else None,
             'motivo_rejeicao': self.motivo_rejeicao,
             'pdf_gerado': self.pdf_gerado,
             'pdf_caminho': self.pdf_caminho,
-            'pdf_gerado_em': self.pdf_gerado_em.isoformat() if self.pdf_gerado_em else None,
+            'pdf_gerado_em': self.pdf_gerado_em.astimezone(ZoneInfo('America/Sao_Paulo')).isoformat() if self.pdf_gerado_em else None,
                 'tipo_atividade_id': self.tipo_atividade_id,
                 'regime_tributario_id': self.regime_tributario_id,
                 'faixa_faturamento_id': self.faixa_faturamento_id,

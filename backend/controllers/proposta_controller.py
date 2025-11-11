@@ -23,7 +23,12 @@ def get_proposta_especifica(proposta_id):
 def get_propostas_por_cliente(cliente_id):
     propostas = service.get_by_cliente(cliente_id)
     return jsonify([proposta.to_json() for proposta in propostas])
-
+# Rota para histórico de alterações da proposta
+@bp.route('/<int:proposta_id>/logs/', methods=['GET'], strict_slashes=False)
+def get_proposta_logs(proposta_id):
+    # TODO: Buscar histórico real no banco
+    # Por enquanto retorna lista vazia
+    return jsonify([]), 200
 @bp.route('/', methods=['POST'])
 def criar_proposta():
     data = request.get_json()
