@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cffi
 Version: 1.17.1
 Summary: Foreign Function Interface for Python calling C code.
@@ -26,6 +26,16 @@ Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.8
 License-File: LICENSE
 Requires-Dist: pycparser
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 CFFI

@@ -21,6 +21,7 @@ class PropostaService:
         """Normaliza chaves recebidas do frontend para o modelo SQLAlchemy."""
         aliases = {
             "percentual_desconto": "porcentagem_desconto",
+            "data_validade": "validade",
             "observacoes": "observacao",
             "numero": "numero_proposta",
             "numeroProposta": "numero_proposta",
@@ -30,6 +31,7 @@ class PropostaService:
             "entidadeJuridicaId": "entidade_juridica_id",
             "usuario": "usuario_id",
             "usuarioId": "usuario_id",
+            "funcionario_responsavel_id": "usuario_id",
             "responsavel": "usuario_id",
             "responsavel_id": "usuario_id",
             "responsavelId": "usuario_id",
@@ -64,6 +66,31 @@ class PropostaService:
         """Ajusta valores conforme o tipo esperado pelo modelo."""
         if chave.endswith("_id"):
             return PropostaService._extrair_id(valor)
+        
+        # Tratar campos de data
+        if chave in ["validade", "data_aprovacao", "pdf_gerado_em"] and valor:
+            if isinstance(valor, str):
+                try:
+                    # Tentar converter string ISO para datetime
+                    from datetime import datetime
+                    return datetime.fromisoformat(valor.replace('Z', '+00:00'))
+                except ValueError:
+                    # Se falhar, tentar outros formatos comuns
+                    try:
+                        return datetime.strptime(valor, '%Y-%m-%d')
+                    except ValueError:
+                        try:
+                            return datetime.strptime(valor, '%d/%m/%Y')
+                        except ValueError:
+                            return None
+        
+        # Tratar campo porcentagem_desconto (deve ser inteiro)
+        if chave == "porcentagem_desconto" and valor is not None:
+            try:
+                return int(float(valor))  # Converte float para int
+            except (ValueError, TypeError):
+                return 0
+        
         return valor
 
     @staticmethod
@@ -132,8 +159,14 @@ class PropostaService:
         if not proposta:
             raise ValueError("Proposta não encontrada")
         
-        for key, value in self._normalizar_dados(data).items():
+        dados_normalizados = self._normalizar_dados(data)
+        print(f"🔄 Dados normalizados: {dados_normalizados}")
+        
+        for key, value in dados_normalizados.items():
+            old_value = getattr(proposta, key, None)
             setattr(proposta, key, value)
+            print(f"📝 {key}: {old_value} -> {value}")
+            
         return self.repo.update(proposta)
     
     def deletar_proposta(self, proposta_id: int):

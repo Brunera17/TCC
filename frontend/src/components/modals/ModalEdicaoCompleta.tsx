@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Settings, List, CheckCircle, User, Plus, Trash2, Save,
-  DollarSign, X
+  DollarSign
 } from 'lucide-react';
 import { apiService } from '../../lib/api';
 import type {
@@ -14,6 +14,8 @@ import type {
 import { StatusBadge } from '../common/StatusBadge';
 import { STATUS_COLORS, normalizeStatus } from '../../utils/statusColors';
 import { useToast } from '../../context/ToastContext';
+import { Modal } from './Modal';
+import { Button } from '../forms/Button';
 
 interface ModalEdicaoCompletaProps {
   proposta: PropostaResponse | null;
@@ -133,11 +135,20 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
     setLoading(true);
     try {
       console.log('🔍 Carregando dados da proposta:', proposta!.id);
+      console.log('📋 Dados completos da proposta:', proposta);
 
-      // ✅ CORREÇÃO: Validar se a proposta tem tipo_atividade_id
+      // ✅ VALIDAÇÃO: Verificar se a proposta tem cliente_id
+      if (!proposta!.cliente_id || proposta!.cliente_id === undefined || proposta!.cliente_id === null) {
+        console.error('❌ Proposta sem cliente_id:', proposta);
+        throw new Error(`Proposta #${proposta!.numero || proposta!.id} não possui cliente_id válido. Valor atual: ${proposta!.cliente_id}`);
+      }
+
+      // ✅ VALIDAÇÃO: Verificar se a proposta tem tipo_atividade_id
       if (!proposta!.tipo_atividade_id) {
         throw new Error('Proposta não possui tipo de atividade definido. Não é possível carregar regimes tributários.');
       }
+
+      console.log('✅ Validações OK - cliente_id:', proposta!.cliente_id, 'tipo_atividade_id:', proposta!.tipo_atividade_id);
 
       const [propostaCompleta, cliente, tipos, regimes, servicosResponse] = await Promise.all([
         apiService.getProposta(proposta!.id),
@@ -154,6 +165,13 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
       console.log('📄 Proposta completa:', propostaCompleta);
       console.log('💰 Resumo financeiro:', propostaCompleta.resumo_financeiro);
       console.log('🏢 Taxa abertura:', propostaCompleta.taxa_abertura);
+      console.log('🎯 CAMPOS DE DESCONTO:');
+      console.log('   percentual_desconto:', propostaCompleta.percentual_desconto);
+      console.log('   porcentagem_desconto:', propostaCompleta.porcentagem_desconto);
+      console.log('   valor_total:', propostaCompleta.valor_total);
+      console.log('💰 CAMPO MENSALIDADE:');
+      console.log('   propostaCompleta.valor_mensalidade:', propostaCompleta.valor_mensalidade);
+      console.log('   typeof:', typeof propostaCompleta.valor_mensalidade);
 
       const servicos = extractCollection<Servico>(servicosResponse);
 
@@ -186,12 +204,18 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
       const valorServicos = resumo.valor_servicos || 0;
       const taxaAbertura = resumo.taxa_abertura || 0;
       const valorMensalidade = resumo.valor_mensalidade || propostaCompleta.valor_mensalidade || 0;
+
+      console.log('💰 DEBUG MENSALIDADE:');
+      console.log('   resumo.valor_mensalidade:', resumo.valor_mensalidade);
+      console.log('   propostaCompleta.valor_mensalidade:', propostaCompleta.valor_mensalidade);
+      console.log('   valorMensalidade final:', valorMensalidade);
       const valorBase = resumo.valor_base || (valorServicos + taxaAbertura + valorMensalidade);
       const valorFinal = resumo.valor_final || propostaCompleta.valor_total;
-      const descontoValor = resumo.desconto_valor || 0;
-      // ⚠️ CORRIGIDO: Usar o percentual salvo no banco em vez do calculado
-      const descontoPercentual = resumo.percentual_desconto_banco || 0;
-      const descontoTipo = resumo.desconto_tipo || 'sem_desconto';
+      // ⚠️ CORRIGIDO: Usar o percentual salvo diretamente na proposta
+      const descontoPercentual = propostaCompleta.percentual_desconto || propostaCompleta.porcentagem_desconto || 0;
+      // ⚠️ CALCULAR: Valor do desconto baseado no percentual real
+      const descontoValor = (valorBase * descontoPercentual) / 100;
+      const descontoTipo = descontoPercentual > 0 ? 'percentual' : 'sem_desconto';
 
       console.log('💰 Valores financeiros corretos:', {
         valorServicos,
@@ -224,8 +248,8 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
         desconto_tipo: descontoTipo,
 
         // Outros campos
-  observacoes: limparObservacoes(propostaCompleta.observacoes || ''),
-  status: normalizeStatus(propostaCompleta.status),
+        observacoes: limparObservacoes(propostaCompleta.observacoes || ''),
+        status: normalizeStatus(propostaCompleta.status),
         data_validade: propostaCompleta.data_validade || '',
 
         // Campos obrigatórios da interface
@@ -460,26 +484,14 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
   if (!isOpen || !proposta) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-      <div className="rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col mx-4">
-        {/* Header corrigido - CORREÇÃO: SEM rounded-t-lg */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-bold">Editar Proposta Completa</h3>
-              <p className="text-blue-100 text-sm">
-                #{proposta.numero}
-                {clienteCompleto && ` - ${clienteCompleto.nome}`}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-blue-100 hover:text-white transition-colors p-1"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Editar Proposta Completa - #${proposta.numero}${clienteCompleto ? ` - ${clienteCompleto.nome}` : ''}`}
+      size="xl"
+      className="w-full max-w-6xl h-[85vh] max-h-[700px]"
+    >
+      <div className="flex flex-col h-full">
 
         {loading ? (
           <div className="p-12 text-center flex-1">
@@ -488,8 +500,8 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
           </div>
         ) : (
           <div className="flex flex-1 overflow-hidden">
-            {/* Navegação lateral corrigida - CORREÇÃO: COM bg-white */}
-            <div className="w-80 bg-white border-r flex-shrink-0 overflow-y-auto">
+            {/* Navegação lateral */}
+            <div className="w-80 bg-gray-50 border-r flex-shrink-0 overflow-y-auto">
               <div className="p-4">
                 <h4 className="font-medium text-gray-900 mb-4">Seções Editáveis</h4>
 
@@ -646,9 +658,9 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
               </div>
             </div>
 
-            {/* Conteúdo principal corrigido - CORREÇÃO: COM bg-white */}
+            {/* Conteúdo principal */}
             <div className="flex-1 overflow-y-auto bg-white">
-              <div className="p-6">
+              <div className="p-6 h-full">
                 {abaSelecionada === 'configuracoes' && (
                   <ConfiguracoesTributariasEdit
                     dados={dados}
@@ -682,8 +694,8 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
           </div>
         )}
 
-        {/* Footer corrigido - CORREÇÃO: COM bg-white */}
-        <div className="bg-white px-6 py-4 border-t flex justify-between items-center flex-shrink-0">
+        {/* Footer fixo */}
+        <div className="px-6 py-4 border-t bg-white flex justify-between items-center flex-shrink-0">
           <div className="text-sm text-gray-600">
             <span className="font-medium">Editando:</span> {
               abaSelecionada === 'configuracoes' ? 'Configurações Tributárias' :
@@ -692,36 +704,27 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
           </div>
 
           <div className="flex space-x-3">
-            <button
+            <Button
+              variant="ghost"
               onClick={onClose}
               disabled={salvando}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               onClick={handleSalvar}
               disabled={salvando || loading}
-              className="px-6 py-2 text-sm font-medium text-white bg-custom-blue rounded-lg hover:bg-custom-blue-light disabled:opacity-50 transition-colors flex items-center space-x-2"
+              loading={salvando}
+              leftIcon={!salvando ? <Save className="w-4 h-4" /> : undefined}
             >
-              {salvando ? (
-                <>
-                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                  <span>
-                    {regenerandoPDF ? 'Regenerando PDF...' : 'Salvando...'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Salvar Alterações</span>
-                </>
-              )}
-            </button>
+              {salvando && regenerandoPDF ? 'Regenerando PDF...' :
+                salvando ? 'Salvando...' : 'Salvar Alterações'}
+            </Button>
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -750,6 +753,12 @@ const ConfiguracoesTributariasEdit: React.FC<{
       return;
     }
 
+    // Se estamos editando uma proposta e ela já tem mensalidade, não sobrescrever
+    if (proposta && dados.valor_mensalidade && dados.valor_mensalidade > 0) {
+      console.log('📝 Modo edição - mantendo mensalidade existente:', dados.valor_mensalidade);
+      return;
+    }
+
     console.log('🔍 Buscando mensalidade automática com configuração:', {
       tipo_atividade_id: dados.tipo_atividade_id,
       regime_tributario_id: dados.regime_tributario_id,
@@ -768,16 +777,20 @@ const ConfiguracoesTributariasEdit: React.FC<{
 
       console.log('📊 Resposta da API de mensalidade:', response);
 
-      // O backend retorna { success: true, data: { valor_mensalidade: ... } }
-      if (response && response.success && response.data && response.data.valor_mensalidade) {
-        console.log('✅ Mensalidade encontrada:', response.data.valor_mensalidade);
-        setMensalidadeEncontrada(response.data);
-        setDados(prev => ({ ...prev, valor_mensalidade: response.data.valor_mensalidade }));
-        onMensalidadeEncontrada?.(response.data);
+      // O backend retorna { mensalidadeSugerida: ... } ou { mensalidade_sugerida: ... }
+      const mensalidadeEncontrada = response?.mensalidadeSugerida || response?.mensalidade_sugerida || response?.data?.valor_mensalidade;
+
+      if (mensalidadeEncontrada) {
+        console.log('✅ Mensalidade encontrada:', mensalidadeEncontrada);
+        setMensalidadeEncontrada(response);
+        const dadosAtualizados = { ...dados, valor_mensalidade: Number(mensalidadeEncontrada) };
+        setDados(dadosAtualizados);
+        onMensalidadeEncontrada?.(response);
       } else {
         console.log('❌ Nenhuma mensalidade encontrada para esta configuração');
         setMensalidadeEncontrada(null);
-        setDados(prev => ({ ...prev, valor_mensalidade: 0 }));
+        const dadosAtualizados = { ...dados, valor_mensalidade: 0 };
+        setDados(dadosAtualizados);
       }
     } catch (error) {
       console.error('❌ Erro ao buscar mensalidade automática:', error);
@@ -1003,7 +1016,7 @@ const ServicosEditCorrigido: React.FC<{
       </div>
 
       <div className="space-y-4">
-  {dados.servicosSelecionados.map((servico, index) => (
+        {dados.servicosSelecionados.map((servico, index) => (
           <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
               {/* Serviço - 5 colunas */}
@@ -1088,7 +1101,7 @@ const ServicosEditCorrigido: React.FC<{
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Descrição Personalizada (Opcional)
               </label>
-                <input
+              <input
                 type="text"
                 value={servico.extras?.descricao_personalizada || ''}
                 onChange={(e) => atualizarServico(index, 'extras', {

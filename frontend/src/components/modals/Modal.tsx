@@ -63,26 +63,34 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-      {/* Overlay */}
-      <div
-        className="absolute inset-0 bg-black bg-opacity-50 transition-opacity"
-        onClick={handleOverlayClick}
-      />
-
-      {/* Modal - CORREÇÃO: SEM bg-white, COM overflow-hidden */}
+    <div
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50"
+      onClick={handleOverlayClick}
+      style={{
+        margin: 0,
+        padding: 0,
+        boxSizing: 'border-box'
+      }}
+    >
+      {/* Modal Container */}
       <div
         ref={modalRef}
         className={cn(
-          'relative rounded-lg overflow-hidden shadow-xl w-full mx-4 bg-white',
+          'relative bg-white rounded-lg shadow-xl w-full mx-4 max-h-[90vh] overflow-hidden',
           sizeClasses[size],
-          'animate-in fade-in-0 zoom-in-95 duration-200',
           className
         )}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          margin: '0 1rem',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
       >
-        {/* Header - CORREÇÃO: SEM rounded-t-lg, COM bg-white */}
+        {/* Header */}
         {(title || showCloseButton) && (
-          <div className="bg-white flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
             {title && (
               <h2 className="text-lg font-semibold text-gray-900">
                 {title}
@@ -101,8 +109,11 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
         )}
 
-        {/* Content - CORREÇÃO: COM bg-white */}
-        <div className="bg-white p-6">
+        {/* Content */}
+        <div className={cn(
+          "flex-1 overflow-y-auto",
+          !className?.includes('h-[') ? "p-6" : ""
+        )}>
           {children}
         </div>
       </div>

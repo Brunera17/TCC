@@ -42,11 +42,63 @@ def altera_proposta(proposta_id):
     if not data:
         return jsonify({'error': 'Dados para atualização não encontrados'}), 400
     
+    print(f"🔄 Atualizando proposta {proposta_id}")
+    print(f"📝 Dados recebidos: {data}")
+    print(f"💰 percentual_desconto: {data.get('percentual_desconto')}")
+    print(f"📅 data_validade: {data.get('data_validade')}")
+
+    # Corrigir campo validade para None ou datetime
+    from datetime import datetime
+    validade = data.get('validade') or data.get('data_validade')
+    if validade == '' or validade is None:
+        data['validade'] = None
+    elif isinstance(validade, str):
+        try:
+            # Aceita formatos comuns
+            data['validade'] = datetime.strptime(validade, "%Y-%m-%d")
+        except Exception:
+            try:
+                data['validade'] = datetime.strptime(validade, "%d/%m/%Y")
+            except Exception:
+                data['validade'] = None
+
     try:
         proposta = service.atualizar_proposta(proposta_id, **data)
         return jsonify(proposta.to_json()), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
+
+# ROTA PARA GERAR PDF DA PROPOSTA
+@bp.route('/<int:proposta_id>/gerar-pdf/', methods=['POST'])
+def gerar_pdf_proposta(proposta_id):
+    from services.proposta_pdf_generator import pdf_generator
+    try:
+        caminho_pdf = pdf_generator.gerar_pdf_proposta(proposta_id)
+        # Atualiza o campo pdf_gerado na proposta
+        from models.proposta import Proposta
+        from models.base import db
+        proposta = Proposta.query.filter_by(id=proposta_id).first()
+        if proposta:
+            proposta.pdf_gerado = True
+            proposta.pdf_caminho = caminho_pdf
+            db.session.commit()
+        return jsonify({"pdf_path": caminho_pdf}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ROTA PARA VISUALIZAR/DOWNLOAD DO PDF GERADO
+@bp.route('/<int:proposta_id>/pdf', methods=['GET'], strict_slashes=False)
+def visualizar_pdf_proposta(proposta_id):
+    import os
+    from flask import send_file
+    from services.proposta_pdf_generator import pdf_generator
+    try:
+        caminho_pdf = pdf_generator.gerar_pdf_proposta(proposta_id)
+        if not os.path.exists(caminho_pdf):
+            return jsonify({"error": "PDF não encontrado"}), 404
+        return send_file(caminho_pdf, mimetype='application/pdf', as_attachment=False)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     
 @bp.route('/<int:proposta_id>', methods=['DELETE'], strict_slashes=False)
 def deletar_proposta(proposta_id):

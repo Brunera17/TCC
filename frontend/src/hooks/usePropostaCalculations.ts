@@ -18,19 +18,24 @@ export const usePropostaCalculations = (
       final: valorMensalidade
     });
 
-    // Agrupar subtotais por categoria
+    // ✅ CORREÇÃO: Calcular subtotal diretamente dos serviços selecionados
+    const subtotalServicos = dadosProposta.servicosSelecionados.reduce((sum, item) => sum + item.subtotal, 0);
+
+    // Agrupar subtotais por categoria (para fins de exibição)
     const subtotalPorCategoria = new Map<string, number>();
 
     dadosProposta.servicosSelecionados.forEach(item => {
       const servico = todosServicos.find(s => s.id === item.servico_id);
-      if (servico) {
-        const atual = subtotalPorCategoria.get(servico.categoria) || 0;
-        subtotalPorCategoria.set(servico.categoria, atual + item.subtotal);
-      }
+      const categoria = servico?.categoria || 'Outros Serviços';
+      const atual = subtotalPorCategoria.get(categoria) || 0;
+      subtotalPorCategoria.set(categoria, atual + item.subtotal);
     });
 
-    const subtotalServicos = Array.from(subtotalPorCategoria.values())
-      .reduce((sum, valor) => sum + valor, 0);
+    console.log('🔍 Debug serviços:', {
+      servicosSelecionados: dadosProposta.servicosSelecionados,
+      subtotalServicos,
+      subtotalPorCategoria: Array.from(subtotalPorCategoria.entries())
+    });
 
     // Calcular taxa de abertura
     const taxaAberturaEmpresa = calcularTaxaAbertura(dadosProposta.cliente, dadosProposta.regimeTributario);

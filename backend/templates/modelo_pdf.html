@@ -430,10 +430,10 @@
         <ol class="services-list">
             {% for item in itens %}
             <li>
-                <strong>{{ item.servico.nome }}</strong>
-                {% if item.servico.descricao %}
+                <strong>{{ item.nome }}</strong>
+                {% if item.descricao %}
                 <ul>
-                    {% for descricao_item in item.servico.descricao.split('\\n') %}
+                    {% for descricao_item in item.descricao.split('\n') %}
                     {% if descricao_item.strip() %}
                     <li>{{ descricao_item.strip() }}</li>
                     {% endif %}
@@ -441,7 +441,7 @@
                 </ul>
                 {% endif %}
 
-                {% if item.servico.nome == "Regularização de CNPJ, o serviço compreende:" %}
+                {% if item.nome == "Regularização de CNPJ, o serviço compreende:" %}
                 <div class="service-subsection">
                     <h4>1. Entrega das Obrigações Acessórias</h4>
                     <ul>
@@ -485,7 +485,7 @@
             <tbody>
                 {% for item in itens %}
                 <tr>
-                    <td>{{ item.servico.nome }}</td>
+                    <td>{{ item.nome }}</td>
                     <td>{{ item.quantidade|int }}</td>
                     <td>{{ item.valor_unitario|currency }}</td>
                     {% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}
@@ -494,27 +494,7 @@
                     <td>{{ item.valor_total|currency }}</td>
                 </tr>
                 {% endfor %}
-                {% if proposta.valor_mensalidade and proposta.valor_mensalidade > 0 %}
-                <tr>
-                    <td><strong>Mensalidade</strong></td>
-                    <td>1</td>
-                    <td>{{ proposta.valor_mensalidade|currency }}</td>
-                    {% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}
-                    <td>{{ 0|currency }}</td>
-                    {% endif %}
-                    <td>{{ proposta.valor_mensalidade|currency }}</td>
-                </tr>
-                {% elif proposta.valor_mensalidade == 0 %}
-                <tr>
-                    <td><strong>Mensalidade</strong></td>
-                    <td>1</td>
-                    <td><em>A combinar</em></td>
-                    {% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}
-                    <td>{{ 0|currency }}</td>
-                    {% endif %}
-                    <td><em>A combinar</em></td>
-                </tr>
-                {% endif %}
+                {# Mensalidade já é incluída como item pelo backend, não repetir aqui #}
                 <tr class="table-subtotal">
                     <td
                         colspan="{% if proposta.percentual_desconto and proposta.percentual_desconto > 0 %}4{% else %}3{% endif %}">

@@ -306,6 +306,14 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
       });
       const items = response.data || [];
       const pages = Math.ceil(response.total / response.per_page) || 1;
+
+      // Log para debug - verificar se propostas têm cliente_id
+      console.log('📋 Propostas carregadas:', items.length);
+      if (items.length > 0) {
+        console.log('🔍 Primeira proposta exemplo:', items[0]);
+        console.log('🏢 cliente_id da primeira proposta:', items[0].cliente_id);
+      }
+
       setPropostas(items);
       setFilteredPropostas(items);
       setTotalPages(pages);
@@ -397,7 +405,7 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
     setServicosSelecionados([]);
     setDadosPropostaCompleta(null);
   };
-  
+
   const handleProximoPasso1 = (clienteId: number) => {
     const buscarClienteCompleto = async () => {
       try {
@@ -525,7 +533,7 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
     };
     buscarDadosCompletos();
   };
-  
+
   const handleVoltarPasso3 = () => {
     setCurrentStep(2);
     setServicosSelecionados([]);
@@ -543,6 +551,12 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
       const valorServicos = Array.isArray(servicos) ? servicos.reduce((total, servico) => total + servico.subtotal, 0) : 0;
       const valorMensalidade = dadosProposta.valor_mensalidade || 0;
       const valorTotal = valorServicos + valorMensalidade;
+
+      console.log('💰 CÁLCULO VALOR TOTAL:');
+      console.log('   Valor serviços:', valorServicos);
+      console.log('   Valor mensalidade:', valorMensalidade);
+      console.log('   Valor total final:', valorTotal);
+      console.log('   dadosProposta.valor_mensalidade:', dadosProposta.valor_mensalidade);
       const dadosCompletos: DadosPropostaCompleta = {
         cliente: {
           ...dadosProposta.cliente,
@@ -587,6 +601,7 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
       try {
         const dadosPropostaAPI = {
           cliente_id: dadosProposta.cliente.id,
+          funcionario_responsavel_id: user?.id || undefined,
           tipo_atividade_id: dadosProposta.tipoAtividade.id,
           regime_tributario_id: dadosProposta.regimeTributario.id,
           faixa_faturamento_id: dadosProposta.faixaFaturamento?.id,
@@ -662,6 +677,15 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
   };
 
   const handleEditarPropostaCompleta = (proposta: Proposta) => {
+    console.log('🔧 Editando proposta completa:', proposta);
+    console.log('🔍 cliente_id:', proposta.cliente_id);
+
+    if (!proposta.cliente_id) {
+      console.error('❌ Tentativa de editar proposta sem cliente_id:', proposta);
+      showError('Erro', 'Não é possível editar esta proposta: dados do cliente não encontrados.');
+      return;
+    }
+
     setPropostaSelecionada(proposta);
     setModalEdicaoCompletaOpen(true);
   };
@@ -865,7 +889,7 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
           id: dadosProposta.propostaId || 0,
           numero: dadosProposta.propostaNumero || 'NOVA',
           cliente_id: dadosCompletosPasso5.cliente.id,
-          funcionario_responsavel_id: undefined,
+          funcionario_responsavel_id: user?.id || undefined,
           tipo_atividade_id: dadosCompletosPasso5.tipoAtividade.id,
           regime_tributario_id: dadosCompletosPasso5.regimeTributario.id,
           faixa_faturamento_id: dadosCompletosPasso5.faixaFaturamento ? dadosCompletosPasso5.faixaFaturamento.id : undefined,
@@ -1015,7 +1039,7 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
 
       <ModalEdicaoCompleta
         proposta={propostaSelecionada as PropostaResponse}
-        isOpen={modalEdicaoCompletaOpen}
+        isOpen={modalEdicaoCompletaOpen && propostaSelecionada !== null && !!propostaSelecionada.cliente_id}
         onClose={() => setModalEdicaoCompletaOpen(false)}
         onSaved={handleSalvarEdicaoCompleta}
       />

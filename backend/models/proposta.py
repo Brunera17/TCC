@@ -204,10 +204,16 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
             'id': self.id,
             'numero_proposta': self.numero_proposta,
             'numero': self.numero_proposta,
+            'cliente_id': self.cliente_id,
+            'entidade_juridica_id': self.entidade_juridica_id,
+            'usuario_id': self.usuario_id,
+            'funcionario_responsavel_id': self.usuario_id,  # Alias para compatibilidade
             'validade': self.validade.isoformat() if self.validade else None,
+            'data_validade': self.validade.isoformat() if self.validade else None,  # Alias para compatibilidade
             'observacao': self.observacao,
             'status': self.status,
             'porcentagem_desconto': self.porcentagem_desconto,
+            'percentual_desconto': self.porcentagem_desconto,  # Alias para compatibilidade
             'valor_total': self.valor_total,
                 'valor_mensalidade': self.valor_mensalidade,
             'requer_aprovacao': self.requer_aprovacao,

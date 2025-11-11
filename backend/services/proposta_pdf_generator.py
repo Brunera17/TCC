@@ -369,16 +369,37 @@ class PropostaPDFGenerator:
 
     def _preparar_observacoes_especiais(self, proposta):
         observacoes = []
-        if getattr(proposta, "observacao", None):
-            observacoes.append(f"Observações: {proposta.observacao}")
-
+        percentual_desconto = float(getattr(proposta, "porcentagem_desconto", 0) or 0)
+        valor_total = float(getattr(proposta, "valor_total", 0.0) or 0.0)
         valor_mensalidade = float(getattr(proposta, "valor_mensalidade", 0.0) or 0.0)
+        valor_servicos = valor_total - valor_mensalidade if valor_mensalidade > 0 else valor_total
+        valor_desconto = valor_servicos * (percentual_desconto / 100.0) if percentual_desconto > 0 else 0.0
+        requer_aprovacao = getattr(proposta, "requer_aprovacao", True)
+
+        # Observação personalizada do usuário
+        if getattr(proposta, "observacao", None):
+            observacoes.append(f"{proposta.observacao}")
+
+        # Novo bloco organizado, sem separadores antigos
+        if percentual_desconto > 0:
+            observacoes.append(f"Percentual de desconto aplicado: {percentual_desconto:.0f}%")
+            observacoes.append(f"Valor do desconto: R$ {valor_desconto:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        observacoes.append(f"Valor dos serviços: R$ {valor_servicos:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        if valor_mensalidade > 0:
+            observacoes.append(f"Valor da mensalidade: R$ {valor_mensalidade:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        observacoes.append(f"Valor final da proposta: R$ {valor_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        if requer_aprovacao:
+            observacoes.append("Proposta requer aprovação administrativa.")
+
         if valor_mensalidade > 0:
             observacoes.append("Inclui mensalidade automática para serviços recorrentes.")
 
-        percentual_desconto = float(getattr(proposta, "porcentagem_desconto", 0) or 0)
         if percentual_desconto > 0:
-            observacoes.append(f"Desconto de {percentual_desconto}% aplicado sobre o valor total dos serviços.")
+            observacoes.append("Desconto aplicado sobre o valor total dos serviços.")
 
         return observacoes
 
