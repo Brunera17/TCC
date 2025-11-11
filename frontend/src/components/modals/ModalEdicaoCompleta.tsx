@@ -4,9 +4,15 @@ import {
   DollarSign, X
 } from 'lucide-react';
 import { apiService } from '../../lib/api';
-import type { PropostaResponse } from '../../types';
+import type {
+  PropostaResponse,
+  Servico,
+  FaixaFaturamento,
+  TipoAtividade,
+  RegimeTributario
+} from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
-import { STATUS_COLORS } from '../../utils/statusColors';
+import { STATUS_COLORS, normalizeStatus } from '../../utils/statusColors';
 import { useToast } from '../../context/ToastContext';
 
 interface ModalEdicaoCompletaProps {
@@ -23,7 +29,16 @@ interface DadosProposta {
   faixa_faturamento_id: number | null;
 
   // Serviços (corrigido para buscar da proposta)
-  servicosSelecionados: any[];
+  servicosSelecionados: Array<{
+    servico_id: number;
+    quantidade: number;
+    valor_unitario: number;
+    subtotal: number;
+    extras?: {
+      descricao_personalizada?: string;
+    };
+    servico?: Servico | null;
+  }>;
 
   // Finalização
   percentual_desconto: number;
@@ -83,10 +98,29 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
 
   // Dados auxiliares
   const [clienteCompleto, setClienteCompleto] = useState<any>(null);
-  const [tiposAtividade, setTiposAtividade] = useState<any[]>([]);
-  const [regimesTributarios, setRegimesTributarios] = useState<any[]>([]);
-  const [faixasFaturamento, setFaixasFaturamento] = useState<any[]>([]);
-  const [todosServicos, setTodosServicos] = useState<any[]>([]);
+  const [tiposAtividade, setTiposAtividade] = useState<TipoAtividade[]>([]);
+  const [regimesTributarios, setRegimesTributarios] = useState<RegimeTributario[]>([]);
+  const [faixasFaturamento, setFaixasFaturamento] = useState<FaixaFaturamento[]>([]);
+  const [todosServicos, setTodosServicos] = useState<Servico[]>([]);
+
+  const extractCollection = <T,>(raw: unknown): T[] => {
+    if (Array.isArray(raw)) {
+      return raw as T[];
+    }
+
+    if (raw && typeof raw === 'object') {
+      const container = raw as Record<string, unknown>;
+      const candidateKeys = ['data', 'results', 'items', 'values', 'servicos'];
+      for (const key of candidateKeys) {
+        const value = container[key];
+        if (Array.isArray(value)) {
+          return value as T[];
+        }
+      }
+    }
+
+    return [];
+  };
 
   // Carregar dados corrigido
   useEffect(() => {
@@ -121,27 +155,31 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
       console.log('💰 Resumo financeiro:', propostaCompleta.resumo_financeiro);
       console.log('🏢 Taxa abertura:', propostaCompleta.taxa_abertura);
 
-      const servicos = servicosResponse?.items || [];
+      const servicos = extractCollection<Servico>(servicosResponse);
 
       setClienteCompleto(cliente);
-      setTiposAtividade(tipos || []);
-      setRegimesTributarios(regimes || []);
+      setTiposAtividade(Array.isArray(tipos) ? tipos : extractCollection<TipoAtividade>(tipos));
+      setRegimesTributarios(Array.isArray(regimes) ? regimes : extractCollection<RegimeTributario>(regimes));
       setTodosServicos(servicos);
 
       // ⚠️ CONVERTER: Itens para servicosSelecionados
-      const servicosSelecionados = (propostaCompleta.itens || []).map((item: any) => ({
-        servico_id: item.servico_id,
-        quantidade: item.quantidade,
-        valor_unitario: item.valor_unitario,
-        subtotal: item.valor_total,
-        extras: {
-          descricao_personalizada: item.descricao_personalizada || ''
-        },
-        servico: item.servico || servicos.find((s: any) => s.id === item.servico_id) || {
-          nome: `Serviço ID: ${item.servico_id}`,
-          categoria: 'DESCONHECIDO'
-        }
-      }));
+      const servicosSelecionados = (propostaCompleta.itens || []).map((item: any) => {
+        const quantidade = Number(item.quantidade) || 0;
+        const valorUnitario = Number(item.valor_unitario ?? item.valorUnitario ?? item.preco_unitario) || 0;
+        const subtotal = Number(item.valor_total ?? quantidade * valorUnitario) || 0;
+        const servicoRelacionado = item.servico || servicos.find((servico) => servico.id === Number(item.servico_id)) || null;
+
+        return {
+          servico_id: Number(item.servico_id) || 0,
+          quantidade,
+          valor_unitario: valorUnitario,
+          subtotal,
+          extras: {
+            descricao_personalizada: typeof item.descricao_personalizada === 'string' ? item.descricao_personalizada : ''
+          },
+          servico: servicoRelacionado
+        };
+      });
 
       // ⚠️ DADOS FINANCEIROS: Do backend (valores corretos)
       const resumo = propostaCompleta.resumo_financeiro || {};
@@ -186,8 +224,8 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
         desconto_tipo: descontoTipo,
 
         // Outros campos
-        observacoes: limparObservacoes(propostaCompleta.observacoes || ''),
-        status: propostaCompleta.status,
+  observacoes: limparObservacoes(propostaCompleta.observacoes || ''),
+  status: normalizeStatus(propostaCompleta.status),
         data_validade: propostaCompleta.data_validade || '',
 
         // Campos obrigatórios da interface
@@ -204,7 +242,7 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
         const faixas = await apiService.getFaixasFaturamento({
           regime_tributario_id: propostaCompleta.regime_tributario_id
         });
-        setFaixasFaturamento(faixas || []);
+        setFaixasFaturamento(extractCollection<FaixaFaturamento>(faixas));
       }
 
     } catch (error) {
@@ -691,9 +729,9 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
 const ConfiguracoesTributariasEdit: React.FC<{
   dados: DadosProposta;
   setDados: (dados: DadosProposta) => void;
-  tiposAtividade: any[];
-  regimesTributarios: any[];
-  faixasFaturamento: any[];
+  tiposAtividade: TipoAtividade[];
+  regimesTributarios: RegimeTributario[];
+  faixasFaturamento: FaixaFaturamento[];
   onRegimeChange: (regimeId: number) => void;
   onMensalidadeEncontrada?: (mensalidade: any) => void;
 }> = ({ dados, setDados, tiposAtividade, regimesTributarios, faixasFaturamento, onRegimeChange, onMensalidadeEncontrada }) => {
@@ -881,14 +919,14 @@ const ConfiguracoesTributariasEdit: React.FC<{
 
 // Componente de Serviços corrigido
 const ServicosEditCorrigido: React.FC<{
-  dados: any;
-  setDados: (dados: any) => void;
-  todosServicos: any[];
+  dados: DadosProposta;
+  setDados: (dados: DadosProposta) => void;
+  todosServicos: Servico[];
   formatarMoeda: (valor: number) => string;
 }> = ({ dados, setDados, todosServicos, formatarMoeda }) => {
 
   const adicionarServico = () => {
-    const novoServico = {
+    const novoServico: DadosProposta['servicosSelecionados'][number] = {
       servico_id: 0,
       quantidade: 1,
       valor_unitario: 0,
@@ -899,36 +937,38 @@ const ServicosEditCorrigido: React.FC<{
       servico: null
     };
 
-    setDados((prev: any) => ({
+    setDados((prev) => ({
       ...prev,
       servicosSelecionados: [...prev.servicosSelecionados, novoServico]
     }));
   };
 
   const removerServico = (index: number) => {
-    setDados((prev: any) => ({
+    setDados((prev) => ({
       ...prev,
-      servicosSelecionados: prev.servicosSelecionados.filter((_: any, i: number) => i !== index)
+      servicosSelecionados: prev.servicosSelecionados.filter((_, i) => i !== index)
     }));
   };
 
   const atualizarServico = (index: number, campo: string, valor: any) => {
-    setDados((prev: any) => ({
+    setDados((prev) => ({
       ...prev,
-      servicosSelecionados: prev.servicosSelecionados.map((servico: any, i: number) => {
+      servicosSelecionados: prev.servicosSelecionados.map((servico, i) => {
         if (i === index) {
           const servicoAtualizado = { ...servico };
 
           if (campo === 'servico_id') {
-            const servicoCompleto = todosServicos.find(s => s.id === valor);
-            servicoAtualizado.servico_id = valor;
+            const servicoId = Number(valor) || 0;
+            const servicoCompleto = todosServicos.find((s) => s.id === servicoId);
+            servicoAtualizado.servico_id = servicoId;
             servicoAtualizado.servico = servicoCompleto;
             if (servicoCompleto) {
-              servicoAtualizado.valor_unitario = servicoCompleto.valor_base;
-              servicoAtualizado.subtotal = servicoAtualizado.quantidade * servicoCompleto.valor_base;
+              const valorUnitario = Number(servicoCompleto.valor_base ?? servicoCompleto.valor_unitario ?? 0) || 0;
+              servicoAtualizado.valor_unitario = valorUnitario;
+              servicoAtualizado.subtotal = servicoAtualizado.quantidade * valorUnitario;
             }
           } else {
-            servicoAtualizado[campo] = valor;
+            servicoAtualizado[campo as 'quantidade' | 'valor_unitario'] = valor;
 
             // Recalcular subtotal
             if (campo === 'quantidade' || campo === 'valor_unitario') {
@@ -963,7 +1003,7 @@ const ServicosEditCorrigido: React.FC<{
       </div>
 
       <div className="space-y-4">
-        {dados.servicosSelecionados.map((servico: any, index: number) => (
+  {dados.servicosSelecionados.map((servico, index) => (
           <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
               {/* Serviço - 5 colunas */}
@@ -1048,7 +1088,7 @@ const ServicosEditCorrigido: React.FC<{
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Descrição Personalizada (Opcional)
               </label>
-              <input
+                <input
                 type="text"
                 value={servico.extras?.descricao_personalizada || ''}
                 onChange={(e) => atualizarServico(index, 'extras', {
@@ -1093,8 +1133,8 @@ const ServicosEditCorrigido: React.FC<{
 
 // Componente de Finalização corrigido
 const FinalizacaoEditCorrigida: React.FC<{
-  dados: any;
-  setDados: (dados: any) => void;
+  dados: DadosProposta;
+  setDados: (dados: DadosProposta) => void;
   formatarMoeda: (valor: number) => string;
 }> = ({ dados, setDados, formatarMoeda }) => {
 
@@ -1118,8 +1158,8 @@ const FinalizacaoEditCorrigida: React.FC<{
       <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
         <h4 className="font-medium text-orange-900 mb-3">💡 Como funciona o desconto</h4>
         <div className="text-sm text-orange-800 space-y-1">
-          <p><strong>Fórmula:</strong> Valor Total = Valor dos Serviços + Desconto (%)</p>
-          <p><strong>Exemplo:</strong> Se os serviços custam R$ 1.000 e você aplicar 10% de desconto, o valor total será R$ 1.100</p>
+          <p><strong>Fórmula:</strong> Valor Total = Valor dos Serviços - Desconto (%)</p>
+          <p><strong>Exemplo:</strong> Se os serviços custam R$ 1.000 e você aplicar 10% de desconto, o valor total será R$ 900</p>
           <p className="text-orange-600 mt-2">⚠️ Desconto acima de 20% requer aprovação administrativa</p>
         </div>
       </div>
@@ -1153,7 +1193,7 @@ const FinalizacaoEditCorrigida: React.FC<{
       {/* Desconto corrigido */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Desconto (%) - Acréscimo sobre os serviços
+          Desconto (%)
         </label>
         <div className="relative">
           <input

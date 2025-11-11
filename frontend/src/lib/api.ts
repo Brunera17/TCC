@@ -771,7 +771,8 @@ export const apiService = {
   },
 
   async getProposta(id: number): Promise<any> {
-    return getJSON<any>(`propostas/${id}/`);
+    const response = await getJSON<any>(`propostas/${id}/`);
+    return normalizePropostaEntity(response);
   },
 
   async createProposta(data: any) {

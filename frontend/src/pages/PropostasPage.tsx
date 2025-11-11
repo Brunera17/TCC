@@ -8,7 +8,8 @@ import {
   Clock,
   Eye,
   Download,
-  Loader2 // 1. Adicionado Loader2 para o botão de PDF
+  Loader2,
+  Settings // 1. Adicionado Loader2 para o botão de PDF
 } from 'lucide-react';
 import { apiService } from '../lib/api';
 import { LoadingSpinner, StatusBadge } from '../components/common';
@@ -30,7 +31,6 @@ import {
   Passo4RevisaoProposta,
   Passo5FinalizacaoProposta
 } from '../propostas/passos';
-import { ModalEdicaoProposta } from '../components/modals/ModalEdicaoProposta';
 import { ModalExclusaoProposta } from '../components/modals/ModalExclusaoProposta';
 import { ModalEdicaoCompleta } from '../components/modals/ModalEdicaoCompleta';
 import { HistoricoLogs } from '../propostas/HistoricoLogs';
@@ -661,11 +661,6 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
     });
   };
 
-  const handleEditarProposta = (proposta: Proposta) => {
-    setPropostaSelecionada(proposta);
-    setModalEdicaoOpen(true);
-  };
-
   const handleEditarPropostaCompleta = (proposta: Proposta) => {
     setPropostaSelecionada(proposta);
     setModalEdicaoCompletaOpen(true);
@@ -958,7 +953,7 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
                 size="sm"
                 variant="outline"
                 onClick={() => handleEditarPropostaCompleta(proposta)}
-                title="Editar proposta completa"
+                title="Editar proposta"
               />
               <IconButton
                 icon={Clock}
@@ -1017,14 +1012,6 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
           </div>
         )}
       </StateHandler>
-
-      {/* Modais de Edição e Exclusão */}
-      <ModalEdicaoProposta
-        proposta={propostaSelecionada}
-        isOpen={modalEdicaoOpen}
-        onClose={() => setModalEdicaoOpen(false)}
-        onSave={handleSalvarEdicao}
-      />
 
       <ModalEdicaoCompleta
         proposta={propostaSelecionada as PropostaResponse}
