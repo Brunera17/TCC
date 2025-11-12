@@ -7,7 +7,8 @@ class RelatorioRepository:
         return Relatorio.query.filter_by(ativo=True).all()
 
     def get_by_id(self, relatorio_id: int):
-        return Relatorio.query.filter_by(relatorio_id, ativo=True).first()
+        # Corrigir filtro para buscar por id
+        return Relatorio.query.filter_by(id=relatorio_id, ativo=True).first()
     
     def get_by_funcionario(self, funcionario_id: int):
         return Relatorio.query.filter_by(funcionario_id=funcionario_id, ativo=True).first()

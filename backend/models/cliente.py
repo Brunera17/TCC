@@ -12,7 +12,7 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(150), nullable=False, index=True)
-    cpf = db.Column(db.String(11), nullable=False, unique=True, index=True)
+    cpf = db.Column(db.String(11), nullable=True, unique=True, index=True)
     email = db.Column(db.String(150), nullable=True, unique=True, index=True)
     telefone = db.Column(db.String(15), nullable=True)
     endereco = db.Column(db.String(255), nullable=True)

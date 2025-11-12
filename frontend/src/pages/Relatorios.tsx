@@ -4,6 +4,7 @@ import { apiService, ApiError } from '../lib/api';
 import { PageLayout, PageHeader, DataTable, StateHandler, Card, type Column } from '../components/ui'; // Keep only UI components here
 import { formatarData } from '../utils/formatters';
 import { Button, Input, Select } from '../components/forms'; // Import Button, Input, and Select from forms index
+import { Modal } from '../components/modals/Modal';
 interface Relatorio {
   id: number;
   titulo: string;
@@ -84,7 +85,18 @@ export const RelatoriosPage: React.FC = () => {
       const backendUrl = 'http://localhost:5000';
       // Remove qualquer /api ou /relatorios do endpoint e monta a rota correta
       const tipo = relatorio.tipo;
-      const url = `${backendUrl}/reports/${tipo}`;
+      let url = `${backendUrl}/reports/${tipo}`;
+
+      // Caso especial: agendamentos -> abrir modal para informar período
+      if (tipo === 'agendamentos') {
+        // abrir modal controlado com campos de data
+        setPendingRelatorio(relatorio);
+        setAgendamentoInicio('2025-01-01');
+        setAgendamentoFim('2025-12-31');
+        setIsAgendamentoModalOpen(true);
+        setLoading(false);
+        return;
+      }
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -106,7 +118,14 @@ export const RelatoriosPage: React.FC = () => {
         a.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        setError('Falha ao gerar relatório ou formato inválido.');
+        // Tenta extrair mensagem de erro JSON do backend para exibir informação mais útil
+        try {
+          const errorJson = await response.json();
+          const msg = errorJson && (errorJson.error || errorJson.message || JSON.stringify(errorJson));
+          setError(msg || 'Falha ao gerar relatório ou formato inválido.');
+        } catch (e) {
+          setError('Falha ao gerar relatório ou formato inválido.');
+        }
       }
     } catch (err) {
       setError(`Erro ao gerar ${relatorio.nome}`);

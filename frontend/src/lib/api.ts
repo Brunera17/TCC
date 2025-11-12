@@ -922,6 +922,11 @@ export const apiService = {
     return getJSON("empresas/", params);
   },
 
+  // ---------- Entidades Jurídicas ----------
+  async getEntidadesJuridicas(params?: any): Promise<any> {
+    return getJSON("entidades-juridicas/", params);
+  },
+
   // ---------- Propostas: Logs ----------
 
   // ---------- Mensalidade Automática ----------

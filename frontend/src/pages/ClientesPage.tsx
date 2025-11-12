@@ -14,6 +14,21 @@ import {
   Calendar
 } from 'lucide-react';
 import { apiService, ApiError } from '../lib/api';
+
+// Interface para Empresa (Entidade Jurídica)
+interface Empresa {
+  id: number;
+  nome_fantasia: string;
+  razao_social: string;
+  cnpj: string;
+  contato?: string;
+  status?: string;
+  inscricao_estadual?: string;
+  cliente_id: number;
+  ativo: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
 import { useAuth } from '../context/AuthContext';
 import {
   PageLayout,
@@ -28,8 +43,10 @@ import {
   ModalPadrao, // Usar ModalPadrao
   type Column
 } from '../components/ui';
+import { Select } from '../components/forms/Select';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ModalCadastroCliente } from '../components/modals/ModalCadastroCliente';
+import { ModalVisualizacaoEmpresa } from '../components/modals/ModalVisualizacaoEmpresa';
 
 // Interface Cliente local (compatível com o backend)
 // --- CORREÇÃO: Adicionadas 'ativo' e 'abertura_empresa' que estavam faltando na interface mas eram usadas ---
@@ -91,8 +108,11 @@ interface ClientesPageProps {
 }
 
 export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = false }) => {
+  // Filtro de tipo de cliente
+  const [tipoClienteFiltro, setTipoClienteFiltro] = useState<'todos' | 'pf' | 'pj'>('todos');
   const { user } = useAuth(); // Obter usuário para permissões
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true); // Iniciar como true
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,6 +123,8 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
   // Estados dos modais (simplificado)
   const [isModalCadastroOpen, setIsModalCadastroOpen] = useState(false);
   const [isModalVisualizacaoOpen, setIsModalVisualizacaoOpen] = useState(false);
+  const [isModalVisualizacaoEmpresaOpen, setIsModalVisualizacaoEmpresaOpen] = useState(false);
+  const [empresaParaVisualizar, setEmpresaParaVisualizar] = useState<Empresa | null>(null);
   const [modalExclusaoOpen, setModalExclusaoOpen] = useState(false);
 
   // Dados para os modais
@@ -132,45 +154,73 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
     setLoading(true);
     setError('');
     try {
-      const response: unknown = await apiService.getClientes({
-        page,
-        per_page: itemsPerPage,
-        search: search || undefined,
-        ativo: true
-      });
-
-      let clientesData: Cliente[] = [];
-      let totalRegistros = 0;
-      let itensPorPaginaApi = itemsPerPage;
-
-      if (Array.isArray(response)) {
-        clientesData = response;
-        totalRegistros = clientesData.length;
-        setTotalPages(1); // Assume 1 página se for array
-      } else if (isClientesApiPayload(response)) {
-        clientesData = response.data || response.items || [];
-        totalRegistros = response.total ?? response.count ?? clientesData.length;
-        itensPorPaginaApi = response.per_page ?? response.page_size ?? itemsPerPage;
-        setTotalPages(Math.max(1, Math.ceil(totalRegistros / Math.max(1, itensPorPaginaApi))));
+      if (tipoClienteFiltro === 'pj') {
+        // Buscar empresas (entidades jurídicas)
+        const response: unknown = await apiService.getEntidadesJuridicas({
+          page,
+          per_page: itemsPerPage,
+          search: search || undefined,
+          ativo: true
+        });
+        let empresasData: Empresa[] = [];
+        if (Array.isArray(response)) {
+          empresasData = response;
+          setTotalPages(1);
+        } else if (response && Array.isArray(response.data)) {
+          empresasData = response.data;
+          const totalRegistros = response.total ?? empresasData.length;
+          const itensPorPaginaApi = response.per_page ?? itemsPerPage;
+          setTotalPages(Math.max(1, Math.ceil(totalRegistros / Math.max(1, itensPorPaginaApi))));
+        }
+        setEmpresas(empresasData);
+        setClientes([]);
       } else {
-        throw new Error("Formato de resposta inesperado da API");
+        // Buscar clientes PF ou todos
+        const response: unknown = await apiService.getClientes({
+          page,
+          per_page: itemsPerPage,
+          search: search || undefined,
+          ativo: true
+        });
+        let clientesData: Cliente[] = [];
+        let totalRegistros = 0;
+        let itensPorPaginaApi = itemsPerPage;
+        if (Array.isArray(response)) {
+          clientesData = response;
+          totalRegistros = clientesData.length;
+          setTotalPages(1);
+        } else if (isClientesApiPayload(response)) {
+          clientesData = response.data || response.items || [];
+          totalRegistros = response.total ?? response.count ?? clientesData.length;
+          itensPorPaginaApi = response.per_page ?? response.page_size ?? itemsPerPage;
+          setTotalPages(Math.max(1, Math.ceil(totalRegistros / Math.max(1, itensPorPaginaApi))));
+        } else {
+          throw new Error("Formato de resposta inesperado da API");
+        }
+        // Filtragem por tipo de cliente
+        let filtrados: Cliente[] = [];
+        if (tipoClienteFiltro === 'pf') {
+          filtrados = clientesData.filter(c => !c.entidades_juridicas || c.entidades_juridicas.length === 0);
+        } else {
+          filtrados = clientesData;
+        }
+        setClientes(filtrados);
+        setEmpresas([]);
       }
-
-      setClientes(clientesData);
-
     } catch (err: unknown) {
       const errorMsg = err instanceof ApiError ? `Erro ${err.status}: ${JSON.stringify(err.details)}` : (err instanceof Error ? err.message : 'Erro desconhecido');
       setError(errorMsg);
       setClientes([]);
+      setEmpresas([]);
       setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, currentPage, searchTerm]); // Adicionado isAdmin
+  }, [isAdmin, currentPage, searchTerm, tipoClienteFiltro]);
 
   useEffect(() => {
     fetchClientes(currentPage, searchTerm);
-  }, [currentPage, searchTerm, fetchClientes]); // fetchClientes é dependência
+  }, [currentPage, searchTerm, tipoClienteFiltro, fetchClientes]);
 
   useEffect(() => {
     if (openModalOnLoad && isAdmin) { // Só abre se for admin
@@ -335,21 +385,75 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
     }
   ];
 
+  // Colunas para empresas
+  const empresaColumns: Column<Empresa>[] = [
+    {
+      key: 'nome_fantasia',
+      label: 'Empresa',
+      render: (_, empresa) => (
+        <div className="flex items-center">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0 bg-blue-50">
+            <Building className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-sm font-medium text-gray-900">{empresa.nome_fantasia}</div>
+            <div className="text-sm text-gray-500">ID: {empresa.id}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'cnpj',
+      label: 'CNPJ',
+      render: (cnpj: string) => (
+        <span className="text-sm font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+          {cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+        </span>
+      )
+    },
+    {
+      key: 'razao_social',
+      label: 'Razão Social',
+      render: (razao_social: string) => (
+        <span className="text-sm text-gray-700">{razao_social}</span>
+      )
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (status, empresa) => <StatusBadge status={empresa.ativo ? 'ativo' : 'inativo'} />
+    }
+  ];
+
   return (
     <PageLayout>
       <PageHeader title="Clientes" subtitle="Gerencie seus clientes e informações cadastrais">
         <IconButton icon={Plus} onClick={openModalCadastro} label="Novo Cliente" />
       </PageHeader>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <SearchBar value={searchTerm} onChange={handleSearch} placeholder="Buscar por nome, CPF/CNPJ ou email..." />
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+        <div className="flex-1">
+          <SearchBar value={searchTerm} onChange={handleSearch} placeholder="Buscar por nome, CPF/CNPJ ou email..." />
+        </div>
+        <div className="w-full md:w-56">
+          <Select
+            options={[
+              { value: 'pf', label: 'Pessoas Físicas' },
+              { value: 'pj', label: 'Empresas' }
+            ]}
+            value={tipoClienteFiltro}
+            onChange={v => setTipoClienteFiltro(v as 'pf' | 'pj')}
+            variant="outline"
+            size="md"
+          />
+        </div>
       </div>
 
       <StateHandler
         loading={loading}
         error={error || undefined}
         onErrorDismiss={() => setError('')}
-        isEmpty={clientes.length === 0 && !loading}
+        isEmpty={tipoClienteFiltro === 'pj' ? empresas.length === 0 && !loading : clientes.length === 0 && !loading}
         emptyState={
           <div className="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-200">
             <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -365,17 +469,39 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
         }
       >
         <div className="overflow-x-auto">
-          <DataTable
-            data={clientes}
-            columns={columns}
-            actions={(cliente) => (
-              <div className="flex items-center justify-end space-x-1">
-                <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(cliente)} title="Visualizar" />
-                <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => handleEditar(cliente)} title="Editar" />
-                <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleDeletar(cliente)} title="Excluir" />
-              </div>
-            )}
-          />
+          {tipoClienteFiltro === 'pj' ? (
+            <DataTable
+              data={empresas}
+              columns={empresaColumns}
+              actions={(empresa) => (
+                <div className="flex items-center justify-end space-x-1">
+                  <IconButton
+                    icon={Eye}
+                    size="sm"
+                    variant="outline"
+                    title="Visualizar"
+                    onClick={() => {
+                      setEmpresaParaVisualizar(empresa);
+                      setIsModalVisualizacaoEmpresaOpen(true);
+                    }}
+                  />
+                  {/* Adicione ações de editar/excluir empresa se necessário */}
+                </div>
+              )}
+            />
+          ) : (
+            <DataTable
+              data={clientes}
+              columns={columns}
+              actions={(cliente) => (
+                <div className="flex items-center justify-end space-x-1">
+                  <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(cliente)} title="Visualizar" />
+                  <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => handleEditar(cliente)} title="Editar" />
+                  <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleDeletar(cliente)} title="Excluir" />
+                </div>
+              )}
+            />
+          )}
         </div>
         {totalPages > 1 && (
           <div className="bg-white px-4 py-3 border-t border-gray-200 rounded-b-lg">
@@ -390,6 +516,16 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
         onClose={closeModalCadastro}
         onClienteCadastrado={clienteParaEditar ? handleClienteEditado : handleClienteCadastrado}
         clienteParaEditar={clienteParaEditar}
+      />
+
+      {/* Modal de Visualização de Empresa */}
+      <ModalVisualizacaoEmpresa
+        isOpen={isModalVisualizacaoEmpresaOpen}
+        onClose={() => {
+          setIsModalVisualizacaoEmpresaOpen(false);
+          setEmpresaParaVisualizar(null);
+        }}
+        empresa={empresaParaVisualizar}
       />
 
       {/* Modal de Visualização (Novo Design) */}
