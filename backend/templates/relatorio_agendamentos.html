@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Relatório de Agendamentos</title>
+  <style>
+    body { font-family: Arial, sans-serif; color:#222 }
+    h1 { text-align:center }
+    table { width:100%; border-collapse: collapse; margin-top:16px }
+    th, td { border:1px solid #ccc; padding:6px; text-align:left }
+    .small { font-size:0.9rem; color:#555 }
+  </style>
+</head>
+<body>
+  <h1>Relatório de Agendamentos</h1>
+  <p class="small">Gerado em: {{ data_atual }}</p>
+
+  {% if total_agendamentos is defined %}
+    <p>Total de agendamentos: <strong>{{ total_agendamentos }}</strong></p>
+  {% endif %}
+
+  {% if periodos %}
+    <table>
+      <thead>
+        <tr><th>Período</th><th>Total</th><th>Concluídos</th><th>Não concluídos</th></tr>
+      </thead>
+      <tbody>
+      {% for p in periodos %}
+        <tr>
+          <td>{{ p.periodo }}</td>
+          <td>{{ p.total }}</td>
+          <td>{{ p.concluidos }}</td>
+          <td>{{ p.nao_concluidos }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="small">Nenhum agendamento encontrado para o período informado.</p>
+  {% endif %}
+</body>
+</html>

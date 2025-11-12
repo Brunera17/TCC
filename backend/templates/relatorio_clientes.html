@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Relatório de Clientes</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }
+    .page { max-width: 800px; margin: 0 auto; padding: 20px; }
+    .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .title { font-size:20px; font-weight:700 }
+    .meta { font-size:12px; color:#555 }
+    table { width:100%; border-collapse: collapse; margin-top: 12px }
+    th, td { border:1px solid #ddd; padding:6px; text-align:left; font-size:11px }
+    th { background:#f5f5f5 }
+    .summary { margin-top:12px; padding:10px; background:#f9f9f9; border-radius:6px }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <div class="title">Relatório Analítico de Clientes</div>
+        <div class="meta">Data: {{ data_atual }}</div>
+      </div>
+      <div>
+        <div class="meta">Total clientes: <strong>{{ total }}</strong></div>
+        <div class="meta">PJ: <strong>{{ total_pj }}</strong> &nbsp; PF: <strong>{{ total_pf }}</strong></div>
+      </div>
+    </div>
+
+    <div class="summary">
+      Este relatório lista os clientes ativos cadastrados no sistema com informações básicas (nome, CPF/CNPJ,
+      e-mail e telefone). Use este documento como referência analítica inicial.
+    </div>
+
+    {# Tabela para Pessoas Jurídicas (Entidades Jurídicas) #}
+    {% if clientes_pj and clientes_pj|length > 0 %}
+    <div class="section-title" style="margin-top:18px; font-weight:700">Empresas - Pessoa Jurídica</div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nome Fantasia / Razão Social</th>
+          <th>CNPJ</th>
+          <th>Contato</th>
+          <th>Cliente (ID)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clientes_pj %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ c.nome }}{% if c.razao_social %} <small style="color:#666">({{ c.razao_social }})</small>{% endif %}</td>
+          <td>{{ c.cnpj or '' }}</td>
+          <td>{{ c.contato or '' }}</td>
+          <td>{{ c.cliente_id or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="margin-top:12px; color:#555">Nenhuma empresa (Pessoa Jurídica) encontrada.</div>
+    {% endif %}
+
+    {# Tabela para Pessoas Físicas #}
+    {% if clientes_pf and clientes_pf|length > 0 %}
+    <div class="section-title" style="margin-top:18px; font-weight:700">Clientes - Pessoa Física</div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nome</th>
+          <th>CPF</th>
+          <th>E-mail</th>
+          <th>Telefone</th>
+          <th>Possui Empresa?</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clientes_pf %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ c.nome }}</td>
+          <td>{{ c.cpf }}</td>
+          <td>{{ c.email or '' }}</td>
+          <td>{{ c.telefone or '' }}</td>
+          <td>{% if c.possui_empresa %}Sim{% else %}Não{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="margin-top:12px; color:#555">Nenhum cliente Pessoa Física encontrado.</div>
+    {% endif %}
+  </div>
+</body>
+</html>

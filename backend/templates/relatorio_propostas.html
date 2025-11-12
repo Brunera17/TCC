@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Relatório de Propostas</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }
+    .page { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .title { font-size:20px; font-weight:700 }
+    .meta { font-size:12px; color:#555 }
+    table { width:100%; border-collapse: collapse; margin-top: 12px }
+    th, td { border:1px solid #ddd; padding:6px; text-align:left; font-size:11px }
+    th { background:#f5f5f5 }
+    .summary { margin-top:12px; padding:10px; background:#f9f9f9; border-radius:6px }
+    .metrics { display:flex; gap:12px }
+    .metric { padding:8px; background:#fff; border:1px solid #eee; border-radius:6px }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <div class="title">Relatório Analítico de Propostas</div>
+        <div class="meta">Data: {{ data_atual }}</div>
+      </div>
+      <div>
+        <div class="meta">Total propostas: <strong>{{ total_propostas }}</strong></div>
+        <div class="meta">Valor total: <strong>R$ {{ total_valor }}</strong></div>
+      </div>
+    </div>
+
+    <div class="summary">
+      Resumo das propostas cadastradas no sistema. Abaixo aparecem métricas principais, contagem por status e os principais clientes por valor.
+    </div>
+
+    <div class="metrics" style="margin-top:12px">
+      <div class="metric">Total propostas: <strong>{{ total_propostas }}</strong></div>
+      <div class="metric">Valor total: <strong>R$ {{ total_valor }}</strong></div>
+      <div class="metric">Valor médio: <strong>R$ {{ media_valor }}</strong></div>
+    </div>
+
+    <div style="margin-top:18px">
+      <div style="font-weight:700">Contagem por status</div>
+      <table>
+        <thead>
+          <tr><th>Status</th><th>Quantidade</th><th>Total (R$)</th></tr>
+        </thead>
+        <tbody>
+          {% for status, cnt in contagem_por_status.items() %}
+          <tr>
+            <td>{{ status }}</td>
+            <td>{{ cnt }}</td>
+            <td>{{ totais_por_status.get(status, 0) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:18px">
+      <div style="font-weight:700">Top clientes por valor</div>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Cliente</th><th>Propostas</th><th>Total (R$)</th></tr>
+        </thead>
+        <tbody>
+          {% for c in top_clientes %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ c.nome or 'Sem nome' }}</td>
+            <td>{{ c.count }}</td>
+            <td>{{ c.total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>
