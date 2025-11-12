@@ -1232,11 +1232,6 @@ const FinalizacaoEditCorrigida: React.FC<{
           <span className="absolute right-3 top-2 text-gray-500">%</span>
         </div>
 
-        <div className="mt-2 text-sm text-gray-600 space-y-1">
-          <p>Valor dos serviços: <span className="font-medium">{formatarMoeda(dados.valor_servicos)}</span></p>
-          <p>Valor do desconto: <span className="font-medium text-green-600">+{formatarMoeda(dados.valor_desconto)}</span></p>
-          <p>Valor total final: <span className="font-bold text-blue-600">{formatarMoeda(dados.valor_total)}</span></p>
-        </div>
 
         {dados.percentual_desconto > 20 && (
           <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-800">

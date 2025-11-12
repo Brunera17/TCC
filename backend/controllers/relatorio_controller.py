@@ -1,17 +1,54 @@
 import json
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from services.relatorio_services import RelatorioService
 
 bp = Blueprint('relatorio', __name__, url_prefix='/api/relatorios')
 service = RelatorioService()
 
-@bp.route('/clientes', methods=['GET'])
-def relatorio_clientes():
+# Blueprint adicional para compatibilidade com rotas do frontend em /reports
+reports_bp = Blueprint('reports', __name__, url_prefix='/reports')
+
+
+@reports_bp.route('/clientes', methods=['GET'])
+def reports_clientes():
+    # Rota compatível com /reports/clientes -> gera PDF
     try:
-        relatorio = service.gerar_relatorio_clientes()
-        return jsonify(relatorio), 200
+        pdf_bytes = service.gerar_relatorio_clientes_pdf()
+        response = Response(pdf_bytes, status=200, mimetype='application/pdf')
+        response.headers['Content-Disposition'] = 'attachment; filename=relatorio_clientes.pdf'
+        return response
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': 'Erro inesperado: ' + str(e)}), 500
+
+
+@reports_bp.route('/relatorios/clientes', methods=['GET'])
+def reports_relatorios_clientes_alias():
+    # Rota alias usada por algumas versões do frontend
+    try:
+        pdf_bytes = service.gerar_relatorio_clientes_pdf()
+        response = Response(pdf_bytes, status=200, mimetype='application/pdf')
+        response.headers['Content-Disposition'] = 'attachment; filename=relatorio_clientes.pdf'
+        return response
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': 'Erro inesperado: ' + str(e)}), 500
+
+
+@bp.route('/clientes', methods=['GET'])
+def relatorio_clientes():
+    # Gera e retorna PDF do relatório de clientes
+    try:
+        pdf_bytes = service.gerar_relatorio_clientes_pdf()
+        response = Response(pdf_bytes, status=200, mimetype='application/pdf')
+        response.headers['Content-Disposition'] = 'attachment; filename=relatorio_clientes.pdf'
+        return response
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': 'Erro inesperado: ' + str(e)}), 500
     
 @bp.route('/propostas', methods=['GET'])
 def relatorio_propostas():
@@ -111,19 +148,11 @@ def exportar_relatorio():
         conteudo = service.exportar_relatorio(**data)
         
         if formato == 'pdf':
-            response = app.response_class(
-                response=conteudo,
-                status=200,
-                mimetype='application/pdf'
-            )
+            response = Response(conteudo, status=200, mimetype='application/pdf')
             response.headers['Content-Disposition'] = 'attachment; filename=relatorio.pdf'
             return response
         elif formato == 'xlsx':
-            response = app.response_class(
-                response=conteudo,
-                status=200,
-                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
+            response = Response(conteudo, status=200, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response.headers['Content-Disposition'] = 'attachment; filename=relatorio.xlsx'
             return response
         else:

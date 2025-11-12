@@ -190,7 +190,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-2 md:px-0">
       {/* Page Title */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -198,7 +198,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard
           title="Total de Clientes"
           value={stats?.totalClientes || 0}
@@ -228,16 +228,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Recent Proposals */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+          <div className="p-4 md:p-6 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <FileText className="w-5 h-5 mr-2" />
               Propostas Recentes
             </h3>
           </div>
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             {stats?.propostas.length === 0 ? (
               <p className="text-gray-500 text-center py-8">
                 Nenhuma proposta encontrada
@@ -247,7 +247,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                 {stats?.propostas.slice(0, 5).map((proposta: Proposta) => {
                   const StatusIcon = getStatusIcon(proposta.status);
                   return (
-                    <div key={proposta.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={proposta.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2">
                       <div className="flex items-center space-x-3">
                         <StatusIcon className="w-4 h-4 text-gray-500" />
                         <div>
@@ -276,15 +276,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+          <div className="p-4 md:p-6 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <TrendingUp className="w-5 h-5 mr-2" />
               Ações Rápidas
             </h3>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 md:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button
                 onClick={handleNovaPropostaClick}
                 className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors group cursor-pointer"

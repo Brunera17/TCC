@@ -364,17 +364,19 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
           </div>
         }
       >
-        <DataTable
-          data={clientes}
-          columns={columns}
-          actions={(cliente) => (
-            <div className="flex items-center justify-end space-x-1">
-              <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(cliente)} title="Visualizar" />
-              <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => handleEditar(cliente)} title="Editar" />
-              <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleDeletar(cliente)} title="Excluir" />
-            </div>
-          )}
-        />
+        <div className="overflow-x-auto">
+          <DataTable
+            data={clientes}
+            columns={columns}
+            actions={(cliente) => (
+              <div className="flex items-center justify-end space-x-1">
+                <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(cliente)} title="Visualizar" />
+                <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => handleEditar(cliente)} title="Editar" />
+                <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleDeletar(cliente)} title="Excluir" />
+              </div>
+            )}
+          />
+        </div>
         {totalPages > 1 && (
           <div className="bg-white px-4 py-3 border-t border-gray-200 rounded-b-lg">
             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
@@ -407,7 +409,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
                 <User className="w-5 h-5 text-blue-600 mr-2" />
                 <h3 className="text-lg font-semibold text-gray-800">Dados Pessoais / Responsável</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4 text-sm">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Nome</label>
                   <p className="text-gray-900 font-semibold">{clienteParaVisualizar.nome}</p>
@@ -443,7 +445,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
                   <h3 className="text-lg font-semibold text-gray-800">Endereço</h3>
                 </div>
                 {clienteParaVisualizar.enderecos.map(end => (
-                  <div key={end.id} className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+                  <div key={end.id} className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4 text-sm">
                     <div className="md:col-span-2">
                       <label className="block text-xs font-medium text-gray-500 mb-1">Logradouro</label>
                       <p className="text-gray-900">{end.logradouro || end.rua || '—'}, {end.numero || 'S/N'}</p>
@@ -474,7 +476,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
                 </div>
                 <div className="space-y-4">
                   {clienteParaVisualizar.entidades_juridicas.map(emp => (
-                    <div key={emp.id} className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-sm border-t pt-4 first:border-t-0 first:pt-0">
+                    <div key={emp.id} className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4 text-sm border-t pt-4 first:border-t-0 first:pt-0">
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">Nome Fantasia / Razão Social</label>
                         <p className="text-gray-900 font-semibold">{emp.nome}</p>

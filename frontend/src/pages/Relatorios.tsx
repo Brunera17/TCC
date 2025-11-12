@@ -76,14 +76,42 @@ export const RelatoriosPage: React.FC = () => {
   });
 
   const handleGerarRelatorioPredefinido = async (relatorio: RelatorioPredefinido) => {
-    alert(`Gerando ${relatorio.nome}... (Funcionalidade de exemplo)\nEndpoint: ${relatorio.endpoint}`);
-    // Aqui você chamaria a API específica, ex: apiService.get(relatorio.endpoint.replace('/api', ''))
-    // e exibiria o resultado ou iniciaria o download.
+    setError(null);
+    setLoading(true);
     try {
-      // Exemplo: const resultado = await apiService.getRelatoriosClientes(); // Supondo que existe
-      // processarResultado(resultado);
+      // Chama a rota Flask correspondente e espera um PDF
+      // Garante que o endpoint seja /reports/<tipo> e use o backend Flask
+      const backendUrl = 'http://localhost:5000';
+      // Remove qualquer /api ou /relatorios do endpoint e monta a rota correta
+      const tipo = relatorio.tipo;
+      const url = `${backendUrl}/reports/${tipo}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/pdf',
+        },
+      });
+      if (response.status === 204) {
+        setError('Relatório ainda não implementado.');
+        return;
+      }
+      if (response.ok && response.headers.get('content-type')?.includes('application/pdf')) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${relatorio.nome}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        setError('Falha ao gerar relatório ou formato inválido.');
+      }
     } catch (err) {
       setError(`Erro ao gerar ${relatorio.nome}`);
+    } finally {
+      setLoading(false);
     }
   };
 

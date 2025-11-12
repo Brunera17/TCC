@@ -28,7 +28,7 @@ from controllers.endereco_controllers import bp as endereco_bp
 from controllers.servico_controller import bp as servico_bp, categoria_bp as categoria_servico_bp
 from controllers.proposta_controller import bp as proposta_bp
 from controllers.ordemServico_controller import bp as ordemServico_bp
-from controllers.relatorio_controller import bp as relatorio_bp
+from controllers.relatorio_controller import bp as relatorio_bp, reports_bp as reports_bp
 from controllers.cargo_controller import bp as cargo_bp
 from controllers.regime_tributario_controller import bp as regime_tributario_bp
 from controllers.funcionarios_controller import bp as funcionarios_bp
@@ -62,6 +62,7 @@ app.register_blueprint(tipo_atividade_bp)
 app.register_blueprint(notificacoes_bp)
 app.register_blueprint(faixa_faturamento_bp)
 app.register_blueprint(mensalidades_bp)
+app.register_blueprint(reports_bp)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

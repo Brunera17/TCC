@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -150,68 +151,160 @@ const Sidebar: React.FC = () => {
         navigate('/');
     };
 
+    // Estado para mobile
+    const [mobileOpen, setMobileOpen] = useState(false);
+
+    // Botão hambúrguer para mobile
+    const HamburgerButton = () => (
+        <button
+            className="md:hidden fixed top-4 left-4 z-50 bg-white rounded-full shadow-lg p-2 border border-gray-200"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Abrir menu"
+        >
+            <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-700">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+        </button>
+    );
+
     return (
-        <div className="fixed inset-y-0 left-0 z-30 flex h-screen w-64 flex-col border-r border-gray-200 bg-white text-gray-900">
-            <div className="flex items-center p-4 border-b border-gray-200">
-                <div className="flex items-center">
-                    <img
-                        src="/logo contagest.png"
-                        alt="Logo ContaGest"
-                        className="w-12 h-12 rounded-full object-cover"
-                    />
-                    <div className="ml-3">
-                        <h1 className="text-lg font-bold">ContaGest</h1>
-                        <p className="text-xs text-gray-500">Sistema Gerenciador</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Navigation */}
-            <div className="flex-1 overflow-y-auto py-4 px-3">
-                {['main', 'gestao', 'analise', 'suporte', 'sistema'].map(renderMenuSection)}
-            </div>
-
-            {/* User Section */}
-            <div className="border-t border-gray-200 p-3">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                        {avatarUrl ? (
-                            <img
-                                src={avatarUrl}
-                                alt={`Foto de ${displayName}`}
-                                className="h-10 w-10 rounded-full border border-gray-200 object-cover"
-                            />
-                        ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-600">
-                                {initials || <User className="h-5 w-5 text-gray-500" />}
-                            </div>
-                        )}
-                        <div className="text-left">
-                            <p className="text-sm font-medium text-gray-900">{displayName}</p>
-                            <p className="text-xs text-gray-500">{roleLabel}</p>
+        <>
+            {/* Botão hambúrguer só no mobile */}
+            <HamburgerButton />
+            {/* Sidebar para desktop */}
+            <div className="fixed inset-y-0 left-0 z-30 flex h-screen w-64 flex-col border-r border-gray-200 bg-white text-gray-900 hidden md:flex">
+                {/* ...existing code... */}
+                <div className="flex items-center p-4 border-b border-gray-200">
+                    <div className="flex items-center">
+                        <img
+                            src="/logo contagest.png"
+                            alt="Logo ContaGest"
+                            className="w-12 h-12 rounded-full object-cover"
+                        />
+                        <div className="ml-3">
+                            <h1 className="text-lg font-bold">ContaGest</h1>
+                            <p className="text-xs text-gray-500">Sistema Gerenciador</p>
                         </div>
                     </div>
-                    <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100">
-                        <Bell className="w-5 h-5" />
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                            1
-                        </span>
+                </div>
+                <div className="flex-1 overflow-y-auto py-4 px-3">
+                    {['main', 'gestao', 'analise', 'suporte', 'sistema'].map(renderMenuSection)}
+                </div>
+                <div className="border-t border-gray-200 p-3">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                            {avatarUrl ? (
+                                <img
+                                    src={avatarUrl}
+                                    alt={`Foto de ${displayName}`}
+                                    className="h-10 w-10 rounded-full border border-gray-200 object-cover"
+                                />
+                            ) : (
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-600">
+                                    {initials || <User className="h-5 w-5 text-gray-500" />}
+                                </div>
+                            )}
+                            <div className="text-left">
+                                <p className="text-sm font-medium text-gray-900">{displayName}</p>
+                                <p className="text-xs text-gray-500">{roleLabel}</p>
+                            </div>
+                        </div>
+                        <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100">
+                            <Bell className="w-5 h-5" />
+                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                                1
+                            </span>
+                        </button>
+                    </div>
+                </div>
+                <div className="border-t border-gray-200 p-3">
+                    <button
+                        onClick={logout}
+                        className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
+                    >
+                        <LogOut className="w-4 h-4 mr-3 flex-shrink-0" />
+                        <span>Sair</span>
                     </button>
                 </div>
             </div>
-
-            {/* Logout Button */}
-            <div className="border-t border-gray-200 p-3">
-                <button
-                    onClick={logout}
-                    className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
-                >
-                    <LogOut className="w-4 h-4 mr-3 flex-shrink-0" />
-                    <span>Sair</span>
-                </button>
-            </div>
-        </div>
-    )
+            {/* Sidebar mobile: drawer lateral */}
+            {mobileOpen && (
+                <div className="fixed inset-0 z-50 flex">
+                    {/* Overlay escuro */}
+                    <div className="fixed inset-0 bg-black bg-opacity-40" onClick={() => setMobileOpen(false)} />
+                    {/* Drawer lateral */}
+                    <div className="w-64 bg-white text-gray-900 border-r border-gray-200 flex flex-col h-full shadow-xl relative">
+                        {/* Botão fechar */}
+                        <button
+                            className="absolute top-4 right-4 text-gray-500 hover:text-gray-900"
+                            onClick={() => setMobileOpen(false)}
+                            aria-label="Fechar menu"
+                        >
+                            <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                        </button>
+                        {/* ...existing code... */}
+                        <div className="flex items-center p-4 border-b border-gray-200">
+                            <div className="flex items-center">
+                                <img
+                                    src="/logo contagest.png"
+                                    alt="Logo ContaGest"
+                                    className="w-12 h-12 rounded-full object-cover"
+                                />
+                                <div className="ml-3">
+                                    <h1 className="text-lg font-bold">ContaGest</h1>
+                                    <p className="text-xs text-gray-500">Sistema Gerenciador</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto py-4 px-3">
+                            {['main', 'gestao', 'analise', 'suporte', 'sistema'].map(renderMenuSection)}
+                        </div>
+                        <div className="border-t border-gray-200 p-3">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center space-x-3">
+                                    {avatarUrl ? (
+                                        <img
+                                            src={avatarUrl}
+                                            alt={`Foto de ${displayName}`}
+                                            className="h-10 w-10 rounded-full border border-gray-200 object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-600">
+                                            {initials || <User className="h-5 w-5 text-gray-500" />}
+                                        </div>
+                                    )}
+                                    <div className="text-left">
+                                        <p className="text-sm font-medium text-gray-900">{displayName}</p>
+                                        <p className="text-xs text-gray-500">{roleLabel}</p>
+                                    </div>
+                                </div>
+                                <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100">
+                                    <Bell className="w-5 h-5" />
+                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                                        1
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                        <div className="border-t border-gray-200 p-3">
+                            <button
+                                onClick={logout}
+                                className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
+                            >
+                                <LogOut className="w-4 h-4 mr-3 flex-shrink-0" />
+                                <span>Sair</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    );
 }
 
 export default Sidebar;
