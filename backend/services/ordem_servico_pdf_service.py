@@ -21,10 +21,12 @@ except Exception as exc:  # noqa: BLE001 - Precisamos capturar OSError/ImportErr
 from flask import current_app
 from models.ordemServico import OrdemServico
 from services.gerarQRCode import MercadoPagoQRCodeError, gerar_qrcode_pix
+from config import db
+import datetime as _dt_mod
 
 
 class OrdemServicoPDFService:
-    """Gera PDFs de ordem de serviço a partir de templates Jinja2."""
+    """Gera PDFs de ordem de serviço com layout moderno."""
 
     def __init__(self) -> None:
         template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
@@ -35,6 +37,19 @@ class OrdemServicoPDFService:
             loader=FileSystemLoader(self._template_dir),
             autoescape=select_autoescape(['html', 'xml'])
         )
+
+        # Tenta usar url_for real, se disponível
+        try:
+            from flask import url_for  # type: ignore
+            self.jinja_env.globals['url_for'] = url_for
+        except Exception:
+            def _simple_url_for(endpoint, **kwargs):
+                if endpoint == 'static':
+                    filename = kwargs.get('filename', '')
+                    return os.path.join(self._base_url, 'static', filename).replace('\\', '/')
+                return '#'
+            self.jinja_env.globals['url_for'] = _simple_url_for
+
         self._register_filters()
 
         self.empresa_contexto = {
@@ -50,6 +65,9 @@ class OrdemServicoPDFService:
             'logo_path': self._find_logo_path(),
         }
 
+    # ------------------------ #
+    #     FILTROS JINJA       #
+    # ------------------------ #
     def _register_filters(self) -> None:
         def currency(value) -> str:
             try:
@@ -61,9 +79,7 @@ class OrdemServicoPDFService:
         def format_date(value) -> str:
             if not value:
                 return '-'
-            if isinstance(value, datetime):
-                return value.strftime('%d/%m/%Y')
-            if isinstance(value, date):
+            if isinstance(value, (datetime, date)):
                 return value.strftime('%d/%m/%Y')
             try:
                 parsed = datetime.fromisoformat(str(value))
@@ -86,6 +102,9 @@ class OrdemServicoPDFService:
         self.jinja_env.filters['data_br'] = format_date
         self.jinja_env.filters['datetime_br'] = format_datetime
 
+    # ------------------------ #
+    #     LOGO DA EMPRESA     #
+    # ------------------------ #
     def _find_logo_path(self) -> str | None:
         possible_paths = [
             os.path.join(self._base_url, 'static', 'images', 'logo.png'),
@@ -93,12 +112,14 @@ class OrdemServicoPDFService:
             os.path.join(self._base_url, 'assets', 'logo.png'),
             os.path.join(os.getcwd(), 'logo.png'),
         ]
-
         for path in possible_paths:
             if os.path.exists(path):
                 return path
         return None
 
+    # ------------------------ #
+    #       GERAR PDF         #
+    # ------------------------ #
     def gerar_pdf(self, ordem_servico_id: int) -> Tuple[bytes, str]:
         if not WEASYPRINT_AVAILABLE:
             raise RuntimeError(WEASYPRINT_IMPORT_ERROR or (
@@ -112,13 +133,28 @@ class OrdemServicoPDFService:
 
             contexto = self._preparar_contexto(ordem)
 
+        # Usa o novo template moderno
         template = self.jinja_env.get_template('ordem_servico_pdf.html')
         html_content = template.render(**contexto)
 
-        pdf_bytes = weasyprint.HTML(string=html_content, base_url=self._base_url).write_pdf()
+        # Carrega CSS moderno externo
+        css_path = os.path.join(self._template_dir, "ordem-servico.css")
+        if not os.path.exists(css_path):
+            raise FileNotFoundError(f"Arquivo CSS não encontrado: {css_path}")
+
+        pdf_bytes = weasyprint.HTML(
+            string=html_content,
+            base_url=self._base_url
+        ).write_pdf(
+            stylesheets=[weasyprint.CSS(css_path)]
+        )
+
         filename = f"ordem_servico_{contexto['ordem']['protocolo']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         return pdf_bytes, filename
 
+    # ------------------------ #
+    #     PREPARAR CONTEXTO   #
+    # ------------------------ #
     def _preparar_contexto(self, ordem: OrdemServico) -> dict:
         cliente = ordem.cliente
         empresa_cliente = ordem.empresa
@@ -218,6 +254,9 @@ class OrdemServicoPDFService:
             'pix_pagamento': pix_pagamento,
         }
 
+    # ------------------------ #
+    #        PAGAMENTO PIX     #
+    # ------------------------ #
     def _gerar_pagamento_pix(
         self,
         ordem: OrdemServico,
@@ -240,8 +279,42 @@ class OrdemServicoPDFService:
             'ordem_servico_id': ordem.id,
             'protocolo': ordem.protocolo,
         }
-
+        # Se já existe um PIX persistido e não expirou, reutiliza
         try:
+            if ordem.pix_copia_cola and ordem.pix_imagem_data_uri and ordem.pix_expiracao:
+                try:
+                    expiracao = ordem.pix_expiracao
+                    now = _dt_mod.datetime.utcnow()
+                    # Se expiracao for timezone-aware, normaliza para UTC naive para comparação
+                    if hasattr(expiracao, 'tzinfo') and expiracao.tzinfo is not None:
+                        try:
+                            expiracao = expiracao.astimezone(_dt_mod.timezone.utc).replace(tzinfo=None)
+                        except Exception:
+                            # se não for possível normalizar, ignore e deixe como está
+                            pass
+                    if expiracao and expiracao > now:
+                        current_app.logger.info(
+                            "Reutilizando PIX persistido para OS %s (expira %s).",
+                            ordem.id,
+                            ordem.pix_expiracao,
+                        )
+                        return {
+                            'imagem_data_uri': ordem.pix_imagem_data_uri,
+                            'copia_cola': ordem.pix_copia_cola,
+                            'ticket_url': None,
+                            'expiracao': ordem.pix_expiracao,
+                            'pagamento_id': ordem.pix_payment_id,
+                            'valor': valor_total,
+                            'descricao': descricao,
+                        }
+                except Exception:
+                    # Se qualquer erro ao validar expiracao, prossegue para gerar novo PIX
+                    current_app.logger.warning(
+                        "Não foi possível validar expiracao do PIX persistido para OS %s; gerando novo.",
+                        ordem.id,
+                    )
+
+            # Caso não exista ou tenha expirado, gera novo PIX via Mercado Pago
             pix = gerar_qrcode_pix(
                 valor=valor_total,
                 descricao=descricao,
@@ -249,6 +322,48 @@ class OrdemServicoPDFService:
                 nome_pagador=nome_cliente,
                 metadata=metadata,
             )
+
+            # Persiste dados retornados no registro da ordem
+            try:
+                ordem.pix_copia_cola = pix.get('copia_cola')
+                ordem.pix_imagem_data_uri = pix.get('imagem_data_uri')
+                ordem.pix_payment_id = pix.get('payment_id') or pix.get('pagamento_id')
+                ordem.pix_external_reference = pix.get('external_reference')
+
+                # expiração pode vir como string ISO ou datetime
+                expiracao_val = pix.get('expiracao')
+                parsed_exp = None
+                if isinstance(expiracao_val, str):
+                    try:
+                        val = expiracao_val
+                        # aceitar final 'Z'
+                        if val.endswith('Z'):
+                            val = val[:-1] + '+00:00'
+                        parsed_exp = _dt_mod.datetime.fromisoformat(val)
+                    except Exception:
+                        parsed_exp = None
+                elif isinstance(expiracao_val, _dt_mod.datetime):
+                    parsed_exp = expiracao_val
+
+                ordem.pix_expiracao = parsed_exp
+                ordem.pix_gerado_em = _dt_mod.datetime.utcnow()
+
+                db.session.add(ordem)
+                db.session.commit()
+            except Exception as exc:
+                current_app.logger.exception(
+                    "Falha ao persistir dados PIX para OS %s: %s", ordem.id, exc
+                )
+
+            return {
+                'imagem_data_uri': pix.get('imagem_data_uri'),
+                'copia_cola': pix.get('copia_cola'),
+                'ticket_url': pix.get('ticket_url'),
+                'expiracao': parsed_exp or pix.get('expiracao'),
+                'pagamento_id': pix.get('payment_id'),
+                'valor': pix.get('valor'),
+                'descricao': pix.get('descricao'),
+            }
         except MercadoPagoQRCodeError as exc:
             current_app.logger.error(
                 "Erro ao gerar QR Code PIX para OS %s: %s",
@@ -256,20 +371,10 @@ class OrdemServicoPDFService:
                 exc,
             )
             return None
-        except Exception as exc:  # noqa: BLE001 - capturamos exceções inesperadas
+        except Exception as exc:  # noqa: BLE001
             current_app.logger.error(
                 "Erro inesperado ao integrar com Mercado Pago na OS %s: %s",
                 ordem.id,
                 exc,
             )
             return None
-
-        return {
-            'imagem_data_uri': pix.get('imagem_data_uri'),
-            'copia_cola': pix.get('copia_cola'),
-            'ticket_url': pix.get('ticket_url'),
-            'expiracao': pix.get('expiracao'),
-            'pagamento_id': pix.get('payment_id'),
-            'valor': pix.get('valor'),
-            'descricao': pix.get('descricao'),
-        }

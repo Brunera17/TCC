@@ -1,504 +1,207 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8" />
-    <title>Ordem de Serviço - {{ ordem.protocolo }}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ordem de Serviço - {{ empresa.nome }}</title>
     <style>
-        /* --- Configuração da Página para PDF --- */
-        @page {
-            size: A4 landscape;
-            /* Margens: 2cm superior/inferior, 1.5cm laterais */
-            margin: 20mm 15mm; 
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            /* Pilha de fontes de sistema modernas */
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, 
-                         "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-            font-size: 11px; /* Um pouco menor para caber mais */
-            line-height: 1.5;
-            color: #333;
-            background: #fff;
-        }
-
-        /* --- Container Principal --- */
-        .documento {
-            width: 100%;
-            margin: 0 auto;
-        }
-
-        /* --- Cabeçalho --- */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            border-bottom: 3px solid #f47a1c;
-            padding-bottom: 16px;
-            margin-bottom: 24px;
-        }
-
-        .empresa-info h1 {
-            margin: 0 0 4px 0;
-            font-size: 22px;
-            font-weight: 700;
-            color: #f47a1c;
-        }
-
-        .empresa-info p {
-            margin: 1px 0;
-            font-size: 12px;
-            color: #444;
-        }
-
-        .logo {
-            max-width: 160px;
-            max-height: 70px;
-            object-fit: contain;
-        }
-
-        /* --- Títulos de Seção --- */
-        .secao-titulo {
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: #f47a1c;
-            margin: 0 0 12px 0;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #f0f0f0;
-            letter-spacing: 0.5px;
-        }
-
-        /* --- Layout de Informações (Superior) --- */
-        .info-container {
-            display: flex;
-            justify-content: space-between;
-            gap: 24px;
-            margin-bottom: 24px;
-        }
-
-        .info-bloco {
-            flex: 1; /* Cada bloco ocupa 50% */
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 20px;
-            /* Sombra sutil para "elevar" o card */
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03); 
-        }
-        
-        /* Bloco de info que ocupa a linha inteira */
-        .info-bloco.full-width {
-            flex-basis: 100%;
-        }
-
-        .info-item {
-            margin-bottom: 12px;
-        }
-        
-        .info-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .info-label {
-            display: block;
-            font-size: 10px;
-            font-weight: 600;
-            color: #555;
-            text-transform: uppercase;
-            margin-bottom: 2px;
-        }
-
-        .info-valor {
-            font-size: 13px;
-            font-weight: 500;
-            color: #111;
-        }
-
-        /* --- Tabela de Itens --- */
-        .itens-secao {
-            margin-bottom: 24px;
-        }
-
-        .itens-tabela {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 16px;
-        }
-
-        .itens-tabela th,
-        .itens-tabela td {
-            padding: 10px 12px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb; /* Apenas borda inferior */
-        }
-
-        .itens-tabela th {
-            background: #f9fafb; /* Cinza claro, muito mais suave */
-            color: #374151;
-            text-transform: uppercase;
-            font-size: 10px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            border-bottom-width: 2px; /* Cabeçalho com borda mais grossa */
-        }
-        
-        .itens-tabela .col-descricao {
-            width: 35%;
-        }
-        .itens-tabela .col-servico {
-            width: 20%;
-        }
-        
-        /* Classes utilitárias para alinhamento */
-        .text-right {
-            text-align: right;
-        }
-        .text-center {
-            text-align: center;
-        }
-        
-        .no-itens-msg {
-             text-align: center; 
-             padding: 24px; 
-             color: #777;
-             font-style: italic;
-        }
-
-        /* --- Seção Inferior (Observações e Totais) --- */
-        .resumo-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 24px;
-        }
-
-        /* Observações */
-        .observacoes {
-            flex: 1; /* Ocupa o espaço restante */
-            background: #fffaf5; /* Tom de laranja bem claro */
-            border-left: 4px solid #f47a1c;
-            padding: 16px 20px;
-            border-radius: 6px;
-            min-height: 100px;
-        }
-        
-        .observacoes .secao-titulo {
-            border-bottom: none;
-            margin-bottom: 8px;
-        }
-        
-        .observacoes-content {
-            font-size: 12px;
-            color: #333;
-            white-space: pre-wrap; /* Mantém as quebras de linha */
-        }
-
-        /* Resumo de Valores (Totais) */
-        .resumo-valores {
-            flex: 0 0 320px; /* Largura fixa para os totais */
-        }
-        
-        .resumo-tabela {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .resumo-tabela td {
-            padding: 8px 10px;
-            font-size: 12px;
-        }
-        
-        .resumo-label {
-            font-weight: 600;
-            color: #555;
-            text-align: right;
-        }
-        
-        .resumo-valor {
-            font-weight: 500;
-            color: #111;
-            text-align: right;
-        }
-        
-        /* Linha do Total Geral */
-        .total-geral td {
-            font-size: 16px;
-            font-weight: 700;
-            color: #000;
-            border-top: 2px solid #333;
-            padding-top: 10px;
-        }
-
-        .pix-bloco {
-            flex: 0 0 220px;
-            text-align: center;
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 16px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
-        }
-
-        .pix-imagem {
-            width: 180px;
-            height: auto;
-            display: block;
-            margin: 8px auto 12px;
-        }
-
-        .pix-descricao {
-            font-size: 11px;
-            color: #555;
-            margin-bottom: 8px;
-        }
-
-        .pix-copia-cola {
-            font-size: 9px;
-            line-height: 1.3;
-            padding: 8px;
-            background: #f9fafb;
-            border-radius: 6px;
-            word-break: break-all;
-            border: 1px dashed #d1d5db;
-        }
-
-
-        /* --- Rodapé --- */
-        footer {
-            margin-top: 32px;
-            text-align: center;
-            font-size: 10px;
-            color: #888;
-            border-top: 1px solid #e5e7eb;
-            padding-top: 16px;
-        }
+        {% include 'ordem-servico.css' %}
     </style>
 </head>
-
 <body>
-    <div class="documento">
-        <header>
-            <div class="empresa-info">
-                <h1>{{ empresa.nome }}</h1>
-                <p>CNPJ: {{ empresa.cnpj }}</p>
-                <p>{{ empresa.endereco }} · CEP {{ empresa.cep }}</p>
-                <p>Telefone: {{ empresa.telefone }} · E-mail: {{ empresa.email }}</p>
-                <p>{{ empresa.horario_funcionamento }}</p>
+    <div class="container">
+
+        <!-- Cabeçalho -->
+        <header class="header">
+            <div class="company-info">
+                <h1 class="company-name">{{ empresa.nome }}</h1>
+                <div class="company-details">
+                    <p>CNPJ: {{ empresa.cnpj }}</p>
+                    <p>{{ empresa.endereco }}{% if empresa.cep %} - CEP {{ empresa.cep }}{% endif %}</p>
+                    <p>Tel: {{ empresa.telefone }}{% if empresa.email %} | E-mail: {{ empresa.email }}{% endif %}</p>
+                    {% if empresa.horario_funcionamento %}
+                        <p>{{ empresa.horario_funcionamento }}</p>
+                    {% endif %}
+                </div>
             </div>
-            {% if empresa.logo_path %}
-            <img class="logo" src="{{ empresa.logo_path }}" alt="Logo da empresa" />
-            {% endif %}
+
+            <div class="document-title">
+                <h2>ORDEM DE SERVIÇO</h2>
+                <div class="protocol">{{ ordem.protocolo }}</div>
+            </div>
         </header>
 
-        <section class="info-container">
-            
-            <div class="info-bloco">
-                <h2 class="secao-titulo">Dados da Ordem de Serviço</h2>
-                
-                <div class="info-item">
-                    <span class="info-label">Protocolo</span>
-                    <span class="info-valor">{{ ordem.protocolo }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Status</span>
-                    <span class="info-valor">{{ ordem.status_label }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Abertura</span>
-                    <span class="info-valor">{{ ordem.data_abertura | datetime_br }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Vencimento</span>
-                    <span class="info-valor">{{ ordem.vencimento | data_br }}</span>
-                </div>
-                
-                {% if ordem.data_fechamento %}
-                <div class="info-item">
-                    <span class="info-label">Fechamento</span>
-                    <span class="info-valor">{{ ordem.data_fechamento | datetime_br }}</span>
-                </div>
-                {% endif %}
-                
-                {% if ordem.departamento %}
-                <div class="info-item">
-                    <span class="info-label">Departamento</span>
-                    <span class="info-valor">{{ ordem.departamento }}</span>
-                </div>
-                {% endif %}
-                
-                {% if responsavel %}
-                <div class="info-item">
-                    <span class="info-label">Responsável</span>
-                    <span class="info-valor">{{ responsavel.nome }}{% if responsavel.cargo %} · {{ responsavel.cargo }}{% endif %}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Contato do Responsável</span>
-                    <span class="info-valor">{{ responsavel.email }}</span>
-                </div>
-                {% endif %}
-            </div>
-
-            {% if cliente %}
-            <div class="info-bloco">
-                <h2 class="secao-titulo">Informações do Cliente</h2>
-                <div class="info-item">
-                    <span class="info-label">Nome</span>
-                    <span class="info-valor">{{ cliente.nome }}</span>
-                </div>
-                {% if cliente.cpf %}
-                <div class="info-item">
-                    <span class="info-label">CPF</span>
-                    <span class="info-valor">{{ cliente.cpf }}</span>
-                </div>
-                {% endif %}
-                {% if cliente.email %}
-                <div class="info-item">
-                    <span class="info-label">E-mail</span>
-                    <span class="info-valor">{{ cliente.email }}</span>
-                </div>
-                {% endif %}
-                {% if cliente.telefone %}
-                <div class="info-item">
-                    <span class="info-label">Telefone</span>
-                    <span class="info-valor">{{ cliente.telefone }}</span>
-                </div>
-                {% endif %}
-                {% if cliente.endereco %}
-                <div class="info-item">
-                    <span class="info-label">Endereço</span>
-                    <span class="info-valor">{{ cliente.endereco }}</span>
-                </div>
-                {% endif %}
-            </div>
-            {% endif %}
-        </section>
-
-        {% if empresa_cliente %}
-        <section class="info-container">
-            <div class="info-bloco full-width">
-                <h2 class="secao-titulo">Dados da Empresa Contratante</h2>
-                <div style="display: flex; gap: 24px;"> <div style="flex: 1;">
-                        <div class="info-item">
-                            <span class="info-label">Razão Social</span>
-                            <span class="info-valor">{{ empresa_cliente.razao_social }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Nome Fantasia</span>
-                            <span class="info-valor">{{ empresa_cliente.nome_fantasia }}</span>
-                        </div>
+        <!-- Dados principais -->
+        <div class="content-grid">
+            <section class="card">
+                <h3 class="card-title">Dados da Ordem de Serviço</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Protocolo</label>
+                        <span class="info-value">{{ ordem.protocolo }}</span>
                     </div>
-                    <div style="flex: 1;">
-                        <div class="info-item">
-                            <span class="info-label">CNPJ</span>
-                            <span class="info-valor">{{ empresa_cliente.cnpj }}</span>
-                        </div>
-                        {% if empresa_cliente.inscricao_estadual %}
-                        <div class="info-item">
-                            <span class="info-label">Inscrição Estadual</span>
-                            <span class="info-valor">{{ empresa_cliente.inscricao_estadual }}</span>
-                        </div>
-                        {% endif %}
+                    <div class="info-item">
+                        <label>Status</label>
+                        <span class="badge {% if ordem.status_label == 'Aberta' %}badge-open{% endif %}">
+                            {{ ordem.status_label }}
+                        </span>
                     </div>
-                    {% if empresa_cliente.contato %}
-                    <div style="flex: 1;">
-                        <div class="info-item">
-                            <span class="info-label">Contato</span>
-                            <span class="info-valor">{{ empresa_cliente.contato }}</span>
-                        </div>
+                    <div class="info-item">
+                        <label>Data de Abertura</label>
+                        <span class="info-value">{{ ordem.data_abertura | datetime_br }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Vencimento</label>
+                        <span class="info-value">{{ ordem.vencimento | data_br }}</span>
+                    </div>
+                    {% if ordem.departamento %}
+                    <div class="info-item">
+                        <label>Departamento</label>
+                        <span class="info-value">{{ ordem.departamento }}</span>
                     </div>
                     {% endif %}
+                    {% if responsavel %}
+                    <div class="info-item">
+                        <label>Responsável</label>
+                        <span class="info-value">
+                            {{ responsavel.nome }}{% if responsavel.cargo %} - {{ responsavel.cargo }}{% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item full-width">
+                        <label>Contato do Responsável</label>
+                        <span class="info-value">{{ responsavel.email }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="card">
+                <h3 class="card-title">Informações do Cliente</h3>
+                <div class="info-grid">
+                    <div class="info-item full-width">
+                        <label>Nome</label>
+                        <span class="info-value">{{ cliente.nome if cliente else '-' }}</span>
+                    </div>
+                    {% if cliente and cliente.cpf %}
+                    <div class="info-item">
+                        <label>CPF</label>
+                        <span class="info-value">{{ cliente.cpf }}</span>
+                    </div>
+                    {% endif %}
+                    {% if cliente and cliente.telefone %}
+                    <div class="info-item">
+                        <label>Telefone</label>
+                        <span class="info-value">{{ cliente.telefone }}</span>
+                    </div>
+                    {% endif %}
+                    {% if cliente and cliente.email %}
+                    <div class="info-item full-width">
+                        <label>E-mail</label>
+                        <span class="info-value">{{ cliente.email }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+        </div>
+
+        <!-- Itens e serviços -->
+        <section class="card services-section">
+            <h3 class="card-title">Itens e Serviços</h3>
+            <div class="table-responsive">
+                <table class="services-table">
+                    <thead>
+                        <tr>
+                            <th>Serviço</th>
+                            <th>Descrição</th>
+                            <th class="text-center">Qtd.</th>
+                            <th class="text-right">Valor Unit.</th>
+                            <th class="text-center">Desconto</th>
+                            <th class="text-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if itens and itens|length > 0 %}
+                            {% for item in itens %}
+                            <tr>
+                                <td class="service-name">{{ item.servico }}</td>
+                                <td>{% if item.descricao %}{{ item.descricao | replace('\n', '<br>') | safe }}{% else %}-{% endif %}</td>
+                                <td class="text-center">{{ item.quantidade }}</td>
+                                <td class="text-right">{{ item.valor_unitario | currency }}</td>
+                                <td class="text-center">
+                                    <span class="discount">{{ item.desconto_percentual }}%</span>
+                                </td>
+                                <td class="text-right font-semibold">{{ item.valor_total | currency }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center" style="padding:24px; font-style:italic; color:#777;">
+                                    Nenhum item associado a esta ordem de serviço.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="observations">
+                <h4>Observações</h4>
+                {% if ordem.observacao %}
+                    <p>{{ ordem.observacao | safe }}</p>
+                {% else %}
+                    <p style="color:#777; font-style:italic;">Nenhuma observação.</p>
+                {% endif %}
+            </div>
+
+            <div class="totals-container">
+                <div class="totals">
+                    <div class="total-row">
+                        <span>Subtotal</span>
+                        <span>{{ totais.subtotal_sem_desconto | currency }}</span>
+                    </div>
+                    <div class="total-row discount-row">
+                        <span>Descontos</span>
+                        <span>- {{ totais.desconto_total | currency }}</span>
+                    </div>
+                    <div class="total-row final-total">
+                        <span>Total Geral</span>
+                        <span>{{ totais.total_geral | currency }}</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pagamento -->
+        {% if pix_pagamento %}
+        <section class="card payment-section">
+            <h3 class="card-title">Pagamento via PIX</h3>
+            <div class="payment-content">
+                <div class="qr-code">
+                    <div class="qr-placeholder">
+                        {% if pix_pagamento.imagem_data_uri %}
+                            <img src="{{ pix_pagamento.imagem_data_uri }}" alt="QR Code PIX">
+                        {% else %}
+                            <svg width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="#000"/></svg>
+                        {% endif %}
+                    </div>
+                    <p class="qr-instruction">Escaneie o código QR para pagar</p>
+                </div>
+                <div class="pix-code">
+                    <label>Código PIX Copia e Cola:</label>
+                    <div class="code-box">
+                        <code>{{ pix_pagamento.copia_cola }}</code>
+                    </div>
                 </div>
             </div>
         </section>
         {% endif %}
 
-        <section class="itens-secao">
-            <h2 class="secao-titulo">Itens e Serviços</h2>
-            <table class="itens-tabela">
-                <thead>
-                    <tr>
-                        <th class="col-servico">Serviço</th>
-                        <th class="col-descricao">Descrição</th>
-                        <th style="width: 8%" class="text-center">Qtd.</th>
-                        <th style="width: 12%" class="text-right">Valor Unit.</th>
-                        <th style="width: 10%" class="text-center">Desconto</th>
-                        <th style="width: 13%" class="text-right">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if itens %}
-                    {% for item in itens %}
-                    <tr>
-                        <td>{{ item.servico }}</td>
-                        <td>{% if item.descricao %}{{ item.descricao | replace('\n', '<br>') | safe }}{% else %}-{% endif %}</td>
-                        <td class="text-center">{{ item.quantidade }}</td>
-                        <td class="text-right">{{ item.valor_unitario | currency }}</td>
-                        <td class="text-center">{{ item.desconto_percentual }}%</td>
-                        <td class="text-right">{{ item.valor_total | currency }}</td>
-                    </tr>
-                    {% endfor %}
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="no-itens-msg">
-                            Nenhum item associado a esta ordem de serviço.
-                        </td>
-                    </tr>
-                    {% endif %}
-                </tbody>
-            </table>
-        </section>
-
-        <section class="resumo-container">
-            
-            <div class="observacoes">
-                <h2 class="secao-titulo">Observações</h2>
-                {% if ordem.observacao %}
-                <div class="observacoes-content">
-                    {{ ordem.observacao | safe }}
-                </div>
-                {% else %}
-                <span style="color: #777; font-style: italic;">Nenhuma observação.</span>
-                {% endif %}
-            </div>
-
-            <div class="resumo-valores">
-                <table class="resumo-tabela">
-                    <tr>
-                        <td class="resumo-label">Subtotal</td>
-                        <td class="resumo-valor">{{ totais.subtotal_sem_desconto | currency }}</td>
-                    </tr>
-                    <tr>
-                        <td class="resumo-label">Descontos</td>
-                        <td class="resumo-valor">- {{ totais.desconto_total | currency }}</td>
-                    </tr>
-                    <tr class="total-geral">
-                        <td class="resumo-label">Total Geral</td>
-                        <td class="resumo-valor">{{ totais.total_geral | currency }}</td>
-                    </tr>
-                </table>
-            </div>
-
-            {% if pix_pagamento %}
-            <div class="pix-bloco">
-                <h2 class="secao-titulo">Pagamento via PIX</h2>
-                <p class="pix-descricao">Escaneie o código ou use o texto abaixo para pagar:</p>
-                {% if pix_pagamento.imagem_data_uri %}
-                <img class="pix-imagem" src="{{ pix_pagamento.imagem_data_uri }}" alt="QR Code de pagamento PIX" />
-                {% endif %}
-                {% if pix_pagamento.copia_cola %}
-                <div class="pix-copia-cola">{{ pix_pagamento.copia_cola }}</div>
-                {% endif %}
-            </div>
-            {% endif %}
-        </section>
-
-        <footer>
-            Documento gerado em {{ gerado_em | datetime_br }} · Este PDF foi produzido automaticamente pelo sistema de gestão.
+        <!-- Rodapé -->
+        <footer class="footer">
+            <p>Documento gerado em {{ gerado_em | datetime_br }}</p>
+            <p>Este documento foi produzido automaticamente pelo sistema de gestão.</p>
         </footer>
+
     </div>
 </body>
-
 </html>
