@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Relatório de Serviços</title>
+  <style>body{font-family:Arial;color:#222}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px;text-align:left}</style>
+</head>
+<body>
+  <h1>Relatório de Serviços</h1>
+  <p>Gerado em: {{ data_atual }}</p>
+  {% if servicos %}
+  <table>
+    <thead><tr><th>Serviço</th><th>Quantidade</th><th>Receita</th><th>Média Unit.</th><th>Propostas</th></tr></thead>
+    <tbody>
+      {% for s in servicos %}
+      <tr>
+        <td>{{ s.nome }}</td>
+        <td>{{ s.total_quantidade }}</td>
+        <td>{{ s.total_receita }}</td>
+        <td>{{ s.media_valor_unitario }}</td>
+        <td>{{ s.count_propostas }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p>Nenhum serviço encontrado.</p>
+  {% endif %}
+</body>
+</html>

@@ -128,7 +128,7 @@ export const RelatoriosPage: React.FC = () => {
           const errorJson = await response.json();
           const msg = errorJson && (errorJson.error || errorJson.message || JSON.stringify(errorJson));
           setError(msg || 'Falha ao gerar relatório ou formato inválido.');
-        } catch (e) {
+        } catch {
           setError('Falha ao gerar relatório ou formato inválido.');
         }
       }
@@ -172,6 +172,60 @@ export const RelatoriosPage: React.FC = () => {
     const tipos = new Set(relatoriosPredefinidos.map(r => r.tipo));
     return Array.from(tipos).map(tipo => ({ value: tipo, label: tipo.charAt(0).toUpperCase() + tipo.slice(1) }));
   }, []);
+
+  const fecharModalAgendamento = () => {
+    setIsAgendamentoModalOpen(false);
+    setPendingRelatorio(null);
+    setError(null);
+  };
+
+  const confirmarGerarAgendamento = async () => {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (agendamentoInicio && !dateRegex.test(agendamentoInicio)) { setError('Formato de data inválido para início. Use YYYY-MM-DD'); return; }
+    if (agendamentoFim && !dateRegex.test(agendamentoFim)) { setError('Formato de data inválido para fim. Use YYYY-MM-DD'); return; }
+    if (!pendingRelatorio) { setError('Relatório inválido'); fecharModalAgendamento(); return; }
+
+    setIsAgendamentoModalOpen(false);
+    setLoading(true);
+    setError(null);
+    try {
+      const backendUrl = 'http://localhost:5000';
+      const tipo = pendingRelatorio.tipo;
+      let url = `${backendUrl}/reports/${tipo}`;
+      const params = new URLSearchParams();
+      if (agendamentoInicio) params.append('inicio', agendamentoInicio);
+      if (agendamentoFim) params.append('fim', agendamentoFim);
+      const qs = params.toString();
+      if (qs) url = `${url}?${qs}`;
+
+      const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/pdf' } });
+      if (response.status === 204) { setError('Relatório ainda não implementado.'); return; }
+      if (response.ok && response.headers.get('content-type')?.includes('application/pdf')) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${pendingRelatorio.nome}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        try {
+          const errorJson = await response.json();
+          const msg = errorJson && (errorJson.error || errorJson.message || JSON.stringify(errorJson));
+          setError(msg || 'Falha ao gerar relatório ou formato inválido.');
+        } catch (e) {
+          setError('Falha ao gerar relatório ou formato inválido.');
+        }
+      }
+    } catch (err) {
+      setError('Erro ao gerar relatório de agendamentos');
+    } finally {
+      setLoading(false);
+      setPendingRelatorio(null);
+    }
+  };
 
   return (
     <PageLayout>
@@ -267,8 +321,21 @@ export const RelatoriosPage: React.FC = () => {
           />
         </StateHandler>
       </Card>
+        {/* Modal para informar período de agendamentos */}
+        <Modal isOpen={isAgendamentoModalOpen} onClose={fecharModalAgendamento} title="Relatório de Agendamentos">
+          <div className="grid grid-cols-1 gap-3">
+            <label className="text-sm text-gray-700">Informe data de início (YYYY-MM-DD) — deixar vazio para sem filtro</label>
+            <Input type="date" value={agendamentoInicio} onChange={(e) => setAgendamentoInicio(e.target.value)} />
+            <label className="text-sm text-gray-700">Informe data de fim (YYYY-MM-DD) — deixar vazio para sem filtro</label>
+            <Input type="date" value={agendamentoFim} onChange={(e) => setAgendamentoFim(e.target.value)} />
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="ghost" onClick={fecharModalAgendamento}>Cancelar</Button>
+              <Button onClick={confirmarGerarAgendamento}>Gerar PDF</Button>
+            </div>
+          </div>
+        </Modal>
 
-    </PageLayout>
+      </PageLayout>
   );
 };
 

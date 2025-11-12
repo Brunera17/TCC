@@ -83,7 +83,7 @@ def reports_agendamentos():
                 return response
             except ValueError as e:
                 # Mensagem informativa sobre falhas na geração
-                return jsonify({'error': str(e)}), 500
+                return jsonify({'error': str(e)}), 400
 
         # Caso contrário, retorna JSON com os dados do relatório
         relatorio = service.gerar_relatorio_agendamentos(inicio=inicio, fim=fim)
@@ -97,8 +97,17 @@ def reports_agendamentos():
 @reports_bp.route('/servicos', methods=['GET'])
 def reports_servicos():
     try:
+        accept = request.headers.get('Accept', '') or request.headers.get('accept', '')
+        if 'application/pdf' in accept.lower():
+            try:
+                pdf_bytes = service.gerar_relatorio_servicos_pdf()
+                response = Response(pdf_bytes, status=200, mimetype='application/pdf')
+                response.headers['Content-Disposition'] = 'attachment; filename=relatorio_servicos.pdf'
+                return response
+            except ValueError as e:
+                return jsonify({'error': str(e)}), 400
         relatorio = service.gerar_relatorio_servicos()
-        return _respond_or_not_implemented_json(relatorio)
+        return jsonify(relatorio), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -108,8 +117,17 @@ def reports_servicos():
 @reports_bp.route('/financeiro', methods=['GET'])
 def reports_financeiro():
     try:
+        accept = request.headers.get('Accept', '') or request.headers.get('accept', '')
+        if 'application/pdf' in accept.lower():
+            try:
+                pdf_bytes = service.gerar_relatorio_financeiro_pdf()
+                response = Response(pdf_bytes, status=200, mimetype='application/pdf')
+                response.headers['Content-Disposition'] = 'attachment; filename=relatorio_financeiro.pdf'
+                return response
+            except ValueError as e:
+                return jsonify({'error': str(e)}), 400
         relatorio = service.gerar_relatorio_financeiro()
-        return _respond_or_not_implemented_json(relatorio)
+        return jsonify(relatorio), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Relatório Financeiro</title>
+  <style>body{font-family:Arial;color:#222}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px;text-align:left}</style>
+</head>
+<body>
+  <h1>Relatório Financeiro</h1>
+  <p>Gerado em: {{ data_atual }}</p>
+  <p>Total de propostas: {{ total_propostas }} — Total valor: {{ total_valor }}</p>
+
+  <h2>Totais por status</h2>
+  <table>
+    <thead><tr><th>Status</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for k,v in totais_por_status.items() %}
+      <tr><td>{{ k }}</td><td>{{ v }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Períodos</h2>
+  {% if periodos %}
+  <table>
+    <thead><tr><th>Período</th><th>Total</th><th>Count</th></tr></thead>
+    <tbody>
+      {% for p in periodos %}
+      <tr><td>{{ p.periodo }}</td><td>{{ p.total }}</td><td>{{ p.count }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</body>
+</html>
