@@ -1,0 +1,277 @@
+@page {
+  size: A4 portrait;
+  margin: 5mm;
+}
+
+body {
+  font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+  color: #1a1a1a;
+  background: #fff;
+  line-height: 1.4;
+  font-size: 12px;
+}
+
+.container {
+  max-width: 200mm;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 6mm;
+}
+
+/* Cabeçalho */
+.header {
+  background-color: #183b53;
+  color: #ffffff;
+  padding: 14px;
+  border-radius: 4px;
+}
+
+.company-info {
+  margin-bottom: 6px;
+}
+
+.company-name {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.company-details {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.document-title {
+  text-align: right;
+  margin-top: -50px;
+}
+
+.document-title h2 {
+  font-size: 14px;
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+
+.protocol {
+  background: #ffffff;
+  color: #183b53;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 11px;
+  display: inline-block;
+}
+
+/* Cards */
+.card {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 8px;
+  page-break-inside: avoid;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #183b53;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 3px;
+  margin-bottom: 6px;
+}
+
+/* Informações */
+.info-item {
+  margin-bottom: 4px;
+}
+
+.info-item label {
+  display: block;
+  font-size: 10px;
+  color: #6b7280;
+  text-transform: uppercase;
+  margin-bottom: 1px;
+}
+
+.info-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.badge {
+  background: #d4edda;
+  color: #155724;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+/* Tabela de Itens */
+.services-section {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 10px;
+  page-break-inside: avoid;
+}
+
+.services-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+.services-table thead {
+  background-color: #f1f5f9;
+}
+
+.services-table th,
+.services-table td {
+  padding: 5px 4px;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: top;
+}
+
+.services-table th {
+  font-size: 10px;
+  color: #183b53;
+  text-transform: uppercase;
+}
+
+.service-name {
+  font-weight: 600;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.discount {
+  background: #fff3cd;
+  color: #856404;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+/* Observações */
+.observations {
+  background: #f8fafc;
+  border-left: 3px solid #3498db;
+  padding: 6px 8px;
+  margin-top: 8px;
+  border-radius: 3px;
+}
+
+/* Totais */
+.totals-container {
+  text-align: right;
+  margin-top: 6px;
+}
+
+.totals {
+  display: inline-block;
+  border: 1px solid #d1d5db;
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 10.5px;
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+}
+
+.final-total {
+  font-weight: 700;
+  color: #183b53;
+  border-top: 1px solid #d1d5db;
+  margin-top: 2px;
+  padding-top: 2px;
+}
+
+/* PIX */
+.payment-section {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 10px;
+  page-break-inside: avoid;
+}
+
+.payment-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.qr-placeholder {
+  width: 140px;
+  height: 140px;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.qr-code img {
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+}
+
+.qr-instruction {
+  font-size: 9px;
+  color: #6b7280;
+  text-align: center;
+  font-weight: 500;
+}
+
+.pix-code {
+  flex: 1;
+}
+
+.pix-code label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #183b53;
+  margin-bottom: 3px;
+}
+
+.code-box {
+  border: 1px dashed #cbd5e1;
+  padding: 6px;
+  background: #fff;
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  color: #1e293b;
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Rodapé */
+.footer {
+  text-align: center;
+  font-size: 9px;
+  color: #6b7280;
+  border-top: 1px solid #e5e7eb;
+  padding: 6px;
+  margin-top: 8px;
+}

@@ -1,4 +1,5 @@
 import os
+import base64
 from datetime import datetime, date
 from typing import Tuple
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -21,10 +22,13 @@ except Exception as exc:  # noqa: BLE001 - Precisamos capturar OSError/ImportErr
 from flask import current_app
 from models.ordemServico import OrdemServico
 from services.gerarQRCode import MercadoPagoQRCodeError, gerar_qrcode_pix
+from config import db
+import datetime as _dt_mod
+from pathlib import Path
 
 
 class OrdemServicoPDFService:
-    """Gera PDFs de ordem de serviço a partir de templates Jinja2."""
+    """Gera PDFs de ordem de serviço com layout moderno."""
 
     def __init__(self) -> None:
         template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
@@ -35,6 +39,19 @@ class OrdemServicoPDFService:
             loader=FileSystemLoader(self._template_dir),
             autoescape=select_autoescape(['html', 'xml'])
         )
+
+        # Tenta usar url_for real, se disponível
+        try:
+            from flask import url_for  # type: ignore
+            self.jinja_env.globals['url_for'] = url_for
+        except Exception:
+            def _simple_url_for(endpoint, **kwargs):
+                if endpoint == 'static':
+                    filename = kwargs.get('filename', '')
+                    return os.path.join(self._base_url, 'static', filename).replace('\\', '/')
+                return '#'
+            self.jinja_env.globals['url_for'] = _simple_url_for
+
         self._register_filters()
 
         self.empresa_contexto = {
@@ -50,6 +67,9 @@ class OrdemServicoPDFService:
             'logo_path': self._find_logo_path(),
         }
 
+    # ------------------------ #
+    #     FILTROS JINJA       #
+    # ------------------------ #
     def _register_filters(self) -> None:
         def currency(value) -> str:
             try:
@@ -61,9 +81,7 @@ class OrdemServicoPDFService:
         def format_date(value) -> str:
             if not value:
                 return '-'
-            if isinstance(value, datetime):
-                return value.strftime('%d/%m/%Y')
-            if isinstance(value, date):
+            if isinstance(value, (datetime, date)):
                 return value.strftime('%d/%m/%Y')
             try:
                 parsed = datetime.fromisoformat(str(value))
@@ -86,6 +104,9 @@ class OrdemServicoPDFService:
         self.jinja_env.filters['data_br'] = format_date
         self.jinja_env.filters['datetime_br'] = format_datetime
 
+    # ------------------------ #
+    #     LOGO DA EMPRESA     #
+    # ------------------------ #
     def _find_logo_path(self) -> str | None:
         possible_paths = [
             os.path.join(self._base_url, 'static', 'images', 'logo.png'),
@@ -93,12 +114,14 @@ class OrdemServicoPDFService:
             os.path.join(self._base_url, 'assets', 'logo.png'),
             os.path.join(os.getcwd(), 'logo.png'),
         ]
-
         for path in possible_paths:
             if os.path.exists(path):
                 return path
         return None
 
+    # ------------------------ #
+    #       GERAR PDF         #
+    # ------------------------ #
     def gerar_pdf(self, ordem_servico_id: int) -> Tuple[bytes, str]:
         if not WEASYPRINT_AVAILABLE:
             raise RuntimeError(WEASYPRINT_IMPORT_ERROR or (
@@ -112,13 +135,28 @@ class OrdemServicoPDFService:
 
             contexto = self._preparar_contexto(ordem)
 
+        # Usa o novo template moderno
         template = self.jinja_env.get_template('ordem_servico_pdf.html')
         html_content = template.render(**contexto)
 
-        pdf_bytes = weasyprint.HTML(string=html_content, base_url=self._base_url).write_pdf()
+        # Carrega CSS moderno externo
+        css_path = os.path.join(self._template_dir, "ordem-servico.css")
+        if not os.path.exists(css_path):
+            raise FileNotFoundError(f"Arquivo CSS não encontrado: {css_path}")
+
+        pdf_bytes = weasyprint.HTML(
+            string=html_content,
+            base_url=self._base_url
+        ).write_pdf(
+            stylesheets=[weasyprint.CSS(css_path)]
+        )
+
         filename = f"ordem_servico_{contexto['ordem']['protocolo']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         return pdf_bytes, filename
 
+    # ------------------------ #
+    #     PREPARAR CONTEXTO   #
+    # ------------------------ #
     def _preparar_contexto(self, ordem: OrdemServico) -> dict:
         cliente = ordem.cliente
         empresa_cliente = ordem.empresa
@@ -218,6 +256,9 @@ class OrdemServicoPDFService:
             'pix_pagamento': pix_pagamento,
         }
 
+    # ------------------------ #
+    #        PAGAMENTO PIX     #
+    # ------------------------ #
     def _gerar_pagamento_pix(
         self,
         ordem: OrdemServico,
@@ -232,6 +273,40 @@ class OrdemServicoPDFService:
             )
             return None
 
+        # Prepare paths em uploads/pix
+        uploads_root = Path(current_app.config.get('UPLOAD_FOLDER') or os.path.join(os.path.dirname(__file__), '..', 'uploads'))
+        pix_dir = uploads_root / 'pix'
+        try:
+            pix_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            # se falhar ao criar pasta, apenas loga e prossegue (usará data URI)
+            current_app.logger.warning("Não foi possível criar pasta de uploads/pix: %s", pix_dir)
+
+        base_name = f"ordem_{ordem.id}"
+        img_path = pix_dir / f"{base_name}_pix.png"
+        txt_path = pix_dir / f"{base_name}_pix.txt"
+
+        # Se existir arquivo salvo, reutiliza (imagem + texto)
+        if img_path.exists() or txt_path.exists():
+            imagem_data_uri = None
+            copia_cola = None
+            try:
+                if img_path.exists():
+                    data = img_path.read_bytes()
+                    b64 = base64.b64encode(data).decode('ascii')
+                    imagem_data_uri = f"data:image/png;base64,{b64}"
+                if txt_path.exists():
+                    copia_cola = txt_path.read_text(encoding='utf-8')
+                return {
+                    'imagem_data_uri': imagem_data_uri,
+                    'copia_cola': copia_cola,
+                    'valor': valor_total,
+                    'descricao': f"Ordem de Serviço {ordem.protocolo}",
+                }
+            except Exception as exc:
+                current_app.logger.exception("Falha ao ler arquivos PIX salvos para OS %s: %s", ordem.id, exc)
+
+        # Caso não exista arquivo salvo, gera via Mercado Pago
         email_cliente = cliente_contexto.get('email') if cliente_contexto else None
         nome_cliente = cliente_contexto.get('nome') if cliente_contexto else None
 
@@ -256,7 +331,7 @@ class OrdemServicoPDFService:
                 exc,
             )
             return None
-        except Exception as exc:  # noqa: BLE001 - capturamos exceções inesperadas
+        except Exception as exc:  # noqa: BLE001
             current_app.logger.error(
                 "Erro inesperado ao integrar com Mercado Pago na OS %s: %s",
                 ordem.id,
@@ -264,9 +339,37 @@ class OrdemServicoPDFService:
             )
             return None
 
+        imagem = pix.get('imagem_data_uri')
+        copia = pix.get('copia_cola')
+
+        # Persistir em disco: imagem PNG e arquivo TXT com copia e cola
+        try:
+            if imagem:
+                # imagem pode ser data URI ou base64 puro
+                if imagem.startswith('data:'):
+                    _, _, b64data = imagem.partition('base64,')
+                    b64data = ''.join(b64data.split())
+                    img_bytes = base64.b64decode(b64data)
+                else:
+                    # assume base64 puro
+                    b64data = ''.join(imagem.split())
+                    img_bytes = base64.b64decode(b64data)
+                try:
+                    img_path.write_bytes(img_bytes)
+                except Exception:
+                    current_app.logger.exception("Falha ao salvar imagem PIX em %s", img_path)
+
+            if copia:
+                try:
+                    txt_path.write_text(copia, encoding='utf-8')
+                except Exception:
+                    current_app.logger.exception("Falha ao salvar copia e cola PIX em %s", txt_path)
+        except Exception:
+            current_app.logger.exception("Erro ao persistir arquivos PIX para OS %s", ordem.id)
+
         return {
-            'imagem_data_uri': pix.get('imagem_data_uri'),
-            'copia_cola': pix.get('copia_cola'),
+            'imagem_data_uri': imagem,
+            'copia_cola': copia,
             'ticket_url': pix.get('ticket_url'),
             'expiracao': pix.get('expiracao'),
             'pagamento_id': pix.get('payment_id'),

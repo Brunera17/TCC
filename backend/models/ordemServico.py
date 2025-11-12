@@ -87,6 +87,7 @@ class OrdemServico(db.Model, TimestampMixin, ActiveMixin):
     data_abertura = db.Column(db.DateTime, default=datetime.utcnow)
     data_fechamento = db.Column(db.DateTime, nullable=True)
     valor_total_os = db.Column(db.Float, nullable=True, default=0.0)  # Valor total da OS
+    # OBS: campos PIX removidos do modelo; o QR e a chave são armazenados no sistema de arquivos (uploads/pix)
 
     # Foreign Keys
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='SET NULL'), nullable=True, index=True)
@@ -145,6 +146,7 @@ class OrdemServico(db.Model, TimestampMixin, ActiveMixin):
             'usuario': self.usuario.to_json() if self.usuario else None,
             'departamento': self.departamento.to_json() if self.departamento else None,
             'itens': [item.to_json() for item in self.itens if item.ativo],
+            # PIX agora é servido a partir de arquivos em uploads/pix; não expor campos de DB aqui
             'ativo': self.ativo,
             'created_at': format_datetime_to_utc_iso(self.created_at),
             'updated_at': format_datetime_to_utc_iso(self.updated_at),
