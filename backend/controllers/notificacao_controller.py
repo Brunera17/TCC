@@ -40,6 +40,18 @@ def _responder_listagem_vencimentos():
     except Exception as exc:
         return jsonify({'error': f'Erro ao listar notificações: {str(exc)}'}), 500
 
+@bp.route('/nao-lidas', methods=['GET'])
+@token_obrigatorio
+def listar_notificacoes_nao_lidas():
+    try:
+        usuario = getattr(request, 'usuario_atual', None)
+        if not usuario or not usuario.get('id'):
+            return jsonify({'error': 'Usuário não autenticado'}), 401
+        notificacoes = service.get_notificacoes_nao_lidas(usuario_id=usuario['id'])
+        return jsonify({'data': notificacoes, 'total': len(notificacoes)}), 200
+    except Exception as exc:
+        return jsonify({'error': f'Erro ao listar notificações não lidas: {str(exc)}'}), 500
+
 
 @bp.route('/vencimentos', methods=['GET'])
 @token_obrigatorio
@@ -52,3 +64,15 @@ def listar_notificacoes_vencimento():
 @token_obrigatorio
 def listar_notificacoes_vencimento_compat():
     return _responder_listagem_vencimentos()
+
+
+@bp.route('/vencimento/<int:notificacao_id>/marcar-lida/', methods=['POST'])
+@token_obrigatorio
+def marcar_notificacao_vencimento_como_lida(notificacao_id):
+    try:
+        notificacao = service.marcar_lida(notificacao_id)
+        return jsonify({'data': notificacao, 'success': True}), 200
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 404
+    except Exception as exc:
+        return jsonify({'error': f'Erro ao marcar notificação como lida: {str(exc)}'}), 500

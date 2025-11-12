@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Plus,
   Trash2,
@@ -63,8 +64,8 @@ interface Funcionario {
     nome: string;
     departamento_id: number;
     departamento?: {
-        id: number;
-        nome: string;
+      id: number;
+      nome: string;
     }
   };
 }
@@ -92,12 +93,13 @@ interface FuncionarioFormData {
 }
 
 export const FuncionariosPage: React.FC = () => {
+  const location = useLocation();
   const { user } = useAuth();
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const empresaUsuarioId = useMemo(() => user?.empresa_id ?? user?.empresa?.id ?? null, [user]);
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -106,6 +108,12 @@ export const FuncionariosPage: React.FC = () => {
   const itemsPerPage = 10;
 
   const [isModalCadastroOpen, setIsModalCadastroOpen] = useState(false);
+  // Abrir modal de cadastro se navegado via Dashboard
+  useEffect(() => {
+    if (location.state && location.state.openModalOnLoad) {
+      setIsModalCadastroOpen(true);
+    }
+  }, [location.state]);
   const [isModalEdicaoOpen, setIsModalEdicaoOpen] = useState(false);
   const [modalExclusaoOpen, setModalExclusaoOpen] = useState(false);
 
@@ -165,7 +173,7 @@ export const FuncionariosPage: React.FC = () => {
       setError('Falha ao carregar lista de departamentos.');
     }
   }, [isAdmin, empresaUsuarioId]);
-  
+
   const fetchCargos = useCallback(async () => {
     if (!isAdmin) return;
     try {
@@ -190,7 +198,7 @@ export const FuncionariosPage: React.FC = () => {
         per_page: itemsPerPage,
         search: search || undefined,
       });
-      
+
       if (response && response.data && typeof response.total === 'number' && typeof response.per_page === 'number') {
         setFuncionarios(response.data);
         setTotalPages(Math.ceil(response.total / response.per_page) || 1);
@@ -210,10 +218,10 @@ export const FuncionariosPage: React.FC = () => {
   }, [isAdmin, currentPage, searchTerm]);
 
   useEffect(() => {
-    if(isAdmin) {
-        fetchFuncionarios(currentPage, searchTerm);
-        fetchCargos();
-        fetchDepartamentos();
+    if (isAdmin) {
+      fetchFuncionarios(currentPage, searchTerm);
+      fetchCargos();
+      fetchDepartamentos();
     }
   }, [fetchFuncionarios, fetchCargos, fetchDepartamentos, currentPage, searchTerm, isAdmin]);
 
@@ -222,14 +230,14 @@ export const FuncionariosPage: React.FC = () => {
 
   const handleInputChange = (field: keyof FuncionarioFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if(error) setError('');
+    if (error) setError('');
   };
 
   const resetForm = () => {
     setFormData({
-        nome: '', username: '', email: '', cpf: '',
-        senha: '', confirmarSenha: '',
-        eh_gerente: false, cargo_id: ''
+      nome: '', username: '', email: '', cpf: '',
+      senha: '', confirmarSenha: '',
+      eh_gerente: false, cargo_id: ''
     });
     setError('');
   };
@@ -237,7 +245,7 @@ export const FuncionariosPage: React.FC = () => {
   const openModalCadastro = () => { resetForm(); setIsModalCadastroOpen(true); };
   const handleVisualizar = (func: Funcionario) => { setFuncionarioParaVisualizar(func); };
   const handleExcluirClick = (func: Funcionario) => { setFuncionarioParaDeletar(func); setModalExclusaoOpen(true); };
-  
+
   const abrirModalEdicao = (func: Funcionario) => {
     setFuncionarioParaEditar(func);
     setFormData({
@@ -253,7 +261,7 @@ export const FuncionariosPage: React.FC = () => {
     setError('');
     setIsModalEdicaoOpen(true);
   };
-  
+
   const handleCadastroClose = () => { setIsModalCadastroOpen(false); resetForm(); };
   const handleEdicaoClose = () => { setIsModalEdicaoOpen(false); setFuncionarioParaEditar(null); resetForm(); };
 
@@ -267,13 +275,13 @@ export const FuncionariosPage: React.FC = () => {
       return;
     }
     if (formData.cpf && !/^\d{11}$/.test(formData.cpf.replace(/\D/g, ''))) {
-        setError('CPF deve conter 11 dígitos numéricos (se preenchido).');
-        return;
+      setError('CPF deve conter 11 dígitos numéricos (se preenchido).');
+      return;
     }
 
     setLoading(true); setError('');
     try {
-  const dadosParaApi: FuncionarioPayload & { senha: string; ativo: boolean } = {
+      const dadosParaApi: FuncionarioPayload & { senha: string; ativo: boolean } = {
         nome: formData.nome,
         username: formData.username,
         email: formData.email,
@@ -306,13 +314,13 @@ export const FuncionariosPage: React.FC = () => {
       return;
     }
     if (formData.cpf && !/^\d{11}$/.test(formData.cpf.replace(/\D/g, ''))) {
-        setError('CPF deve conter 11 dígitos numéricos (se preenchido).');
-        return;
+      setError('CPF deve conter 11 dígitos numéricos (se preenchido).');
+      return;
     }
-    
+
     setLoading(true); setError('');
     try {
-  const dadosParaApi: FuncionarioPayload = {
+      const dadosParaApi: FuncionarioPayload = {
         nome: formData.nome,
         username: formData.username,
         email: formData.email,
@@ -320,12 +328,12 @@ export const FuncionariosPage: React.FC = () => {
         eh_gerente: formData.eh_gerente,
         cargo_id: parseInt(formData.cargo_id)
       };
-      
+
       // Só envia a senha se o usuário digitou uma nova
       if (formData.senha) {
-          dadosParaApi.senha = formData.senha;
+        dadosParaApi.senha = formData.senha;
       }
-      
+
       await apiService.updateFuncionario(funcionarioParaEditar.id, dadosParaApi);
       handleEdicaoClose();
       fetchFuncionarios(); // Recarrega a página atual
@@ -368,7 +376,7 @@ export const FuncionariosPage: React.FC = () => {
       render: (_, func) => (
         <div className="flex items-center">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0 ${func.eh_gerente ? 'bg-purple-100' : 'bg-blue-50'}`}>
-             <User className={`w-4 h-4 ${func.eh_gerente ? 'text-purple-600' : 'text-blue-600'}`} />
+            <User className={`w-4 h-4 ${func.eh_gerente ? 'text-purple-600' : 'text-blue-600'}`} />
           </div>
           <div>
             <div className="text-sm font-medium text-gray-900">{func.nome}</div>
@@ -381,25 +389,24 @@ export const FuncionariosPage: React.FC = () => {
       key: 'cargo',
       label: 'Cargo / Depto.',
       render: (_, func) => {
-          const cargo = func.cargo || cargoMap.get(func.cargo_id || 0);
-          const deptoId = cargo?.departamento_id;
-          const deptoNome = (deptoId ? departamentoMap.get(deptoId) : null) || func.cargo?.departamento?.nome;
+        const cargo = func.cargo || cargoMap.get(func.cargo_id || 0);
+        const deptoId = cargo?.departamento_id;
+        const deptoNome = (deptoId ? departamentoMap.get(deptoId) : null) || func.cargo?.departamento?.nome;
 
-          return (
-             <div>
-                <div className="text-sm text-gray-900">{cargo?.nome || <span className="italic text-gray-400">Sem Cargo</span>}</div>
-                <div className="text-xs text-gray-500">{deptoNome || <span className="italic text-gray-400">Sem Depto.</span>}</div>
-             </div>
-          )
+        return (
+          <div>
+            <div className="text-sm text-gray-900">{cargo?.nome || <span className="italic text-gray-400">Sem Cargo</span>}</div>
+            <div className="text-xs text-gray-500">{deptoNome || <span className="italic text-gray-400">Sem Depto.</span>}</div>
+          </div>
+        )
       }
     },
     {
       key: 'eh_gerente',
       label: 'Nível',
       render: (eh_gerente) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          eh_gerente ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-        }`}>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${eh_gerente ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+          }`}>
           {eh_gerente ? <Shield className="w-3 h-3 mr-1" /> : <UserCheck className="w-3 h-3 mr-1" />}
           {eh_gerente ? 'Gerente' : 'Funcionário'}
         </span>
@@ -418,7 +425,7 @@ export const FuncionariosPage: React.FC = () => {
     return (
       <PageLayout>
         <PageHeader title="Funcionários" subtitle="Gerenciar equipe e colaboradores" />
-         <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>
+        <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>
       </PageLayout>
     );
   }
@@ -447,11 +454,11 @@ export const FuncionariosPage: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <SearchBar value={searchTerm} onChange={handleSearch} placeholder="Buscar por nome, email ou username..." />
       </div>
-      
+
       {error && !isModalCadastroOpen && !isModalEdicaoOpen && (
-         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4" role="alert">
-           {error}
-         </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4" role="alert">
+          {error}
+        </div>
       )}
 
       <StateHandler
@@ -465,10 +472,10 @@ export const FuncionariosPage: React.FC = () => {
               {searchTerm ? `Nenhum funcionário encontrado para "${searchTerm}"` : "Nenhum funcionário cadastrado."}
             </p>
             {!searchTerm && (
-               <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
-                 + Cadastrar Novo Funcionário
-               </button>
-             )}
+              <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                + Cadastrar Novo Funcionário
+              </button>
+            )}
           </div>
         }
       >
@@ -477,15 +484,15 @@ export const FuncionariosPage: React.FC = () => {
           columns={columns}
           actions={(func) => (
             <div className="flex items-center justify-end space-x-1">
-              <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(func)} title="Visualizar"/>
-              <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => abrirModalEdicao(func)} title="Editar"/>
-              <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleExcluirClick(func)} title="Excluir"/>
+              <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(func)} title="Visualizar" />
+              <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => abrirModalEdicao(func)} title="Editar" />
+              <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleExcluirClick(func)} title="Excluir" />
             </div>
           )}
         />
         {totalPages > 1 && (
           <div className="bg-white px-4 py-3 border-t border-gray-200 rounded-b-lg">
-             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
           </div>
         )}
       </StateHandler>
@@ -503,12 +510,12 @@ export const FuncionariosPage: React.FC = () => {
       >
         <form onSubmit={(e) => { e.preventDefault(); handleSalvar(); }} className="space-y-6">
           {error && (
-             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start space-x-2" role="alert">
-                <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-400" />
-                <span>{error}</span>
-             </div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start space-x-2" role="alert">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-400" />
+              <span>{error}</span>
+            </div>
           )}
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="func-nome-cad" className="flex items-center text-sm font-medium text-gray-700 mb-1"><User className="w-4 h-4 mr-2 text-gray-400" /> Nome Completo *</label>
@@ -538,14 +545,14 @@ export const FuncionariosPage: React.FC = () => {
                 placeholder="000.000.000-00" disabled={loading} maxLength={14}
               />
             </div>
-             <div>
+            <div>
               <label htmlFor="func-senha-cad" className="flex items-center text-sm font-medium text-gray-700 mb-1"><Key className="w-4 h-4 mr-2 text-gray-400" /> Senha *</label>
               <input id="func-senha-cad" type="password" value={formData.senha} onChange={(e) => handleInputChange('senha', e.target.value)}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent text-sm ${error && !formData.senha ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                 placeholder="Mínimo 6 caracteres" disabled={loading}
               />
             </div>
-             <div>
+            <div>
               <label htmlFor="func-confirma-cad" className="flex items-center text-sm font-medium text-gray-700 mb-1"><Lock className="w-4 h-4 mr-2 text-gray-400" /> Confirmar Senha *</label>
               <input id="func-confirma-cad" type="password" value={formData.confirmarSenha} onChange={(e) => handleInputChange('confirmarSenha', e.target.value)}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent text-sm ${error && formData.senha !== formData.confirmarSenha ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
@@ -563,14 +570,14 @@ export const FuncionariosPage: React.FC = () => {
               </select>
             </div>
             <div className="flex items-center pt-7">
-               <input type="checkbox" id="func-gerente-cad" checked={formData.eh_gerente}
-                 onChange={(e) => handleInputChange('eh_gerente', e.target.checked)}
-                 className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                 disabled={loading}
-               />
-               <label htmlFor="func-gerente-cad" className="ml-2 text-sm text-gray-700 flex items-center cursor-pointer">
-                 <Shield className="w-4 h-4 mr-1.5 text-purple-500" /> É Gerente (Permissão de Admin)
-               </label>
+              <input type="checkbox" id="func-gerente-cad" checked={formData.eh_gerente}
+                onChange={(e) => handleInputChange('eh_gerente', e.target.checked)}
+                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                disabled={loading}
+              />
+              <label htmlFor="func-gerente-cad" className="ml-2 text-sm text-gray-700 flex items-center cursor-pointer">
+                <Shield className="w-4 h-4 mr-1.5 text-purple-500" /> É Gerente (Permissão de Admin)
+              </label>
             </div>
           </div>
         </form>
@@ -587,12 +594,12 @@ export const FuncionariosPage: React.FC = () => {
       >
         <form onSubmit={(e) => { e.preventDefault(); handleEditar(); }} className="space-y-6">
           {error && (
-             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start space-x-2" role="alert">
-                <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-400" />
-                <span>{error}</span>
-             </div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start space-x-2" role="alert">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-400" />
+              <span>{error}</span>
+            </div>
           )}
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="func-nome-edit" className="flex items-center text-sm font-medium text-gray-700 mb-1"><User className="w-4 h-4 mr-2 text-gray-400" /> Nome Completo *</label>
@@ -622,14 +629,14 @@ export const FuncionariosPage: React.FC = () => {
                 placeholder="000.000.000-00" disabled={loading} maxLength={14}
               />
             </div>
-             <div>
+            <div>
               <label htmlFor="func-senha-edit" className="flex items-center text-sm font-medium text-gray-700 mb-1"><Key className="w-4 h-4 mr-2 text-gray-400" /> Nova Senha (Opcional)</label>
               <input id="func-senha-edit" type="password" value={formData.senha} onChange={(e) => handleInputChange('senha', e.target.value)}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent text-sm border-gray-300 focus:ring-blue-500`}
                 placeholder="Deixe em branco para não alterar" disabled={loading}
               />
             </div>
-             <div>
+            <div>
               <label htmlFor="func-confirma-edit" className="flex items-center text-sm font-medium text-gray-700 mb-1"><Lock className="w-4 h-4 mr-2 text-gray-400" /> Confirmar Nova Senha</label>
               <input id="func-confirma-edit" type="password" value={formData.confirmarSenha} onChange={(e) => handleInputChange('confirmarSenha', e.target.value)}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent text-sm ${error && formData.senha !== formData.confirmarSenha ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
@@ -647,14 +654,14 @@ export const FuncionariosPage: React.FC = () => {
               </select>
             </div>
             <div className="flex items-center pt-7">
-               <input type="checkbox" id="func-gerente-edit" checked={formData.eh_gerente}
-                 onChange={(e) => handleInputChange('eh_gerente', e.target.checked)}
-                 className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                 disabled={loading}
-               />
-               <label htmlFor="func-gerente-edit" className="ml-2 text-sm text-gray-700 flex items-center cursor-pointer">
-                 <Shield className="w-4 h-4 mr-1.5 text-purple-500" /> É Gerente (Permissão de Admin)
-               </label>
+              <input type="checkbox" id="func-gerente-edit" checked={formData.eh_gerente}
+                onChange={(e) => handleInputChange('eh_gerente', e.target.checked)}
+                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                disabled={loading}
+              />
+              <label htmlFor="func-gerente-edit" className="ml-2 text-sm text-gray-700 flex items-center cursor-pointer">
+                <Shield className="w-4 h-4 mr-1.5 text-purple-500" /> É Gerente (Permissão de Admin)
+              </label>
             </div>
           </div>
         </form>
@@ -670,79 +677,78 @@ export const FuncionariosPage: React.FC = () => {
         size="lg"
       >
         {funcionarioParaVisualizar && (
-           <div className="space-y-6">
-             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-               <div className="flex items-center mb-3">
-                 <User className="w-5 h-5 text-blue-600 mr-2" />
-                 <h3 className="text-lg font-semibold text-gray-800">Informações Pessoais</h3>
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">Nome Completo</label>
-                   <p className="text-gray-900 font-semibold">{funcionarioParaVisualizar.nome}</p>
-                 </div>
-                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">Username</label>
-                   <p className="text-gray-900 font-mono bg-gray-100 px-2 py-0.5 rounded w-fit">@{funcionarioParaVisualizar.username}</p>
-                 </div>
-                 <div>
-                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Mail className="w-3 h-3 mr-1" /> Email</label>
-                   <p className="text-gray-900">{funcionarioParaVisualizar.email}</p>
-                 </div>
-                 <div>
-                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Hash className="w-3 h-3 mr-1" /> CPF</label>
-                   <p className="text-gray-900">{funcionarioParaVisualizar.cpf || <span className="italic text-gray-400">Não informado</span>}</p>
-                 </div>
-               </div>
-             </div>
+          <div className="space-y-6">
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center mb-3">
+                <User className="w-5 h-5 text-blue-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-800">Informações Pessoais</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Nome Completo</label>
+                  <p className="text-gray-900 font-semibold">{funcionarioParaVisualizar.nome}</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Username</label>
+                  <p className="text-gray-900 font-mono bg-gray-100 px-2 py-0.5 rounded w-fit">@{funcionarioParaVisualizar.username}</p>
+                </div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Mail className="w-3 h-3 mr-1" /> Email</label>
+                  <p className="text-gray-900">{funcionarioParaVisualizar.email}</p>
+                </div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Hash className="w-3 h-3 mr-1" /> CPF</label>
+                  <p className="text-gray-900">{funcionarioParaVisualizar.cpf || <span className="italic text-gray-400">Não informado</span>}</p>
+                </div>
+              </div>
+            </div>
 
-             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-               <div className="flex items-center mb-3">
-                 <Briefcase className="w-5 h-5 text-purple-600 mr-2" />
-                 <h3 className="text-lg font-semibold text-gray-800">Informações Profissionais</h3>
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">Nível de Acesso</label>
-                   <span
-                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                       funcionarioParaVisualizar.eh_gerente
-                         ? 'bg-purple-100 text-purple-800 border-purple-200'
-                         : 'bg-gray-100 text-gray-800 border-gray-200'
-                     }`}
-                   >
-                     {funcionarioParaVisualizar.eh_gerente ? (
-                       <>
-                         <Shield className="w-3 h-3 mr-1" /> Gerente
-                       </>
-                     ) : (
-                       <>
-                         <UserCheck className="w-3 h-3 mr-1" /> Funcionário
-                       </>
-                     )}
-                   </span>
-                 </div>
-                  <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">Status da Conta</label>
-                   <StatusBadge status={funcionarioParaVisualizar.ativo ? 'ativo' : 'inativo'} />
-                 </div>
-                 <div>
-                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Briefcase className="w-3 h-3 mr-1" /> Cargo</label>
-                   <p className="text-gray-900">{cargoMap.get(funcionarioParaVisualizar.cargo_id || 0)?.nome || <span className="italic text-gray-400">Não definido</span>}</p>
-                 </div>
-                 <div>
-                    <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Building className="w-3 h-3 mr-1" /> Departamento</label>
-                    <p className="text-gray-900">
-                        {departamentoMap.get(cargoMap.get(funcionarioParaVisualizar.cargo_id || 0)?.departamento_id || 0) || <span className="italic text-gray-400">Não definido</span>}
-                    </p>
-                 </div>
-                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">Membro Desde</label>
-                   <p className="text-gray-900">{funcionarioParaVisualizar.created_at ? format(new Date(funcionarioParaVisualizar.created_at), 'dd/MM/yyyy') : '-'}</p>
-                 </div>
-               </div>
-             </div>
-           </div>
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center mb-3">
+                <Briefcase className="w-5 h-5 text-purple-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-800">Informações Profissionais</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Nível de Acesso</label>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${funcionarioParaVisualizar.eh_gerente
+                        ? 'bg-purple-100 text-purple-800 border-purple-200'
+                        : 'bg-gray-100 text-gray-800 border-gray-200'
+                      }`}
+                  >
+                    {funcionarioParaVisualizar.eh_gerente ? (
+                      <>
+                        <Shield className="w-3 h-3 mr-1" /> Gerente
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="w-3 h-3 mr-1" /> Funcionário
+                      </>
+                    )}
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Status da Conta</label>
+                  <StatusBadge status={funcionarioParaVisualizar.ativo ? 'ativo' : 'inativo'} />
+                </div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Briefcase className="w-3 h-3 mr-1" /> Cargo</label>
+                  <p className="text-gray-900">{cargoMap.get(funcionarioParaVisualizar.cargo_id || 0)?.nome || <span className="italic text-gray-400">Não definido</span>}</p>
+                </div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Building className="w-3 h-3 mr-1" /> Departamento</label>
+                  <p className="text-gray-900">
+                    {departamentoMap.get(cargoMap.get(funcionarioParaVisualizar.cargo_id || 0)?.departamento_id || 0) || <span className="italic text-gray-400">Não definido</span>}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Membro Desde</label>
+                  <p className="text-gray-900">{funcionarioParaVisualizar.created_at ? format(new Date(funcionarioParaVisualizar.created_at), 'dd/MM/yyyy') : '-'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </ModalPadrao>
 
@@ -752,7 +758,7 @@ export const FuncionariosPage: React.FC = () => {
         title="Confirmar Exclusão"
         message={`Tem certeza que deseja desativar o funcionário "${funcionarioParaDeletar?.nome}"? Esta ação marcará o usuário como inativo.`}
         onConfirm={confirmarDeletar}
-  onCancel={() => setModalExclusaoOpen(false)}
+        onCancel={() => setModalExclusaoOpen(false)}
         confirmLabel="Sim, Desativar"
         cancelLabel="Cancelar"
         variant="danger"

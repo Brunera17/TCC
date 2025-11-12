@@ -231,28 +231,28 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
           },
           endereco: enderecoPrincipal
             ? {
-                id: enderecoPrincipal.id,
-                logradouro: logradouroNormalizado,
-                numero: enderecoPrincipal.numero || '',
-                bairro: enderecoPrincipal.bairro || '',
-                cidade: enderecoPrincipal.cidade || '',
-                estado: enderecoPrincipal.estado || '',
-                cep: aplicarMascaraCEP(enderecoPrincipal.cep || ''),
-                complemento: enderecoPrincipal.complemento || '',
-                rua: logradouroNormalizado
-              }
+              id: enderecoPrincipal.id,
+              logradouro: logradouroNormalizado,
+              numero: enderecoPrincipal.numero || '',
+              bairro: enderecoPrincipal.bairro || '',
+              cidade: enderecoPrincipal.cidade || '',
+              estado: enderecoPrincipal.estado || '',
+              cep: aplicarMascaraCEP(enderecoPrincipal.cep || ''),
+              complemento: enderecoPrincipal.complemento || '',
+              rua: logradouroNormalizado
+            }
             : null,
           empresa: empresaPrincipal
             ? {
-                nome: empresaPrincipal.nome_fantasia || empresaPrincipal.nome, // Prioriza nome_fantasia
-                cnpj: aplicarMascaraCNPJ(empresaPrincipal.cnpj),
-                tipo_id: (empresaPrincipal as any).tipo_id || empresaPrincipal.tipo, // Campo 'tipo' ou 'tipo_id'
-                razao_social: (empresaPrincipal as any).razao_social || empresaPrincipal.nome,
-                nome_fantasia: (empresaPrincipal as any).nome_fantasia || empresaPrincipal.nome,
-                contato: (empresaPrincipal as any).contato || '',
-                status: (empresaPrincipal as any).status || 'ativa',
-                inscricao_estadual: (empresaPrincipal as any).inscricao_estadual || '',
-              }
+              nome: empresaPrincipal.nome_fantasia || empresaPrincipal.nome, // Prioriza nome_fantasia
+              cnpj: aplicarMascaraCNPJ(empresaPrincipal.cnpj),
+              tipo_id: (empresaPrincipal as any).tipo_id || empresaPrincipal.tipo, // Campo 'tipo' ou 'tipo_id'
+              razao_social: (empresaPrincipal as any).razao_social || empresaPrincipal.nome,
+              nome_fantasia: (empresaPrincipal as any).nome_fantasia || empresaPrincipal.nome,
+              contato: (empresaPrincipal as any).contato || '',
+              status: (empresaPrincipal as any).status || 'ativa',
+              inscricao_estadual: (empresaPrincipal as any).inscricao_estadual || '',
+            }
             : null
         });
       } catch (erroDesconhecido) {
@@ -349,15 +349,15 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
       const updatedEmpresa = { ...empresaAtual, [campo]: valor };
       // Sincronizar 'nome' (Nome Fantasia no form) e 'nome_fantasia'
       if (campo === 'nome_fantasia') {
-          updatedEmpresa.nome = valor as string;
+        updatedEmpresa.nome = valor as string;
       } else if (campo === 'nome') {
-          updatedEmpresa.nome_fantasia = valor as string;
+        updatedEmpresa.nome_fantasia = valor as string;
       }
       return { ...prev, empresa: updatedEmpresa };
     });
 
     clearFieldError(secao, campo);
-    
+
     if (secao === 'cliente' && campo === 'email') {
       setExistingClient(null);
       if (emailDebounceRef.current) {
@@ -369,14 +369,14 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
           setEmailChecking(true);
           try {
             // Não bloquear edição se o email for o do próprio cliente
-            if(clienteParaEditar && clienteParaEditar.email === emailValor) {
+            if (clienteParaEditar && clienteParaEditar.email === emailValor) {
               return;
             }
             // API atualmente retorna clientes ativos; verificar duplicatas ativas
             const response = await apiService.getClientes({ email: emailValor, per_page: 1 });
             const clientes = response.data || response;
             const encontrado = Array.isArray(clientes) ? clientes.find((c: any) => (c.email || '').toLowerCase() === emailValor.toLowerCase()) : null;
-            
+
             if (encontrado) {
               setExistingClient(encontrado);
               setErrors(prev => ({
@@ -414,7 +414,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
     }
     // Adicionar erro de email existente se houver
     if (errors.cliente?.email) {
-       novosErros.cliente = { ...novosErros.cliente, email: errors.cliente.email };
+      novosErros.cliente = { ...novosErros.cliente, email: errors.cliente.email };
     }
 
     // Endereço (só valida se algum campo foi preenchido)
@@ -435,22 +435,22 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
 
     // Empresa (só valida se algum campo foi preenchido)
     if (formData.empresa) {
-        const empresa = formData.empresa;
-        const camposEmpresa = [empresa.razao_social, empresa.nome_fantasia, empresa.cnpj, empresa.tipo_id];
-        const algumCampoPreenchido = camposEmpresa.some(valor => (valor ?? '').toString().trim().length > 0);
+      const empresa = formData.empresa;
+      const camposEmpresa = [empresa.razao_social, empresa.nome_fantasia, empresa.cnpj, empresa.tipo_id];
+      const algumCampoPreenchido = camposEmpresa.some(valor => (valor ?? '').toString().trim().length > 0);
 
-        if (algumCampoPreenchido) {
-            // Se algum campo da empresa for preenchido, os principais são obrigatórios
-            if (!validacoes.empresa.razao_social(empresa.razao_social)) novosErros.empresa = { ...novosErros.empresa, razao_social: 'Razão Social inválida.' };
-            if (!validacoes.empresa.nome_fantasia(empresa.nome_fantasia)) novosErros.empresa = { ...novosErros.empresa, nome_fantasia: 'Nome Fantasia inválido.' };
-            if (!validacoes.empresa.cnpj(empresa.cnpj)) novosErros.empresa = { ...novosErros.empresa, cnpj: 'CNPJ inválido.' };
-            if (!validacoes.empresa.tipo_id(empresa.tipo_id)) novosErros.empresa = { ...novosErros.empresa, tipo_id: 'Tipo de empresa inválido.' };
-            
-            // Sincronizar nome e nome_fantasia (nome é usado internamente para nome_fantasia)
-            if (!novosErros.empresa?.nome_fantasia) {
-                formData.empresa.nome = empresa.nome_fantasia;
-            }
+      if (algumCampoPreenchido) {
+        // Se algum campo da empresa for preenchido, os principais são obrigatórios
+        if (!validacoes.empresa.razao_social(empresa.razao_social)) novosErros.empresa = { ...novosErros.empresa, razao_social: 'Razão Social inválida.' };
+        if (!validacoes.empresa.nome_fantasia(empresa.nome_fantasia)) novosErros.empresa = { ...novosErros.empresa, nome_fantasia: 'Nome Fantasia inválido.' };
+        if (!validacoes.empresa.cnpj(empresa.cnpj)) novosErros.empresa = { ...novosErros.empresa, cnpj: 'CNPJ inválido.' };
+        if (!validacoes.empresa.tipo_id(empresa.tipo_id)) novosErros.empresa = { ...novosErros.empresa, tipo_id: 'Tipo de empresa inválido.' };
+
+        // Sincronizar nome e nome_fantasia (nome é usado internamente para nome_fantasia)
+        if (!novosErros.empresa?.nome_fantasia) {
+          formData.empresa.nome = empresa.nome_fantasia;
         }
+      }
     }
 
     setErrors(novosErros);
@@ -476,34 +476,33 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
         endereco:
           formData.endereco && formData.endereco.logradouro.trim()
             ? {
-                ...(formData.endereco.id ? { id: formData.endereco.id } : {}),
-                logradouro: formData.endereco.logradouro.trim(),
-                numero: formData.endereco.numero.trim(),
-                bairro: formData.endereco.bairro.trim(),
-                cidade: formData.endereco.cidade.trim(),
-                estado: formData.endereco.estado.trim().toUpperCase(),
-                cep: formData.endereco.cep.replace(/\D/g, ''),
-                complemento: formData.endereco.complemento?.trim() || undefined
-              }
+              ...(formData.endereco.id ? { id: formData.endereco.id } : {}),
+              logradouro: formData.endereco.logradouro.trim(),
+              numero: formData.endereco.numero.trim(),
+              bairro: formData.endereco.bairro.trim(),
+              cidade: formData.endereco.cidade.trim(),
+              estado: formData.endereco.estado.trim().toUpperCase(),
+              cep: formData.endereco.cep.replace(/\D/g, ''),
+              complemento: formData.endereco.complemento?.trim() || undefined
+            }
             : undefined,
         entidade_juridica:
           formData.empresa && formData.empresa.razao_social && formData.empresa.cnpj
             ? {
-                nome: formData.empresa.nome_fantasia, // 'nome' no backend é 'nome_fantasia'
-                cnpj: formData.empresa.cnpj.replace(/\D/g, ''),
-                tipo: formData.empresa.tipo_id, // 'tipo' no backend é o ID
-                razao_social: formData.empresa.razao_social,
-                nome_fantasia: formData.empresa.nome_fantasia,
-                contato: formData.empresa.contato || undefined,
-                status: formData.empresa.status || 'ativa',
-                inscricao_estadual: formData.empresa.inscricao_estadual || undefined,
-              }
+              cnpj: formData.empresa.cnpj.replace(/\D/g, ''),
+              tipo: formData.empresa.tipo_id ? parseInt(formData.empresa.tipo_id, 10) : undefined, // 'tipo' no backend é o ID inteiro
+              razao_social: formData.empresa.razao_social,
+              nome_fantasia: formData.empresa.nome_fantasia,
+              contato: formData.empresa.contato || undefined,
+              status: formData.empresa.status || 'ativa',
+              inscricao_estadual: formData.empresa.inscricao_estadual || undefined,
+            }
             : undefined
       };
 
       const isAberturaEmpresa = formData.cliente.abertura_empresa;
       debugApiCall(clienteParaEditar ? `/clientes/${clienteParaEditar.id}` : '/clientes/', dadosParaEnviar, clienteParaEditar ? 'PUT' : 'POST');
-      
+
       const validation = validateClienteData(dadosParaEnviar);
       if (!validation.isValid) {
         const errorMessages = validation.errors.map(erro => `${erro.field}: ${erro.message}`).join('\n');
@@ -519,7 +518,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
 
       const sucessoTitulo = clienteParaEditar ? 'Cliente atualizado!' : 'Cliente cadastrado!';
       const sucessoMensagem = clienteParaEditar ? 'Os dados foram atualizados.' : 'O cliente foi salvo.';
-      
+
       if (isAberturaEmpresa && !clienteParaEditar) {
         showSuccess(sucessoTitulo, 'Serviço de abertura de empresa será adicionado automaticamente.');
       } else {
@@ -577,9 +576,9 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
       }
     }
     if (formData.empresa) {
-        const empresa = formData.empresa;
-        const camposEmpresa = [empresa.razao_social, empresa.nome_fantasia, empresa.cnpj, empresa.tipo_id];
-        const algumCampoPreenchido = camposEmpresa.some(valor => (valor ?? '').toString().trim().length > 0);
+      const empresa = formData.empresa;
+      const camposEmpresa = [empresa.razao_social, empresa.nome_fantasia, empresa.cnpj, empresa.tipo_id];
+      const algumCampoPreenchido = camposEmpresa.some(valor => (valor ?? '').toString().trim().length > 0);
       if (algumCampoPreenchido) {
         const { razao_social, nome_fantasia, cnpj, tipo_id } = validacoes.empresa;
         if (
@@ -620,8 +619,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
               type="button"
               onClick={() => setAbaAtiva('cliente')}
               className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${abaAtiva === 'cliente'
-                  ? 'border-b-2 border-blue-500 text-blue-600 bg-white'
-                  : 'text-gray-500 hover:text-gray-700'
+                ? 'border-b-2 border-blue-500 text-blue-600 bg-white'
+                : 'text-gray-500 hover:text-gray-700'
                 }`}
             >
               <User className="h-4 w-4" />
@@ -631,8 +630,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
               type="button"
               onClick={() => setAbaAtiva('endereco')}
               className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${abaAtiva === 'endereco'
-                  ? 'border-b-2 border-blue-500 text-blue-600 bg-white'
-                  : 'text-gray-500 hover:text-gray-700'
+                ? 'border-b-2 border-blue-500 text-blue-600 bg-white'
+                : 'text-gray-500 hover:text-gray-700'
                 }`}
             >
               <MapPin className="h-4 w-4" />
@@ -643,10 +642,10 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
               onClick={() => setAbaAtiva('empresa')}
               disabled={!podeIrParaEmpresa}
               className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${!podeIrParaEmpresa
-                  ? 'cursor-not-allowed text-gray-400'
-                  : abaAtiva === 'empresa'
-                    ? 'border-b-2 border-blue-500 text-blue-600 bg-white'
-                    : 'text-gray-500 hover:text-gray-700'
+                ? 'cursor-not-allowed text-gray-400'
+                : abaAtiva === 'empresa'
+                  ? 'border-b-2 border-blue-500 text-blue-600 bg-white'
+                  : 'text-gray-500 hover:text-gray-700'
                 }`}
             >
               <Building className="h-4 w-4" />
@@ -794,7 +793,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                 </FormField>
               </div>
             )}
-            
+
             {/* ABA EMPRESA - LAYOUT GRID */}
             {abaAtiva === 'empresa' && (
               <div className="space-y-4">
@@ -825,7 +824,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                         placeholder="Nome Fantasia"
                       />
                     </FormField>
-                    
+
                     <FormField label="CNPJ" required={!!formData.empresa} error={errors.empresa?.cnpj}>
                       <Input
                         type="text"
@@ -840,7 +839,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                         maxLength={18}
                       />
                     </FormField>
-                    
+
                     <FormField label="Tipo de Empresa" required={!!formData.empresa} error={errors.empresa?.tipo_id}>
                       <Select
                         value={formData.empresa?.tipo_id || ''}
@@ -849,7 +848,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                         placeholder="Selecione o tipo"
                       />
                     </FormField>
-                    
+
                     <FormField label="Inscrição Estadual">
                       <Input
                         type="text"
@@ -872,7 +871,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
                       <Select
                         value={formData.empresa?.status || 'ativa'}
                         onChange={e => handleInputChange('empresa', 'status', e)}
-                        options={[{value: 'ativa', label: 'Ativa'}, {value: 'inativa', label: 'Inativa'}]}
+                        options={[{ value: 'ativa', label: 'Ativa' }, { value: 'inativa', label: 'Inativa' }]}
                       />
                     </FormField>
                   </div>

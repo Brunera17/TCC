@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -108,6 +109,7 @@ interface ClientesPageProps {
 }
 
 export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = false }) => {
+  const location = useLocation();
   // Filtro de tipo de cliente
   const [tipoClienteFiltro, setTipoClienteFiltro] = useState<'todos' | 'pf' | 'pj'>('todos');
   const { user } = useAuth(); // Obter usuário para permissões
@@ -222,12 +224,13 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ openModalOnLoad = fa
     fetchClientes(currentPage, searchTerm);
   }, [currentPage, searchTerm, tipoClienteFiltro, fetchClientes]);
 
+  // Abrir modal de cadastro se navegado via Dashboard
   useEffect(() => {
-    if (openModalOnLoad && isAdmin) { // Só abre se for admin
+    if (((location.state && location.state.openModalOnLoad) || openModalOnLoad) && isAdmin) {
       setClienteParaEditar(null);
       setIsModalCadastroOpen(true);
     }
-  }, [openModalOnLoad, isAdmin]);
+  }, [location.state, openModalOnLoad, isAdmin]);
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);

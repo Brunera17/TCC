@@ -75,8 +75,8 @@ export const NotificacoesDropdown: React.FC<NotificacoesDropdownProps> = ({
 
   const handleClickNotificacao = async (notificacao: Notificacao) => {
     try {
-      // Marcar como lida
-      await apiService.marcarNotificacaoComoLida(notificacao.id);
+      // Marcar como lida (vencimento)
+      await apiService.marcarNotificacaoVencimentoComoLida(notificacao.id);
 
       // Navegar para edição da proposta
       if (notificacao.proposta_id && onNavigateToProposta) {

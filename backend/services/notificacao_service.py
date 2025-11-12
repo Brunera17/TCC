@@ -7,12 +7,21 @@ from typing import Iterable, List, Optional
 from sqlalchemy.orm import joinedload
 from config import db
 from models.ordemServico import OrdemServico
+from repositories.notificacao_repository import NotificacaoRepository
 
 
 class NotificacaoService:
+
+    def get_notificacoes_nao_lidas(self, usuario_id: int) -> list:
+        from models.notificacao import Notificacao
+        notificacoes = Notificacao.query.filter_by(usuario_id=usuario_id, lida=False, ativo=True).order_by(Notificacao.created_at.desc()).all()
+        return [n.to_json() for n in notificacoes]
     """Service responsável por montar notificações calculadas em tempo real."""
 
     STATUS_PADRAO_ABERTAS = {'aberta', 'em_andamento', 'pausada'}
+
+    def __init__(self):
+        self.repo = NotificacaoRepository()
 
     def get_notificacoes_vencimento(
         self,
@@ -53,6 +62,12 @@ class NotificacaoService:
             notificacoes.append(self._montar_notificacao_vencimento(ordem, agora))
 
         return notificacoes
+
+    def marcar_lida(self, notificacao_id: int):
+        notificacao = self.repo.marcar_lida(notificacao_id)
+        if not notificacao:
+            raise ValueError('Notificação não encontrada')
+        return notificacao.to_json()
 
     @staticmethod
     def _normalizar_status(status: Optional[Iterable[str]]) -> List[str]:

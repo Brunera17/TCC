@@ -19,6 +19,7 @@ import { ModalPadrao, IconButton } from '../ui';
 import { apiService, ApiError } from '../../lib/api';
 import { formatarMoeda } from '../../utils/formatters';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import type {
   Cliente,
   Departamento,
@@ -31,7 +32,7 @@ import type {
 
 interface ItemOrdemServicoFormData {
   // Usamos um ID temporário no frontend para o React 'key'
-  tempId: string; 
+  tempId: string;
   servico_id: number | '';
   quantidade: number;
   valor_unitario: number;
@@ -71,7 +72,9 @@ const gerarProtocolo = () => {
   const DD = String(now.getDate()).padStart(2, '0');
   const HH = String(now.getHours()).padStart(2, '0');
   const MIN = String(now.getMinutes()).padStart(2, '0');
-  return `OS-${YYYY}${MM}${DD}${HH}${MIN}`;
+  const SS = String(now.getSeconds()).padStart(2, '0');
+  const MS = String(now.getMilliseconds()).padStart(3, '0');
+  return `OS-${YYYY}${MM}${DD}${HH}${MIN}${SS}${MS}`;
 };
 
 // Cria um item de formulário vazio
@@ -103,6 +106,7 @@ export const ModalCadastroOrdemServico: React.FC<ModalCadastroOrdemServicoProps>
   usuarioId
 }) => {
   const { showSuccess } = useToast();
+  const { user } = useAuth();
   const [formData, setFormData] = useState<OrdemServicoFormData>(createInitialFormData());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -217,6 +221,16 @@ export const ModalCadastroOrdemServico: React.FC<ModalCadastroOrdemServicoProps>
       setError('Erro de autenticação: ID do usuário não encontrado. Faça login novamente.'); return;
     }
 
+
+    // --- Validação de desconto para usuário padrão ---
+    const descontoAlto = formData.itens.some(item => item.desconto > 20);
+    let statusOS: 'aberta' | 'pausada' = 'aberta';
+    if (!user?.gerente && descontoAlto) {
+      statusOS = 'pausada';
+      setError('Usuário padrão não pode gerar OS com desconto maior que 20%. A OS foi encaminhada para avaliação de um gerente.');
+      // Aqui segue para avaliação com status "pausada"
+    }
+
     setLoading(true);
 
     // --- Preparação do Payload ---
@@ -235,7 +249,7 @@ export const ModalCadastroOrdemServico: React.FC<ModalCadastroOrdemServicoProps>
       vencimento: formData.vencimento,
       observacao: formData.observacao,
       usuario_id: usuarioId,
-      status: 'aberta', // Status inicial padrão
+      status: statusOS, // Status pode ser 'aberta' ou 'pendente'
       valor_total_os: formData.valor_total_os,
       itens: payloadItens,
     };
@@ -430,6 +444,13 @@ export const ModalCadastroOrdemServico: React.FC<ModalCadastroOrdemServicoProps>
                       max="100"
                       placeholder="Desconto"
                     />
+                    {/* Mensagem de alerta para usuário padrão */}
+                    {!user?.gerente && item.desconto > 20 && (
+                      <div className="text-xs text-red-600 mt-1 flex items-center">
+                        <AlertTriangle className="w-4 h-4 mr-1" />
+                        Usuário padrão não pode gerar OS com desconto maior que 20%. Será encaminhada para avaliação de um gerente.
+                      </div>
+                    )}
                   </div>
 
                   {/* Total Item */}
@@ -458,7 +479,7 @@ export const ModalCadastroOrdemServico: React.FC<ModalCadastroOrdemServicoProps>
             })}
           </div>
         </div>
-        
+
         {/* --- Seção 3: Total --- */}
         <div className="flex justify-end items-center p-4 bg-gray-100 rounded-lg">
           <span className="text-lg font-semibold text-gray-700 mr-2">Valor Total da OS:</span>

@@ -99,6 +99,25 @@ const Sidebar: React.FC = () => {
     const roleLabel = formatRole(sidebarUser);
     const initials = avatarUrl ? '' : getInitials(sidebarUser?.nome ?? null, sidebarUser?.username ?? null);
 
+    // Estado para notificações não lidas
+    const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState<number>(0);
+
+    // Buscar notificações não lidas ao montar
+    React.useEffect(() => {
+        const fetchNotificacoes = async () => {
+            try {
+                const response = await fetch(`${API_URL}/api/notificacoes/nao-lidas`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setNotificacoesNaoLidas(data?.quantidade ?? 0);
+                }
+            } catch (error) {
+                // Silenciar erro
+            }
+        };
+        fetchNotificacoes();
+    }, []);
+
     const getSectionTitle = (section: string) => {
         switch (section) {
             case 'main': return 'Principal';
@@ -213,9 +232,11 @@ const Sidebar: React.FC = () => {
                         </div>
                         <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100">
                             <Bell className="w-5 h-5" />
-                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                                1
-                            </span>
+                            {notificacoesNaoLidas > 0 && (
+                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                                    {notificacoesNaoLidas}
+                                </span>
+                            )}
                         </button>
                     </div>
                 </div>

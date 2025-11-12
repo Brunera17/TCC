@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Search,
   Plus,
@@ -213,6 +214,7 @@ const formatarMoeda = (valor: number | null | undefined): string => {
 };
 
 export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = false, propostaId }) => {
+  const location = useLocation();
   // ... (Hooks existentes - usePropostaDataReset, useAuth, useToast) ...
   const { limparTodosDadosProposta, verificarDadosExistentes } = usePropostaDataReset();
   const { user } = useAuth();
@@ -371,11 +373,12 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
     setCurrentPage(1);
   }, [searchTerm, propostas]);
 
+  // Abrir modal de cadastro se navegado via Dashboard
   useEffect(() => {
-    if (openModalOnLoad) {
+    if ((location.state && location.state.openModalOnLoad) || openModalOnLoad) {
       handleNovaPropostaClick();
     }
-  }, [openModalOnLoad]);
+  }, [location.state, openModalOnLoad]);
 
   const handleNovaPropostaClick = () => {
     limparTodosDadosProposta();

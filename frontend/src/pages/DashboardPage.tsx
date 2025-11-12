@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp,
   Users,
@@ -52,11 +53,12 @@ interface DashboardPageProps {
   onNavigate?: (page: string, options?: { openModal?: boolean }) => void;
 }
 
-export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
+export const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isGerente, setIsGerente] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -96,7 +98,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
       } catch (err: unknown) {
         console.error('Dashboard error:', err);
-        
+
         // Tratamento mais específico de erros
         if (err instanceof TypeError && err.message === 'Failed to fetch') {
           setError('Erro de conexão: Verifique se o backend está rodando na porta 5000');
@@ -160,33 +162,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
   // Funções de navegação para os botões de ação rápida
   const handleNovaPropostaClick = () => {
-    if (onNavigate) {
-      onNavigate('propostas', { openModal: true });
-    }
+    navigate('/propostas', { state: { openModalOnLoad: true } });
   };
 
   const handleNovoClienteClick = () => {
-    if (onNavigate) {
-      onNavigate('clientes', { openModal: true });
-    }
+    navigate('/clientes', { state: { openModalOnLoad: true } });
+  };
+
+  const handleNovaOrdemServicoClick = () => {
+    navigate('/ordem-servicos', { state: { openModalOnLoad: true } });
   };
 
   const handleRelatoriosClick = () => {
-    if (onNavigate) {
-      onNavigate('relatorios');
-    }
+    navigate('/relatorios');
   };
 
   const handleAgendaClick = () => {
-    if (onNavigate) {
-      onNavigate('agenda');
-    }
+    navigate('/agenda');
   };
 
   const handleFuncionariosClick = () => {
-    if (onNavigate) {
-      onNavigate('funcionarios', { openModal: true });
-    }
+    navigate('/funcionarios', { state: { openModalOnLoad: true } });
   };
 
   return (
@@ -204,14 +200,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           value={stats?.totalClientes || 0}
           icon={Users}
           color="bg-blue-500"
-          trend={{ value: 12, label: 'este mês' }}
         />
         <StatCard
           title="Total de Propostas"
           value={stats?.totalPropostas || 0}
           icon={FileText}
           color="bg-green-500"
-          trend={{ value: 8, label: 'este mês' }}
         />
         <StatCard
           title="Propostas Abertas"
@@ -224,7 +218,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           value={formatCurrency(stats?.valorTotalPropostas || 0)}
           icon={DollarSign}
           color="bg-purple-500"
-          trend={{ value: 15, label: 'este mês' }}
         />
       </div>
 
@@ -301,6 +294,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                 <Users className="w-8 h-8 text-gray-400 group-hover:text-green-500 mx-auto mb-2" />
                 <p className="text-sm font-medium text-gray-600 group-hover:text-green-600">
                   Novo Cliente
+                </p>
+              </button>
+              <button
+                onClick={handleNovaOrdemServicoClick}
+                className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-cyan-500 hover:bg-cyan-50 transition-colors group cursor-pointer"
+              >
+                <CheckCircle className="w-8 h-8 text-gray-400 group-hover:text-cyan-500 mx-auto mb-2" />
+                <p className="text-sm font-medium text-gray-600 group-hover:text-cyan-600">
+                  Nova Ordem de Serviço
                 </p>
               </button>
               {isGerente && (

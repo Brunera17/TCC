@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Plus,
   Trash2,
@@ -43,7 +44,7 @@ import type {
   Cliente,
   Departamento,
   Servico,
-  OrdemServico 
+  OrdemServico
 } from '../types';
 
 // --- Interfaces Baseadas no Backend Model ---
@@ -97,11 +98,15 @@ const extractData = <T,>(response: unknown): T[] => {
 
 export const OrdemServicosPage: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  // Para react-router-dom v6, use useLocation
+  // import { useLocation } from 'react-router-dom';
+  // const location = useLocation();
   const { showWarning, showError, showSuccess } = useToast();
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
-  const [todosServicos, setTodosServicos] = useState<Servico[]>([]); 
+  const [todosServicos, setTodosServicos] = useState<Servico[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -113,6 +118,12 @@ export const OrdemServicosPage: React.FC = () => {
 
   // Estados de modal
   const [isModalCadastroOpen, setIsModalCadastroOpen] = useState(false);
+  // Abrir modal de cadastro se navegado via Dashboard
+  useEffect(() => {
+    if (location.state && location.state.openModalOnLoad) {
+      setIsModalCadastroOpen(true);
+    }
+  }, [location.state]);
   const [isModalVisualizacaoOpen, setIsModalVisualizacaoOpen] = useState(false);
   const [isModalEdicaoOpen, setIsModalEdicaoOpen] = useState(false);
   const [modalExclusaoOpen, setModalExclusaoOpen] = useState(false);
@@ -178,9 +189,9 @@ export const OrdemServicosPage: React.FC = () => {
       const [clientesRes, deptosRes, servicosRes] = await Promise.all([
         apiService.getClientes({ per_page: 1000, ativo: true }),
         apiService.getDepartamentos({ per_page: 1000, ativo: true }),
-        apiService.getServicos({ per_page: 1000, ativo: true }) 
+        apiService.getServicos({ per_page: 1000, ativo: true })
       ]);
-      
+
       setClientes(extractData<Cliente>(clientesRes));
       setDepartamentos(extractData<Departamento>(deptosRes));
 
@@ -300,7 +311,7 @@ export const OrdemServicosPage: React.FC = () => {
   const openModalCadastro = () => {
     setIsModalCadastroOpen(true);
   };
-  
+
   const handleVisualizar = (os: OrdemServico) => {
     setOrdemParaVisualizar(os);
     setIsModalVisualizacaoOpen(true);
@@ -346,19 +357,19 @@ export const OrdemServicosPage: React.FC = () => {
         return;
       }
 
-  const blob = await response.blob();
-  const downloadUrl = URL.createObjectURL(blob);
+      const blob = await response.blob();
+      const downloadUrl = URL.createObjectURL(blob);
 
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = `ordem-servico-${ordemId}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `ordem-servico-${ordemId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
 
-  window.open(downloadUrl, '_blank', 'noopener');
+      window.open(downloadUrl, '_blank', 'noopener');
 
-  setTimeout(() => URL.revokeObjectURL(downloadUrl), 3000);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 3000);
       showSuccess('Download iniciado', 'O PDF da ordem de serviço está sendo baixado.');
     } catch (err) {
       console.warn('Download de OS indisponível', err);
@@ -379,10 +390,10 @@ export const OrdemServicosPage: React.FC = () => {
       await apiService.deleteOrdemServico(ordemParaDeletar.id);
       setModalExclusaoOpen(false);
       setOrdemParaDeletar(null);
-      fetchOrdens(1); 
+      fetchOrdens(1);
     } catch (err: unknown) {
       const errorMsg = err instanceof ApiError ? `Erro ${err.status}: ${JSON.stringify(err.details)}` : (err instanceof Error ? err.message : 'Erro desconhecido');
-      setError(errorMsg); 
+      setError(errorMsg);
       setModalExclusaoOpen(false);
     } finally {
       setLoading(false);
@@ -398,9 +409,9 @@ export const OrdemServicosPage: React.FC = () => {
       >
         <div className="flex items-center space-x-2">
           <NotificacoesVencimento onNotificacaoClick={handleVisualizar} />
-          {isAdmin && (
-            <IconButton icon={Plus} onClick={openModalCadastro} label="Nova OS" />
-          )}
+
+          <IconButton icon={Plus} onClick={openModalCadastro} label="Nova OS" />
+
         </div>
       </PageHeader>
 
@@ -439,10 +450,10 @@ export const OrdemServicosPage: React.FC = () => {
               {searchTerm || filtroStatus ? `Nenhuma OS encontrada para os filtros aplicados` : "Nenhuma Ordem de Serviço cadastrada."}
             </p>
             {!searchTerm && !filtroStatus && (
-               <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
-                 + Cadastrar Nova OS
-               </button>
-             )}
+              <button onClick={openModalCadastro} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                + Cadastrar Nova OS
+              </button>
+            )}
           </div>
         }
       >
@@ -451,16 +462,16 @@ export const OrdemServicosPage: React.FC = () => {
           columns={columns}
           actions={(os) => (
             <div className="flex items-center justify-end space-x-1">
-              <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(os)} title="Visualizar"/>
-              <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => handleEditar(os)} title="Editar"/>
-              <IconButton icon={History} size="sm" variant="outline" onClick={() => handleHistorico(os)} title="Histórico"/>
-              <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleExcluirClick(os)} title="Excluir"/>
+              <IconButton icon={Eye} size="sm" variant="outline" onClick={() => handleVisualizar(os)} title="Visualizar" />
+              <IconButton icon={Edit2} size="sm" variant="outline" onClick={() => handleEditar(os)} title="Editar" />
+              <IconButton icon={History} size="sm" variant="outline" onClick={() => handleHistorico(os)} title="Histórico" />
+              <IconButton icon={Trash2} size="sm" variant="danger" onClick={() => handleExcluirClick(os)} title="Excluir" />
             </div>
           )}
         />
         {totalPages > 1 && (
           <div className="bg-white px-4 py-3 border-t border-gray-200 rounded-b-lg">
-             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
           </div>
         )}
       </StateHandler>
@@ -472,12 +483,12 @@ export const OrdemServicosPage: React.FC = () => {
         onClose={() => setIsModalCadastroOpen(false)}
         onCreated={() => {
           setIsModalCadastroOpen(false);
-          fetchOrdens(1); 
+          fetchOrdens(1);
         }}
         clientes={clientes}
         departamentos={departamentos}
-        servicos={todosServicos} 
-        usuarioId={user?.id || 0} 
+        servicos={todosServicos}
+        usuarioId={user?.id || 0}
       />
 
       {/* --- CORREÇÃO AQUI --- */}
@@ -495,74 +506,74 @@ export const OrdemServicosPage: React.FC = () => {
         size="lg"
       >
         {ordemParaVisualizar && (
-           <div className="space-y-6">
-             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-               <div className="flex items-center justify-between mb-3">
-                 <div className="flex items-center">
-                   <FileText className="w-5 h-5 text-blue-600 mr-2" />
-                   <h3 className="text-lg font-semibold text-gray-800">Protocolo: {ordemParaVisualizar.protocolo}</h3>
-                 </div>
-                 {getBadgeStatus(ordemParaVisualizar.status)}
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                 <div>
-                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><User className="w-3 h-3 mr-1" /> Cliente</label>
-                   <p className="text-gray-900 font-semibold">{ordemParaVisualizar.cliente?.nome || clienteMap.get(ordemParaVisualizar.cliente_id) || 'N/A'}</p>
-                 </div>
-                 <div>
-                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Building className="w-3 h-3 mr-1" /> Departamento</label>
-                   <p className="text-gray-900">{ordemParaVisualizar.departamento?.nome || departamentoMap.get(ordemParaVisualizar.departamento_id || 0) || 'N/A'}</p>
-                 </div>
-                 <div>
-                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Calendar className="w-3 h-3 mr-1" /> Abertura</label>
-                   <p className="text-gray-900">{formatarData(ordemParaVisualizar.data_abertura)}</p>
-                 </div>
-                 <div>
-                   <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Clock className="w-3 h-3 mr-1" /> Vencimento</label>
-                   <p className="text-gray-900 font-medium">{formatarData(ordemParaVisualizar.vencimento)}</p>
-                 </div>
-               </div>
-             </div>
-
-             {ordemParaVisualizar.observacao && (
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Observações</label>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{ordemParaVisualizar.observacao}</p>
+          <div className="space-y-6">
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <FileText className="w-5 h-5 text-blue-600 mr-2" />
+                  <h3 className="text-lg font-semibold text-gray-800">Protocolo: {ordemParaVisualizar.protocolo}</h3>
                 </div>
-             )}
-
-             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between mb-3">
-                   <div className="flex items-center">
-                     <List className="w-5 h-5 text-green-600 mr-2" />
-                     <h3 className="text-lg font-semibold text-gray-800">Itens da OS</h3>
-                   </div>
-                   <div className="text-right">
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Valor Total</label>
-                      <p className="text-xl font-bold text-green-700">{formatarMoeda(ordemParaVisualizar.valor_total_os)}</p>
-                   </div>
+                {getBadgeStatus(ordemParaVisualizar.status)}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><User className="w-3 h-3 mr-1" /> Cliente</label>
+                  <p className="text-gray-900 font-semibold">{ordemParaVisualizar.cliente?.nome || clienteMap.get(ordemParaVisualizar.cliente_id) || 'N/A'}</p>
                 </div>
-                
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {ordemParaVisualizar.itens.length > 0 ? (
-                    ordemParaVisualizar.itens.map(item => (
-                      <div key={item.id} className="flex justify-between items-center p-2 bg-white border rounded-md">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{item.servico?.nome || `Serviço ID: ${item.servico_id}`}</p>
-                          <p className="text-xs text-gray-600">
-                            {item.quantidade}x {formatarMoeda(item.valor_unitario)}
-                            {item.desconto > 0 && <span className="text-red-600 ml-1">(-{item.desconto}%)</span>}
-                          </p>
-                        </div>
-                        <p className="text-sm font-medium text-gray-900">{formatarMoeda(item.valor_total)}</p>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Building className="w-3 h-3 mr-1" /> Departamento</label>
+                  <p className="text-gray-900">{ordemParaVisualizar.departamento?.nome || departamentoMap.get(ordemParaVisualizar.departamento_id || 0) || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Calendar className="w-3 h-3 mr-1" /> Abertura</label>
+                  <p className="text-gray-900">{formatarData(ordemParaVisualizar.data_abertura)}</p>
+                </div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-500 mb-1"><Clock className="w-3 h-3 mr-1" /> Vencimento</label>
+                  <p className="text-gray-900 font-medium">{formatarData(ordemParaVisualizar.vencimento)}</p>
+                </div>
+              </div>
+            </div>
+
+            {ordemParaVisualizar.observacao && (
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Observações</label>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{ordemParaVisualizar.observacao}</p>
+              </div>
+            )}
+
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <List className="w-5 h-5 text-green-600 mr-2" />
+                  <h3 className="text-lg font-semibold text-gray-800">Itens da OS</h3>
+                </div>
+                <div className="text-right">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Valor Total</label>
+                  <p className="text-xl font-bold text-green-700">{formatarMoeda(ordemParaVisualizar.valor_total_os)}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {ordemParaVisualizar.itens.length > 0 ? (
+                  ordemParaVisualizar.itens.map(item => (
+                    <div key={item.id} className="flex justify-between items-center p-2 bg-white border rounded-md">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{item.servico?.nome || `Serviço ID: ${item.servico_id}`}</p>
+                        <p className="text-xs text-gray-600">
+                          {item.quantidade}x {formatarMoeda(item.valor_unitario)}
+                          {item.desconto > 0 && <span className="text-red-600 ml-1">(-{item.desconto}%)</span>}
+                        </p>
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500 italic text-center">Nenhum item adicionado a esta OS.</p>
-                  )}
-                </div>
-             </div>
-           </div>
+                      <p className="text-sm font-medium text-gray-900">{formatarMoeda(item.valor_total)}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 italic text-center">Nenhum item adicionado a esta OS.</p>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </ModalPadrao>
       {/* --- FIM DA CORREÇÃO --- */}
@@ -572,12 +583,12 @@ export const OrdemServicosPage: React.FC = () => {
         onClose={() => {
           setIsModalEdicaoOpen(false);
           setOrdemParaEditar(null);
-          setError(''); 
+          setError('');
         }}
         onSaved={() => {
           setIsModalEdicaoOpen(false);
           setOrdemParaEditar(null);
-          fetchOrdens(currentPage); 
+          fetchOrdens(currentPage);
         }}
         ordemParaEditar={ordemParaEditar}
         clientes={clientes}
