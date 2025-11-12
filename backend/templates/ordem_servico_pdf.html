@@ -9,331 +9,225 @@
     </style>
 </head>
 <body>
-    <div class="container">
+<div class="container">
 
-        <!-- Cabeçalho -->
-        <header class="header">
-            <div class="company-info">
-                <h1 class="company-name">{{ empresa.nome }}</h1>
-                <div class="company-details">
-                    <p>CNPJ: {{ empresa.cnpj }}</p>
-                    <p>{{ empresa.endereco }}{% if empresa.cep %} - CEP {{ empresa.cep }}{% endif %}</p>
-                    <p>Tel: {{ empresa.telefone }}{% if empresa.email %} | E-mail: {{ empresa.email }}{% endif %}</p>
-                    {% if empresa.horario_funcionamento %}
-                        <p>{{ empresa.horario_funcionamento }}</p>
-                    {% endif %}
-                </div>
+    <!-- Cabeçalho -->
+    <header class="header">
+        <div class="company-info">
+            {% if empresa.logo_path %}
+                <img src="{{ empresa.logo_path }}" alt="Logo da Empresa" class="company-logo">
+            {% endif %}
+            <h1 class="company-name">{{ empresa.nome }}</h1>
+            <div class="company-details">
+                <p>CNPJ: {{ empresa.cnpj }}</p>
+                <p>{{ empresa.endereco }}{% if empresa.cep %} - CEP {{ empresa.cep }}{% endif %}</p>
+                <p>Tel: {{ empresa.telefone }}{% if empresa.email %} | E-mail: {{ empresa.email }}{% endif %}</p>
+                {% if empresa.horario_funcionamento %}
+                    <p>{{ empresa.horario_funcionamento }}</p>
+                {% endif %}
             </div>
-
-            <div class="document-title">
-                <h2>ORDEM DE SERVIÇO</h2>
-                <div class="protocol">{{ ordem.protocolo }}</div>
-            </div>
-        </header>
-
-        <!-- Dados principais -->
-        <div class="content-grid">
-            <section class="card">
-                <h3 class="card-title">Dados da Ordem de Serviço</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>Protocolo</label>
-                        <span class="info-value">{{ ordem.protocolo }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Status</label>
-                        <span class="badge {% if ordem.status_label == 'Aberta' %}badge-open{% endif %}">
-                            {{ ordem.status_label }}
-                        </span>
-                    </div>
-                    <div class="info-item">
-                        <label>Data de Abertura</label>
-                        <span class="info-value">{{ ordem.data_abertura | datetime_br }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Vencimento</label>
-                        <span class="info-value">{{ ordem.vencimento | data_br }}</span>
-                    </div>
-                    {% if ordem.departamento %}
-                    <div class="info-item">
-                        <label>Departamento</label>
-                        <span class="info-value">{{ ordem.departamento }}</span>
-                    </div>
-                    {% endif %}
-                    {% if responsavel %}
-                    <div class="info-item">
-                        <label>Responsável</label>
-                        <span class="info-value">
-                            {{ responsavel.nome }}{% if responsavel.cargo %} - {{ responsavel.cargo }}{% endif %}
-                        </span>
-                    </div>
-                    <div class="info-item full-width">
-                        <label>Contato do Responsável</label>
-                        <span class="info-value">{{ responsavel.email }}</span>
-                    </div>
-                    {% endif %}
-                    {% if responsavel %}
-                    <div class="info-item">
-                        <label>Responsável</label>
-                        <span class="info-value">
-                            {{ responsavel.nome }}{% if responsavel.cargo %} - {{ responsavel.cargo }}{% endif %}
-                        </span>
-                    </div>
-                    <div class="info-item full-width">
-                        <label>Contato do Responsável</label>
-                        <span class="info-value">{{ responsavel.email }}</span>
-                    </div>
-                    {% endif %}
-                </div>
-            </section>
-
-            <section class="card">
-                <h3 class="card-title">Informações do Cliente</h3>
-                <div class="info-grid">
-                    <div class="info-item full-width">
-                        <label>Nome</label>
-                        <span class="info-value">{{ cliente.nome if cliente else '-' }}</span>
-                    </div>
-                    {% if cliente and cliente.cpf %}
-                    <div class="info-item">
-                        <label>CPF</label>
-                        <span class="info-value">{{ cliente.cpf }}</span>
-                    </div>
-                    {% endif %}
-                    {% if cliente and cliente.telefone %}
-                    <div class="info-item">
-                        <label>Telefone</label>
-                        <span class="info-value">{{ cliente.telefone }}</span>
-                    </div>
-                    {% endif %}
-                    {% if cliente and cliente.email %}
-                    <div class="info-item full-width">
-                        <label>E-mail</label>
-                        <span class="info-value">{{ cliente.email }}</span>
-                    </div>
-                    {% endif %}
-                </div>
-            </section>
         </div>
 
-        <!-- Itens e serviços -->
-        <section class="card services-section">
-            <h3 class="card-title">Itens e Serviços</h3>
-            <div class="table-responsive">
-                <table class="services-table">
-                    <thead>
-                        <tr>
-                            <th>Serviço</th>
-                            <th>Descrição</th>
-                            <th class="text-center">Qtd.</th>
-                            <th class="text-right">Valor Unit.</th>
-                            <th class="text-center">Desconto</th>
-                            <th class="text-right">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if itens and itens|length > 0 %}
-                            {% for item in itens %}
-                            <tr>
-                                <td class="service-name">{{ item.servico }}</td>
-                                <td>{% if item.descricao %}{{ item.descricao | replace('\n', '<br>') | safe }}{% else %}-{% endif %}</td>
-                                <td class="text-center">{{ item.quantidade }}</td>
-                                <td class="text-right">{{ item.valor_unitario | currency }}</td>
-                                <td class="text-center">
-                                    <span class="discount">{{ item.desconto_percentual }}%</span>
-                                </td>
-                                <td class="text-right font-semibold">{{ item.valor_total | currency }}</td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="6" class="text-center" style="padding:24px; font-style:italic; color:#777;">
-                                    Nenhum item associado a esta ordem de serviço.
-                                </td>
-                            </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="observations">
-                <h4>Observações</h4>
-                {% if ordem.observacao %}
-                    <p>{{ ordem.observacao | safe }}</p>
-                {% else %}
-                    <p style="color:#777; font-style:italic;">Nenhuma observação.</p>
-                {% endif %}
-            </div>
-
-            <div class="totals-container">
-                <div class="totals">
-                    <div class="total-row">
-                        <span>Subtotal</span>
-                        <span>{{ totais.subtotal_sem_desconto | currency }}</span>
-                    </div>
-                    <div class="total-row discount-row">
-                        <span>Descontos</span>
-                        <span>- {{ totais.desconto_total | currency }}</span>
-                    </div>
-                    <div class="total-row final-total">
-                        <span>Total Geral</span>
-                        <span>{{ totais.total_geral | currency }}</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Pagamento -->
-        {% if pix_pagamento %}
-        <section class="card payment-section">
-            <h3 class="card-title">Pagamento via PIX</h3>
-            <div class="payment-content">
-                <div class="qr-code">
-                    <div class="qr-placeholder">
-                        {% if pix_pagamento.imagem_data_uri %}
-                            <img src="{{ pix_pagamento.imagem_data_uri }}" alt="QR Code PIX">
-                        {% else %}
-                            <svg width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="#000"/></svg>
-                        {% endif %}
-                    </div>
-                    <p class="qr-instruction">Escaneie o código QR para pagar</p>
-                </div>
-                <div class="pix-code">
-                    <label>Código PIX Copia e Cola:</label>
-                    <div class="code-box">
-                        <code>{{ pix_pagamento.copia_cola }}</code>
-                    </div>
-                </div>
-            </section>
-
-            <section class="card">
-                <h3 class="card-title">Informações do Cliente</h3>
-                <div class="info-grid">
-                    <div class="info-item full-width">
-                        <label>Nome</label>
-                        <span class="info-value">{{ cliente.nome if cliente else '-' }}</span>
-                    </div>
-                    {% if cliente and cliente.cpf %}
-                    <div class="info-item">
-                        <label>CPF</label>
-                        <span class="info-value">{{ cliente.cpf }}</span>
-                    </div>
-                    {% endif %}
-                    {% if cliente and cliente.telefone %}
-                    <div class="info-item">
-                        <label>Telefone</label>
-                        <span class="info-value">{{ cliente.telefone }}</span>
-                    </div>
-                    {% endif %}
-                    {% if cliente and cliente.email %}
-                    <div class="info-item full-width">
-                        <label>E-mail</label>
-                        <span class="info-value">{{ cliente.email }}</span>
-                    </div>
-                    {% endif %}
-                </div>
-            </section>
+        <div class="document-title">
+            <h2>ORDEM DE SERVIÇO</h2>
+            <div class="protocol">{{ ordem.protocolo or '-' }}</div>
         </div>
+    </header>
 
-        <!-- Itens e serviços -->
-        <section class="card services-section">
-            <h3 class="card-title">Itens e Serviços</h3>
-            <div class="table-responsive">
-                <table class="services-table">
-                    <thead>
-                        <tr>
-                            <th>Serviço</th>
-                            <th>Descrição</th>
-                            <th class="text-center">Qtd.</th>
-                            <th class="text-right">Valor Unit.</th>
-                            <th class="text-center">Desconto</th>
-                            <th class="text-right">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if itens and itens|length > 0 %}
-                            {% for item in itens %}
-                            <tr>
-                                <td class="service-name">{{ item.servico }}</td>
-                                <td>{% if item.descricao %}{{ item.descricao | replace('\n', '<br>') | safe }}{% else %}-{% endif %}</td>
-                                <td class="text-center">{{ item.quantidade }}</td>
-                                <td class="text-right">{{ item.valor_unitario | currency }}</td>
-                                <td class="text-center">
-                                    <span class="discount">{{ item.desconto_percentual }}%</span>
-                                </td>
-                                <td class="text-right font-semibold">{{ item.valor_total | currency }}</td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="6" class="text-center" style="padding:24px; font-style:italic; color:#777;">
-                                    Nenhum item associado a esta ordem de serviço.
-                                </td>
-                            </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="observations">
-                <h4>Observações</h4>
-                {% if ordem.observacao %}
-                    <p>{{ ordem.observacao | safe }}</p>
-                {% else %}
-                    <p style="color:#777; font-style:italic;">Nenhuma observação.</p>
-                {% endif %}
-            </div>
-
-            <div class="totals-container">
-                <div class="totals">
-                    <div class="total-row">
-                        <span>Subtotal</span>
-                        <span>{{ totais.subtotal_sem_desconto | currency }}</span>
-                    </div>
-                    <div class="total-row discount-row">
-                        <span>Descontos</span>
-                        <span>- {{ totais.desconto_total | currency }}</span>
-                    </div>
-                    <div class="total-row final-total">
-                        <span>Total Geral</span>
-                        <span>{{ totais.total_geral | currency }}</span>
-                    </div>
+    <!-- Dados principais -->
+    <div class="content-grid">
+        <section class="card">
+            <h3 class="card-title">Dados da Ordem de Serviço</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Protocolo</label>
+                    <span class="info-value">{{ ordem.protocolo or '-' }}</span>
                 </div>
-            </div>
-        </section>
-
-        <!-- Pagamento: imagem e copia e cola fornecidas por pix_pagamento (arquivo em uploads/pix ou gerado) -->
-        {% if pix_pagamento and (pix_pagamento.imagem_data_uri or pix_pagamento.copia_cola) %}
-        <section class="card payment-section">
-            <h3 class="card-title">Pagamento via PIX</h3>
-            <div class="payment-content">
-                {% if pix_pagamento.imagem_data_uri %}
-                <div class="qr-code">
-                    <div class="qr-placeholder">
-                        <img src="{{ pix_pagamento.imagem_data_uri }}" alt="QR Code PIX">
-                    </div>
-                    <p class="qr-instruction">Escaneie o código QR para pagar</p>
+                <div class="info-item">
+                    <label>Status</label>
+                    <span class="badge {% if ordem.status_label == 'Aberta' %}badge-open{% elif ordem.status_label == 'Concluída' %}badge-closed{% endif %}">
+                        {{ ordem.status_label or ordem.status or '-' }}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <label>Data de Abertura</label>
+                    <span class="info-value">{{ ordem.data_abertura | datetime_br }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Vencimento</label>
+                    <span class="info-value">{{ ordem.vencimento | data_br }}</span>
+                </div>
+                {% if ordem.departamento %}
+                <div class="info-item">
+                    <label>Departamento</label>
+                    <span class="info-value">
+                        {{ ordem.departamento.nome if ordem.departamento.nome else ordem.departamento }}
+                    </span>
                 </div>
                 {% endif %}
-
-                {% if pix_pagamento.copia_cola %}
-                <div class="pix-code">
-                    <label>Código PIX Copia e Cola:</label>
-                    <div class="code-box">
-                        <code>{{ pix_pagamento.copia_cola }}</code>
-                    </div>
+                {% if ordem.responsavel %}
+                <div class="info-item full-width">
+                    <label>Responsável</label>
+                    <span class="info-value">
+                        {{ ordem.responsavel.nome }}
+                        {% if ordem.responsavel.cargo %} - {{ ordem.responsavel.cargo }}{% endif %}
+                    </span>
+                </div>
+                <div class="info-item full-width">
+                    <label>Contato do Responsável</label>
+                    <span class="info-value">{{ ordem.responsavel.email }}</span>
                 </div>
                 {% endif %}
             </div>
         </section>
-        {% endif %}
 
-        <!-- Rodapé -->
-        <footer class="footer">
-            <p>Documento gerado em {{ gerado_em | datetime_br }}</p>
-            <p>Este documento foi produzido automaticamente pelo sistema de gestão.</p>
-        </footer>
-
+        <section class="card">
+            <h3 class="card-title">Informações do Cliente</h3>
+            <div class="info-grid">
+                <div class="info-item full-width">
+                    <label>Nome</label>
+                    <span class="info-value">{{ cliente.nome if cliente else '-' }}</span>
+                </div>
+                {% if cliente and (cliente.cpf or cliente.cnpj) %}
+                <div class="info-item">
+                    <label>{{ 'CPF' if cliente.cpf else 'CNPJ' }}</label>
+                    <span class="info-value">{{ cliente.cpf or cliente.cnpj }}</span>
+                </div>
+                {% endif %}
+                {% if cliente and cliente.telefone %}
+                <div class="info-item">
+                    <label>Telefone</label>
+                    <span class="info-value">{{ cliente.telefone }}</span>
+                </div>
+                {% endif %}
+                {% if cliente and cliente.email %}
+                <div class="info-item full-width">
+                    <label>E-mail</label>
+                    <span class="info-value">{{ cliente.email }}</span>
+                </div>
+                {% endif %}
+                {% if cliente and cliente.endereco %}
+                <div class="info-item full-width">
+                    <label>Endereço</label>
+                    <span class="info-value">{{ cliente.endereco }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </section>
     </div>
+
+    <!-- Itens e serviços -->
+    <!-- Itens e serviços -->
+    <section class="card services-section">
+        <h3 class="card-title">Itens e Serviços</h3>
+        <div class="table-responsive">
+            <table class="services-table">
+                <thead>
+                    <tr>
+                        <th>Serviço</th>
+                        <th>Descrição</th>
+                        <th class="text-center">Qtd.</th>
+                        <th class="text-right">Valor Unit.</th>
+                        <th class="text-center">Desconto</th>
+                        <th class="text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if itens and itens|length > 0 %}
+                        {% for item in itens %}
+                        <tr>
+                            <td class="service-name">{{ item.servico_nome }}</td>
+                            <td>
+                                {% if item.descricao %}
+                                    {{ item.descricao | replace('\n', '<br>') | safe }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center">{{ item.quantidade }}</td>
+                            <td class="text-right">{{ item.valor_unitario | currency }}</td>
+                            
+                            <!-- ✅ Exibe o desconto individual corretamente -->
+                            <td class="text-center">
+                                {% if item.desconto and item.desconto > 0 %}
+                                    {{ item.desconto }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </td>
+
+                            <td class="text-right font-semibold">{{ item.valor_total | currency }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center" style="padding:24px; font-style:italic; color:#777;">
+                                Nenhum item associado a esta ordem de serviço.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="observations">
+            <h4>Observações</h4>
+            {% if ordem.observacao %}
+                <p>{{ ordem.observacao | safe }}</p>
+            {% else %}
+                <p style="color:#777; font-style:italic;">Nenhuma observação.</p>
+            {% endif %}
+        </div>
+
+        <div class="totals-container">
+            <div class="totals">
+                <div class="total-row">
+                    <span>Subtotal</span>
+                    <span>{{ totais.subtotal_sem_desconto | currency }}</span>
+                </div>
+                <div class="total-row discount-row">
+                    <span>Descontos</span>
+                    <span>- {{ totais.desconto_total | currency }}</span>
+                </div>
+                <div class="total-row final-total">
+                    <span>Total Geral</span>
+                    <span>{{ totais.total_geral | currency }}</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- Pagamento via PIX -->
+    {% if pix_pagamento and (pix_pagamento.imagem_data_uri or pix_pagamento.copia_cola) %}
+    <section class="card payment-section">
+        <h3 class="card-title">Pagamento via PIX</h3>
+        <div class="payment-content">
+            {% if pix_pagamento.imagem_data_uri %}
+            <div class="qr-code">
+                <img src="{{ pix_pagamento.imagem_data_uri }}" alt="QR Code PIX">
+                <p class="qr-instruction">Escaneie o código QR para pagar</p>
+            </div>
+            {% endif %}
+
+            {% if pix_pagamento.copia_cola %}
+            <div class="pix-code">
+                <label>Código PIX Copia e Cola:</label>
+                <div class="code-box">
+                    <code>{{ pix_pagamento.copia_cola }}</code>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Rodapé -->
+    <footer class="footer">
+        <p>Documento gerado em {{ gerado_em | datetime_br }}</p>
+        <p>Este documento foi produzido automaticamente pelo sistema de gestão.</p>
+    </footer>
+
+</div>
 </body>
 </html>

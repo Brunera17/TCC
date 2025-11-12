@@ -97,13 +97,27 @@ def deletar_ordem_servico(ordem_id):
 def gerar_pdf_ordem_servico(ordem_id: int):
     try:
         download = request.args.get('download', 'false').lower() == 'true'
-        pdf_bytes, filename = pdf_service.gerar_pdf(ordem_id)
+
+        # Obter a ordem, o cliente e os itens
+        ordem = service.get_by_id(ordem_id)
+        if not ordem:
+            return jsonify({'error': 'Ordem de Serviço não encontrada'}), 404
+
+        cliente = getattr(ordem, 'cliente', None)
+        itens = getattr(ordem, 'itens', [])
+        valor_total = getattr(ordem, 'valor_total', 0)
+
+        # Gerar o PDF
+        pdf_bytes = pdf_service.gerar_pdf(ordem, cliente, itens, valor_total)
+        filename = f'ordem_servico_{ordem_id}.pdf'
+
         return send_file(
             BytesIO(pdf_bytes),
             mimetype='application/pdf',
             as_attachment=download,
             download_name=filename
         )
+
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 404
     except RuntimeError as exc:
