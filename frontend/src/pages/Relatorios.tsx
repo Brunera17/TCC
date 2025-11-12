@@ -233,9 +233,6 @@ export const RelatoriosPage: React.FC = () => {
         title="Relatórios"
         subtitle="Gere e visualize relatórios sobre clientes, propostas e mais"
       >
-        <Button onClick={handleCriarRelatorio} leftIcon={<Plus className="w-4 h-4" />}>
-          Criar Relatório Personalizado
-        </Button>
       </PageHeader>
 
       {/* Relatórios Predefinidos */}
@@ -265,62 +262,7 @@ export const RelatoriosPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Relatórios Salvos / Personalizados */}
-      <Card>
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-          <Calendar className="w-5 h-5 mr-2 text-purple-600" />
-          Relatórios Salvos / Personalizados
-        </h2>
-
-        {/* Filtros e Busca */}
-        <div className="flex flex-col md:flex-row gap-4 mb-4 p-4 bg-gray-50 rounded-lg border">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Buscar por título ou tipo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full"
-            />
-          </div>
-          <div className="relative w-full md:w-64">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Select
-              options={[{ value: '', label: 'Filtrar por tipo...' }, ...tiposDisponiveis]}
-              value={tipoFiltro}
-              onChange={(value) => setTipoFiltro(value)}
-              className="pl-10 w-full bg-white" // Ensure select background is white
-            />
-          </div>
-        </div>
-
-        <StateHandler
-          loading={loading}
-          error={error || undefined}
-          onErrorDismiss={() => setError(null)}
-          isEmpty={relatoriosFiltrados.length === 0 && !loading}
-          emptyState={
-            <div className="text-center py-8 text-gray-500">
-              Nenhum relatório salvo encontrado {searchTerm || tipoFiltro ? 'com os filtros aplicados' : ''}.
-            </div>
-          }
-        >
-          <DataTable
-            data={relatoriosFiltrados}
-            columns={colunasRelatoriosSalvos}
-            actions={(item) => (
-              <div className="flex space-x-2">
-                <Button variant="ghost" size="sm" onClick={() => alert(`Visualizando ${item.titulo}...`)} title="Visualizar">
-                  <Eye className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleExportarRelatorio(item)} title="Exportar">
-                  <Download className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-          />
-        </StateHandler>
-      </Card>
+     
         {/* Modal para informar período de agendamentos */}
         <Modal isOpen={isAgendamentoModalOpen} onClose={fecharModalAgendamento} title="Relatório de Agendamentos">
           <div className="grid grid-cols-1 gap-3">
