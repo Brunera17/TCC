@@ -4,6 +4,7 @@ import { apiService, ApiError } from '../lib/api';
 import { PageLayout, PageHeader, DataTable, StateHandler, Card, type Column } from '../components/ui'; // Keep only UI components here
 import { formatarData } from '../utils/formatters';
 import { Button, Input, Select } from '../components/forms'; // Import Button, Input, and Select from forms index
+import { Modal } from '../components/modals/Modal';
 interface Relatorio {
   id: number;
   titulo: string;
@@ -37,6 +38,11 @@ export const RelatoriosPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('');
+  // Estado para modal de agendamentos
+  const [isAgendamentoModalOpen, setIsAgendamentoModalOpen] = useState(false);
+  const [agendamentoInicio, setAgendamentoInicio] = useState<string>('');
+  const [agendamentoFim, setAgendamentoFim] = useState<string>('');
+  const [pendingRelatorio, setPendingRelatorio] = useState<RelatorioPredefinido | null>(null);
 
   const fetchRelatoriosSalvos = useCallback(async () => {
     setLoading(true);
@@ -76,14 +82,60 @@ export const RelatoriosPage: React.FC = () => {
   });
 
   const handleGerarRelatorioPredefinido = async (relatorio: RelatorioPredefinido) => {
-    alert(`Gerando ${relatorio.nome}... (Funcionalidade de exemplo)\nEndpoint: ${relatorio.endpoint}`);
-    // Aqui você chamaria a API específica, ex: apiService.get(relatorio.endpoint.replace('/api', ''))
-    // e exibiria o resultado ou iniciaria o download.
+    setError(null);
+    setLoading(true);
     try {
-      // Exemplo: const resultado = await apiService.getRelatoriosClientes(); // Supondo que existe
-      // processarResultado(resultado);
+      // Chama a rota Flask correspondente e espera um PDF
+      // Garante que o endpoint seja /reports/<tipo> e use o backend Flask
+      const backendUrl = 'http://localhost:5000';
+      // Remove qualquer /api ou /relatorios do endpoint e monta a rota correta
+      const tipo = relatorio.tipo;
+      let url = `${backendUrl}/reports/${tipo}`;
+
+      // Caso especial: agendamentos -> abrir modal para informar período
+      if (tipo === 'agendamentos') {
+        // abrir modal controlado com campos de data
+        setPendingRelatorio(relatorio);
+        setAgendamentoInicio('2025-01-01');
+        setAgendamentoFim('2025-12-31');
+        setIsAgendamentoModalOpen(true);
+        setLoading(false);
+        return;
+      }
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/pdf',
+        },
+      });
+      if (response.status === 204) {
+        setError('Relatório ainda não implementado.');
+        return;
+      }
+      if (response.ok && response.headers.get('content-type')?.includes('application/pdf')) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${relatorio.nome}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Tenta extrair mensagem de erro JSON do backend para exibir informação mais útil
+        try {
+          const errorJson = await response.json();
+          const msg = errorJson && (errorJson.error || errorJson.message || JSON.stringify(errorJson));
+          setError(msg || 'Falha ao gerar relatório ou formato inválido.');
+        } catch {
+          setError('Falha ao gerar relatório ou formato inválido.');
+        }
+      }
     } catch (err) {
       setError(`Erro ao gerar ${relatorio.nome}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -121,15 +173,66 @@ export const RelatoriosPage: React.FC = () => {
     return Array.from(tipos).map(tipo => ({ value: tipo, label: tipo.charAt(0).toUpperCase() + tipo.slice(1) }));
   }, []);
 
+  const fecharModalAgendamento = () => {
+    setIsAgendamentoModalOpen(false);
+    setPendingRelatorio(null);
+    setError(null);
+  };
+
+  const confirmarGerarAgendamento = async () => {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (agendamentoInicio && !dateRegex.test(agendamentoInicio)) { setError('Formato de data inválido para início. Use YYYY-MM-DD'); return; }
+    if (agendamentoFim && !dateRegex.test(agendamentoFim)) { setError('Formato de data inválido para fim. Use YYYY-MM-DD'); return; }
+    if (!pendingRelatorio) { setError('Relatório inválido'); fecharModalAgendamento(); return; }
+
+    setIsAgendamentoModalOpen(false);
+    setLoading(true);
+    setError(null);
+    try {
+      const backendUrl = 'http://localhost:5000';
+      const tipo = pendingRelatorio.tipo;
+      let url = `${backendUrl}/reports/${tipo}`;
+      const params = new URLSearchParams();
+      if (agendamentoInicio) params.append('inicio', agendamentoInicio);
+      if (agendamentoFim) params.append('fim', agendamentoFim);
+      const qs = params.toString();
+      if (qs) url = `${url}?${qs}`;
+
+      const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/pdf' } });
+      if (response.status === 204) { setError('Relatório ainda não implementado.'); return; }
+      if (response.ok && response.headers.get('content-type')?.includes('application/pdf')) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${pendingRelatorio.nome}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        try {
+          const errorJson = await response.json();
+          const msg = errorJson && (errorJson.error || errorJson.message || JSON.stringify(errorJson));
+          setError(msg || 'Falha ao gerar relatório ou formato inválido.');
+        } catch (e) {
+          setError('Falha ao gerar relatório ou formato inválido.');
+        }
+      }
+    } catch (err) {
+      setError('Erro ao gerar relatório de agendamentos');
+    } finally {
+      setLoading(false);
+      setPendingRelatorio(null);
+    }
+  };
+
   return (
     <PageLayout>
       <PageHeader
         title="Relatórios"
         subtitle="Gere e visualize relatórios sobre clientes, propostas e mais"
       >
-        <Button onClick={handleCriarRelatorio} leftIcon={<Plus className="w-4 h-4" />}>
-          Criar Relatório Personalizado
-        </Button>
       </PageHeader>
 
       {/* Relatórios Predefinidos */}
@@ -159,64 +262,22 @@ export const RelatoriosPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Relatórios Salvos / Personalizados */}
-      <Card>
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-          <Calendar className="w-5 h-5 mr-2 text-purple-600" />
-          Relatórios Salvos / Personalizados
-        </h2>
-
-        {/* Filtros e Busca */}
-        <div className="flex flex-col md:flex-row gap-4 mb-4 p-4 bg-gray-50 rounded-lg border">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Buscar por título ou tipo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full"
-            />
-          </div>
-          <div className="relative w-full md:w-64">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Select
-              options={[{ value: '', label: 'Filtrar por tipo...' }, ...tiposDisponiveis]}
-              value={tipoFiltro}
-              onChange={(value) => setTipoFiltro(value)}
-              className="pl-10 w-full bg-white" // Ensure select background is white
-            />
-          </div>
-        </div>
-
-        <StateHandler
-          loading={loading}
-          error={error || undefined}
-          onErrorDismiss={() => setError(null)}
-          isEmpty={relatoriosFiltrados.length === 0 && !loading}
-          emptyState={
-            <div className="text-center py-8 text-gray-500">
-              Nenhum relatório salvo encontrado {searchTerm || tipoFiltro ? 'com os filtros aplicados' : ''}.
+     
+        {/* Modal para informar período de agendamentos */}
+        <Modal isOpen={isAgendamentoModalOpen} onClose={fecharModalAgendamento} title="Relatório de Agendamentos">
+          <div className="grid grid-cols-1 gap-3">
+            <label className="text-sm text-gray-700">Informe data de início (YYYY-MM-DD) — deixar vazio para sem filtro</label>
+            <Input type="date" value={agendamentoInicio} onChange={(e) => setAgendamentoInicio(e.target.value)} />
+            <label className="text-sm text-gray-700">Informe data de fim (YYYY-MM-DD) — deixar vazio para sem filtro</label>
+            <Input type="date" value={agendamentoFim} onChange={(e) => setAgendamentoFim(e.target.value)} />
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="ghost" onClick={fecharModalAgendamento}>Cancelar</Button>
+              <Button onClick={confirmarGerarAgendamento}>Gerar PDF</Button>
             </div>
-          }
-        >
-          <DataTable
-            data={relatoriosFiltrados}
-            columns={colunasRelatoriosSalvos}
-            actions={(item) => (
-              <div className="flex space-x-2">
-                <Button variant="ghost" size="sm" onClick={() => alert(`Visualizando ${item.titulo}...`)} title="Visualizar">
-                  <Eye className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleExportarRelatorio(item)} title="Exportar">
-                  <Download className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-          />
-        </StateHandler>
-      </Card>
+          </div>
+        </Modal>
 
-    </PageLayout>
+      </PageLayout>
   );
 };
 

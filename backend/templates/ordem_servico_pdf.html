@@ -58,6 +58,21 @@
                     <div class="info-item">
                         <label>Departamento</label>
                         <span class="info-value">{{ ordem.departamento }}</span>
+<<<<<<< HEAD
+                    </div>
+                    {% endif %}
+                    {% if responsavel %}
+                    <div class="info-item">
+                        <label>Responsável</label>
+                        <span class="info-value">
+                            {{ responsavel.nome }}{% if responsavel.cargo %} - {{ responsavel.cargo }}{% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item full-width">
+                        <label>Contato do Responsável</label>
+                        <span class="info-value">{{ responsavel.email }}</span>
+=======
+>>>>>>> 598de62097b8a871a47f0ced6a68e0d00f5d6dfd
                     </div>
                     {% endif %}
                     {% if responsavel %}
@@ -72,6 +87,125 @@
                         <span class="info-value">{{ responsavel.email }}</span>
                     </div>
                     {% endif %}
+                </div>
+            </section>
+
+            <section class="card">
+                <h3 class="card-title">Informações do Cliente</h3>
+                <div class="info-grid">
+                    <div class="info-item full-width">
+                        <label>Nome</label>
+                        <span class="info-value">{{ cliente.nome if cliente else '-' }}</span>
+                    </div>
+                    {% if cliente and cliente.cpf %}
+                    <div class="info-item">
+                        <label>CPF</label>
+                        <span class="info-value">{{ cliente.cpf }}</span>
+                    </div>
+                    {% endif %}
+                    {% if cliente and cliente.telefone %}
+                    <div class="info-item">
+                        <label>Telefone</label>
+                        <span class="info-value">{{ cliente.telefone }}</span>
+                    </div>
+                    {% endif %}
+                    {% if cliente and cliente.email %}
+                    <div class="info-item full-width">
+                        <label>E-mail</label>
+                        <span class="info-value">{{ cliente.email }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+        </div>
+
+        <!-- Itens e serviços -->
+        <section class="card services-section">
+            <h3 class="card-title">Itens e Serviços</h3>
+            <div class="table-responsive">
+                <table class="services-table">
+                    <thead>
+                        <tr>
+                            <th>Serviço</th>
+                            <th>Descrição</th>
+                            <th class="text-center">Qtd.</th>
+                            <th class="text-right">Valor Unit.</th>
+                            <th class="text-center">Desconto</th>
+                            <th class="text-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if itens and itens|length > 0 %}
+                            {% for item in itens %}
+                            <tr>
+                                <td class="service-name">{{ item.servico }}</td>
+                                <td>{% if item.descricao %}{{ item.descricao | replace('\n', '<br>') | safe }}{% else %}-{% endif %}</td>
+                                <td class="text-center">{{ item.quantidade }}</td>
+                                <td class="text-right">{{ item.valor_unitario | currency }}</td>
+                                <td class="text-center">
+                                    <span class="discount">{{ item.desconto_percentual }}%</span>
+                                </td>
+                                <td class="text-right font-semibold">{{ item.valor_total | currency }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center" style="padding:24px; font-style:italic; color:#777;">
+                                    Nenhum item associado a esta ordem de serviço.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="observations">
+                <h4>Observações</h4>
+                {% if ordem.observacao %}
+                    <p>{{ ordem.observacao | safe }}</p>
+                {% else %}
+                    <p style="color:#777; font-style:italic;">Nenhuma observação.</p>
+                {% endif %}
+            </div>
+
+            <div class="totals-container">
+                <div class="totals">
+                    <div class="total-row">
+                        <span>Subtotal</span>
+                        <span>{{ totais.subtotal_sem_desconto | currency }}</span>
+                    </div>
+                    <div class="total-row discount-row">
+                        <span>Descontos</span>
+                        <span>- {{ totais.desconto_total | currency }}</span>
+                    </div>
+                    <div class="total-row final-total">
+                        <span>Total Geral</span>
+                        <span>{{ totais.total_geral | currency }}</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pagamento -->
+        {% if pix_pagamento %}
+        <section class="card payment-section">
+            <h3 class="card-title">Pagamento via PIX</h3>
+            <div class="payment-content">
+                <div class="qr-code">
+                    <div class="qr-placeholder">
+                        {% if pix_pagamento.imagem_data_uri %}
+                            <img src="{{ pix_pagamento.imagem_data_uri }}" alt="QR Code PIX">
+                        {% else %}
+                            <svg width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="#000"/></svg>
+                        {% endif %}
+                    </div>
+                    <p class="qr-instruction">Escaneie o código QR para pagar</p>
+                </div>
+                <div class="pix-code">
+                    <label>Código PIX Copia e Cola:</label>
+                    <div class="code-box">
+                        <code>{{ pix_pagamento.copia_cola }}</code>
+                    </div>
                 </div>
             </section>
 

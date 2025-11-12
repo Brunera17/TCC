@@ -24,7 +24,10 @@ from models.ordemServico import OrdemServico
 from services.gerarQRCode import MercadoPagoQRCodeError, gerar_qrcode_pix
 from config import db
 import datetime as _dt_mod
+<<<<<<< HEAD
 from pathlib import Path
+=======
+>>>>>>> 598de62097b8a871a47f0ced6a68e0d00f5d6dfd
 
 
 class OrdemServicoPDFService:
@@ -315,8 +318,42 @@ class OrdemServicoPDFService:
             'ordem_servico_id': ordem.id,
             'protocolo': ordem.protocolo,
         }
-
+        # Se já existe um PIX persistido e não expirou, reutiliza
         try:
+            if ordem.pix_copia_cola and ordem.pix_imagem_data_uri and ordem.pix_expiracao:
+                try:
+                    expiracao = ordem.pix_expiracao
+                    now = _dt_mod.datetime.utcnow()
+                    # Se expiracao for timezone-aware, normaliza para UTC naive para comparação
+                    if hasattr(expiracao, 'tzinfo') and expiracao.tzinfo is not None:
+                        try:
+                            expiracao = expiracao.astimezone(_dt_mod.timezone.utc).replace(tzinfo=None)
+                        except Exception:
+                            # se não for possível normalizar, ignore e deixe como está
+                            pass
+                    if expiracao and expiracao > now:
+                        current_app.logger.info(
+                            "Reutilizando PIX persistido para OS %s (expira %s).",
+                            ordem.id,
+                            ordem.pix_expiracao,
+                        )
+                        return {
+                            'imagem_data_uri': ordem.pix_imagem_data_uri,
+                            'copia_cola': ordem.pix_copia_cola,
+                            'ticket_url': None,
+                            'expiracao': ordem.pix_expiracao,
+                            'pagamento_id': ordem.pix_payment_id,
+                            'valor': valor_total,
+                            'descricao': descricao,
+                        }
+                except Exception:
+                    # Se qualquer erro ao validar expiracao, prossegue para gerar novo PIX
+                    current_app.logger.warning(
+                        "Não foi possível validar expiracao do PIX persistido para OS %s; gerando novo.",
+                        ordem.id,
+                    )
+
+            # Caso não exista ou tenha expirado, gera novo PIX via Mercado Pago
             pix = gerar_qrcode_pix(
                 valor=valor_total,
                 descricao=descricao,
@@ -324,6 +361,48 @@ class OrdemServicoPDFService:
                 nome_pagador=nome_cliente,
                 metadata=metadata,
             )
+
+            # Persiste dados retornados no registro da ordem
+            try:
+                ordem.pix_copia_cola = pix.get('copia_cola')
+                ordem.pix_imagem_data_uri = pix.get('imagem_data_uri')
+                ordem.pix_payment_id = pix.get('payment_id') or pix.get('pagamento_id')
+                ordem.pix_external_reference = pix.get('external_reference')
+
+                # expiração pode vir como string ISO ou datetime
+                expiracao_val = pix.get('expiracao')
+                parsed_exp = None
+                if isinstance(expiracao_val, str):
+                    try:
+                        val = expiracao_val
+                        # aceitar final 'Z'
+                        if val.endswith('Z'):
+                            val = val[:-1] + '+00:00'
+                        parsed_exp = _dt_mod.datetime.fromisoformat(val)
+                    except Exception:
+                        parsed_exp = None
+                elif isinstance(expiracao_val, _dt_mod.datetime):
+                    parsed_exp = expiracao_val
+
+                ordem.pix_expiracao = parsed_exp
+                ordem.pix_gerado_em = _dt_mod.datetime.utcnow()
+
+                db.session.add(ordem)
+                db.session.commit()
+            except Exception as exc:
+                current_app.logger.exception(
+                    "Falha ao persistir dados PIX para OS %s: %s", ordem.id, exc
+                )
+
+            return {
+                'imagem_data_uri': pix.get('imagem_data_uri'),
+                'copia_cola': pix.get('copia_cola'),
+                'ticket_url': pix.get('ticket_url'),
+                'expiracao': parsed_exp or pix.get('expiracao'),
+                'pagamento_id': pix.get('payment_id'),
+                'valor': pix.get('valor'),
+                'descricao': pix.get('descricao'),
+            }
         except MercadoPagoQRCodeError as exc:
             current_app.logger.error(
                 "Erro ao gerar QR Code PIX para OS %s: %s",
@@ -338,6 +417,7 @@ class OrdemServicoPDFService:
                 exc,
             )
             return None
+<<<<<<< HEAD
 
         imagem = pix.get('imagem_data_uri')
         copia = pix.get('copia_cola')
@@ -376,3 +456,5 @@ class OrdemServicoPDFService:
             'valor': pix.get('valor'),
             'descricao': pix.get('descricao'),
         }
+=======
+>>>>>>> 598de62097b8a871a47f0ced6a68e0d00f5d6dfd

@@ -570,6 +570,17 @@ function normalizeClientePayload(data: unknown): GenericRecord {
 }
 
 export const apiService = {
+  // ---------- Relatórios PDF (Flask) ----------
+  async baixarRelatorioPDF(tipo: string): Promise<Blob> {
+    const backendUrl = 'http://localhost:5000';
+    const url = `${backendUrl}/reports/${tipo}`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/pdf' }
+    });
+    if (!res.ok) throw new ApiError(res.status, await res.text());
+    return res.blob();
+  },
   // ---------- Usuário ----------
   async login(credentials: { identificador: string; senha: string }) {
     return postJSON<{ access_token: string; refresh_token: string, user: any }>(
@@ -909,6 +920,11 @@ export const apiService = {
   // ---------- Empresas ----------
   async getEmpresas(params?: any): Promise<any> {
     return getJSON("empresas/", params);
+  },
+
+  // ---------- Entidades Jurídicas ----------
+  async getEntidadesJuridicas(params?: any): Promise<any> {
+    return getJSON("entidades-juridicas/", params);
   },
 
   // ---------- Propostas: Logs ----------
