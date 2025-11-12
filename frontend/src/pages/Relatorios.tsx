@@ -38,6 +38,11 @@ export const RelatoriosPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('');
+  // Estado para modal de agendamentos
+  const [isAgendamentoModalOpen, setIsAgendamentoModalOpen] = useState(false);
+  const [agendamentoInicio, setAgendamentoInicio] = useState<string>('');
+  const [agendamentoFim, setAgendamentoFim] = useState<string>('');
+  const [pendingRelatorio, setPendingRelatorio] = useState<RelatorioPredefinido | null>(null);
 
   const fetchRelatoriosSalvos = useCallback(async () => {
     setLoading(true);

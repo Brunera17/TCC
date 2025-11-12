@@ -113,65 +113,53 @@ class RelatorioService:
         receita total, média de valor unitário e quantas propostas incluíram o serviço.
         """
         try:
-            from models.proposta import Proposta, ItemProposta
+            from models.proposta import ItemProposta
             from models.servico import Servico
+            from config import db
+            from sqlalchemy import func, distinct
         except Exception as e:
             raise ValueError(f"Modelos não disponíveis: {e}")
 
         try:
-            itens = ItemProposta.query.filter_by(ativo=True).all()
-        except Exception as e:
-            raise ValueError(f"Erro ao consultar itens de proposta: {e}")
+            # Agregação por serviço: total_quantidade, total_receita, avg valor_unitario, count propostas distintas
+            q = (
+                db.session.query(
+                    ItemProposta.servico_id.label('servico_id'),
+                    func.coalesce(Servico.nome, Servico.codigo).label('nome'),
+                    func.sum(ItemProposta.quantidade).label('total_quantidade'),
+                    func.sum(ItemProposta.valor_total).label('total_receita'),
+                    func.avg(ItemProposta.valor_unitario).label('media_valor_unitario'),
+                    func.count(distinct(ItemProposta.proposta_id)).label('count_propostas')
+                )
+                .join(Servico, ItemProposta.servico_id == Servico.id, isouter=True)
+                .filter(ItemProposta.ativo == True)
+                .group_by(ItemProposta.servico_id)
+            )
 
-        servicos_agg = {}
+            rows = q.all()
+        except Exception as e:
+            raise ValueError(f"Erro ao consultar itens de proposta (SQL): {e}")
+
+        lista = []
         total_itens = 0
         total_receita = 0.0
-
-        # Mapear propostas por serviço para contar propostas distintas
-        propostas_por_servico = {}
-
-        for item in itens:
-            sid = getattr(item, 'servico_id', None)
-            sname = None
-            if getattr(item, 'servico', None):
-                sname = getattr(item.servico, 'nome', None) or getattr(item.servico, 'codigo', None)
-
-            qty = int(getattr(item, 'quantidade', 0) or 0)
-            valor = float(getattr(item, 'valor_total', 0.0) or 0.0)
-
-            total_itens += qty
-            total_receita += valor
-
-            if sid not in servicos_agg:
-                servicos_agg[sid] = {'servico_id': sid, 'nome': sname, 'total_quantidade': 0, 'total_receita': 0.0, 'valor_unitario_sum': 0.0, 'valor_unitario_count': 0}
-
-            servicos_agg[sid]['total_quantidade'] += qty
-            servicos_agg[sid]['total_receita'] = round(servicos_agg[sid]['total_receita'] + valor, 2)
-            # calcular média de unitário aproximada acumulando valor_unitario médio
-            unitario = (item.valor_unitario if getattr(item, 'valor_unitario', None) is not None else (item.valor_total / qty if qty else 0.0))
-            servicos_agg[sid]['valor_unitario_sum'] += (unitario or 0.0)
-            servicos_agg[sid]['valor_unitario_count'] += 1
-
-            # contar propostas distintas
-            pid = getattr(item, 'proposta_id', None)
-            if sid not in propostas_por_servico:
-                propostas_por_servico[sid] = set()
-            if pid:
-                propostas_por_servico[sid].add(pid)
-
-        # transformar em lista e calcular médias
-        lista = []
-        for sid, v in servicos_agg.items():
-            count_propostas = len(propostas_por_servico.get(sid, []))
-            media_unit = round((v['valor_unitario_sum'] / v['valor_unitario_count']) if v['valor_unitario_count'] > 0 else 0.0, 2)
+        for r in rows:
+            sid = r.servico_id
+            nome = r.nome
+            tq = int(r.total_quantidade or 0)
+            tr = float(r.total_receita or 0.0)
+            mu = round(float(r.media_valor_unitario or 0.0), 2)
+            cp = int(r.count_propostas or 0)
             lista.append({
-                'servico_id': v['servico_id'],
-                'nome': v['nome'],
-                'total_quantidade': v['total_quantidade'],
-                'total_receita': round(v['total_receita'], 2),
-                'media_valor_unitario': media_unit,
-                'count_propostas': count_propostas
+                'servico_id': sid,
+                'nome': nome,
+                'total_quantidade': tq,
+                'total_receita': round(tr, 2),
+                'media_valor_unitario': mu,
+                'count_propostas': cp
             })
+            total_itens += tq
+            total_receita += tr
 
         # ordenar por receita decrescente
         lista.sort(key=lambda x: x['total_receita'], reverse=True)
