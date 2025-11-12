@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Brotli
 Version: 1.1.0
 Summary: Python bindings for the Brotli compression library
@@ -33,6 +33,15 @@ Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Utilities
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: summary
 
 <p align="center">
   <img src="https://github.com/google/brotli/actions/workflows/build_test.yml/badge.svg" alt="GitHub Actions Build Status" href="https://github.com/google/brotli/actions?query=branch%3Amaster">

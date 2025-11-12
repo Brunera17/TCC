@@ -22,13 +22,7 @@ except Exception as exc:  # noqa: BLE001 - Precisamos capturar OSError/ImportErr
 from flask import current_app
 from models.ordemServico import OrdemServico
 from services.gerarQRCode import MercadoPagoQRCodeError, gerar_qrcode_pix
-from config import db
-import datetime as _dt_mod
-<<<<<<< HEAD
 from pathlib import Path
-=======
->>>>>>> 598de62097b8a871a47f0ced6a68e0d00f5d6dfd
-
 
 class OrdemServicoPDFService:
     """Gera PDFs de ordem de serviço com layout moderno."""
@@ -164,110 +158,35 @@ class OrdemServicoPDFService:
         cliente = ordem.cliente
         empresa_cliente = ordem.empresa
         responsavel = ordem.usuario
-        departamento = ordem.departamento
-
-        itens = []
-        subtotal = 0.0
-        subtotal_sem_desconto = 0.0
-
-        for item in ordem.itens:
-            if not item.ativo:
-                continue
-
-            valor_total = float(item.valor_total or 0)
-            valor_unitario = float(item.valor_unitario or 0)
-            quantidade = item.quantidade or 0
-            subtotal += valor_total
-            subtotal_sem_desconto += valor_unitario * quantidade
-
-            itens.append({
-                'servico': item.servico.nome if item.servico else 'Serviço não informado',
-                'descricao': item.servico.descricao if item.servico and item.servico.descricao else None,
-                'quantidade': quantidade,
-                'valor_unitario': valor_unitario,
-                'desconto_percentual': item.desconto or 0,
-                'valor_total': valor_total,
-            })
-
-        desconto_total = max(subtotal_sem_desconto - subtotal, 0.0)
-        status_map = {
-            'aberta': 'Aberta',
-            'em_andamento': 'Em andamento',
-            'pausada': 'Pausada',
-            'concluida': 'Concluída',
-            'cancelada': 'Cancelada',
-        }
-
-        ordem_contexto = {
-            'id': ordem.id,
+        descricao = f"Ordem de Serviço {ordem.protocolo}"
+        metadata = {
+            'ordem_servico_id': ordem.id,
             'protocolo': ordem.protocolo,
-            'status': ordem.status,
-            'status_label': status_map.get(ordem.status, ordem.status.title()),
-            'data_abertura': ordem.data_abertura,
-            'vencimento': ordem.vencimento,
-            'data_fechamento': ordem.data_fechamento,
-            'observacao': ordem.observacao,
-            'valor_total': subtotal,
-            'departamento': departamento.nome if departamento else None,
         }
 
-        responsavel_contexto = None
-        if responsavel:
-            cargo_nome = responsavel.cargo.nome if responsavel.cargo else None
-            responsavel_contexto = {
-                'nome': responsavel.nome,
-                'email': responsavel.email,
-                'cargo': cargo_nome,
-            }
-
-        cliente_contexto = None
-        if cliente:
-            cliente_contexto = {
-                'nome': cliente.nome,
-                'cpf': cliente.formatar_cpf() if hasattr(cliente, 'formatar_cpf') else cliente.cpf,
-                'email': cliente.email,
-                'telefone': cliente.telefone,
-                'endereco': cliente.endereco,
-            }
-
-        empresa_cliente_contexto = None
-        if empresa_cliente:
-            empresa_cliente_contexto = {
-                'razao_social': empresa_cliente.razao_social,
-                'nome_fantasia': empresa_cliente.nome_fantasia,
-                'cnpj': empresa_cliente.cnpj,
-                'contato': empresa_cliente.contato,
-                'status': empresa_cliente.status,
-                'inscricao_estadual': empresa_cliente.inscricao_estadual,
-            }
-
-        pix_pagamento = self._gerar_pagamento_pix(ordem, cliente_contexto, subtotal)
-
-        return {
-            'gerado_em': datetime.now(),
-            'empresa': self.empresa_contexto,
-            'ordem': ordem_contexto,
-            'responsavel': responsavel_contexto,
-            'cliente': cliente_contexto,
-            'empresa_cliente': empresa_cliente_contexto,
-            'itens': itens,
-            'totais': {
-                'subtotal_sem_desconto': subtotal_sem_desconto,
-                'desconto_total': desconto_total,
-                'total_geral': subtotal,
-            },
-            'pix_pagamento': pix_pagamento,
-        }
-
-    # ------------------------ #
-    #        PAGAMENTO PIX     #
-    # ------------------------ #
-    def _gerar_pagamento_pix(
-        self,
-        ordem: OrdemServico,
-        cliente_contexto: dict | None,
-        valor_total: float,
-    ) -> dict | None:
+        # Se não houver arquivo salvo, gera via Mercado Pago (ou retorna None em caso de erro)
+        try:
+            pix = gerar_qrcode_pix(
+                valor=valor_total,
+                descricao=descricao,
+                email_pagador=email_cliente,
+                nome_pagador=nome_cliente,
+                metadata=metadata,
+            )
+        except MercadoPagoQRCodeError as exc:
+            current_app.logger.error(
+                "Erro ao gerar QR Code PIX para OS %s: %s",
+                ordem.id,
+                exc,
+            )
+            return None
+        except Exception as exc:  # noqa: BLE001
+            current_app.logger.error(
+                "Erro inesperado ao integrar com Mercado Pago na OS %s: %s",
+                ordem.id,
+                exc,
+            )
+            return None
         if valor_total <= 0:
             current_app.logger.info(
                 "Ordem %s possui valor total %.2f, QR Code PIX não será gerado.",
@@ -417,8 +336,7 @@ class OrdemServicoPDFService:
                 exc,
             )
             return None
-<<<<<<< HEAD
-
+        
         imagem = pix.get('imagem_data_uri')
         copia = pix.get('copia_cola')
 
@@ -456,5 +374,3 @@ class OrdemServicoPDFService:
             'valor': pix.get('valor'),
             'descricao': pix.get('descricao'),
         }
-=======
->>>>>>> 598de62097b8a871a47f0ced6a68e0d00f5d6dfd
