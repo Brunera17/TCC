@@ -250,7 +250,7 @@ const Sidebar: React.FC = () => {
                     </button>
                 </div>
             </div>
-            {/* Sidebar mobile: drawer lateral */}
+            {/* Sidebar amobile: drawer lateral */}
             {mobileOpen && (
                 <div className="fixed inset-0 z-50 flex">
                     {/* Overlay escuro */}
