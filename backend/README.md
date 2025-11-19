@@ -9,16 +9,19 @@ Este documento detalha todas as correções implementadas no backend Flask para 
 ## 🔥 Problemas Críticos Resolvidos
 
 ### 1. **Erro SQLAlchemy "failed to locate a name"**
+
 - **Problema**: Modelos não conseguiam resolver relacionamentos entre classes
 - **Causa**: Imports incompletos e ordem incorreta de carregamento
 - **Solução**: Reestruturação completa do sistema de imports
 
 ### 2. **Dependências JWT Conflitantes**
+
 - **Problema**: `ImportError: cannot import name 'DecodeError' from 'jwt'`
 - **Causa**: Duas bibliotecas JWT diferentes instaladas (`jwt` e `PyJWT`)
 - **Solução**: Remoção do `jwt` conflitante e downgrade para PyJWT 2.8.0
 
 ### 3. **Relacionamentos Quebrados entre Modelos**
+
 - **Problema**: Relationships comentados ou com back_populates ausentes
 - **Causa**: Referências circulares e imports mal estruturados
 - **Solução**: Mapeamento e correção de todos os relacionamentos
@@ -30,6 +33,7 @@ Este documento detalha todas as correções implementadas no backend Flask para 
 ### **1. Sistema de Imports Reestruturado**
 
 #### `models/__init__.py` - Criado do Zero
+
 ```python
 # Importa todos os modelos na ordem correta para resolver dependências
 
@@ -50,6 +54,7 @@ from .ordemServico import ItemOrdemServico, OrdemServico
 ```
 
 #### `main.py` - Imports Completos
+
 ```python
 # Importa TODOS os modelos na ordem correta
 from models import (
@@ -75,12 +80,14 @@ app.register_blueprint(relatorio_bp)
 ### **2. Duplicações Removidas**
 
 #### Arquivo Removido: `models/tipo_empresa.py`
+
 - **Motivo**: Classe `TipoEmpresa` duplicada em `entidadeJuridica.py`
 - **Decisão**: Mantida versão mais completa com validadores em `entidadeJuridica.py`
 
 ### **3. Relacionamentos Corrigidos**
 
 #### `models/organizacional.py` - Usuario
+
 ```python
 # ANTES (relacionamentos comentados)
 # agendamentos = db.relationship('Agendamento', back_populates='funcionario', lazy='dynamic')  # COMENTADO
@@ -95,6 +102,7 @@ ordens_servico = db.relationship('OrdemServico', back_populates='usuario', lazy=
 ```
 
 #### `models/agendamento.py`
+
 ```python
 # ANTES (relacionamento comentado)
 # funcionario = db.relationship('Usuario', back_populates='agendamentos')
@@ -104,6 +112,7 @@ funcionario = db.relationship('Usuario', back_populates='agendamentos', lazy='jo
 ```
 
 #### `models/cliente.py`
+
 ```python
 # ANTES (relacionamentos removidos temporariamente)
 # Relacionamentos removidos temporariamente
@@ -117,6 +126,7 @@ propostas = db.relationship('Proposta', back_populates='cliente', lazy='dynamic'
 ```
 
 #### `models/cliente.py` - Endereco
+
 ```python
 # ANTES (backref incorreto)
 cliente = db.relationship('Cliente', backref='enderecos_completos')
@@ -128,11 +138,13 @@ cliente = db.relationship('Cliente', back_populates='enderecos')
 ### **4. Dependências JWT Corrigidas**
 
 #### Problema Identificado
+
 ```bash
 ImportError: cannot import name 'DecodeError' from 'jwt' (unknown location)
 ```
 
 #### Solução Implementada
+
 ```bash
 # 1. Remover pacote jwt conflitante
 pip uninstall jwt -y
@@ -147,6 +159,7 @@ pip install Flask-JWT-Extended
 ### **5. Validações de Email Corrigidas**
 
 #### `models/organizacional.py` - Usuario
+
 ```python
 # ANTES (regex com erro de digitação)
 if not re.match(r'^[a-zA-Z0-9._%+-]+@[aazA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
@@ -158,6 +171,7 @@ if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
 ### **6. Sistema de Login Aprimorado**
 
 #### `controllers/usuario_controller.py`
+
 ```python
 # ANTES (apenas username e email)
 username = data.get('username')
@@ -174,6 +188,7 @@ usuario = service.validar_credenciais(login_value, senha)
 ```
 
 #### `services/usuario_service.py`
+
 ```python
 def validar_credenciais(self, identificador, senha):
     """Validar credenciais usando email, username ou CPF"""
@@ -247,11 +262,13 @@ Proposta
 ## 🧪 Testes e Validações
 
 ### **1. Inicialização do Banco**
+
 ```bash
 ✅ Tabelas criadas com sucesso!
 ```
 
 ### **2. Servidor Flask**
+
 ```bash
 ✅ Serving Flask app 'config'
 ✅ Running on http://127.0.0.1:5000
@@ -259,6 +276,7 @@ Proposta
 ```
 
 ### **3. Usuário Administrador**
+
 ```bash
 ✅ Usuário admin criado com sucesso!
 Email: admin@admin.com
@@ -268,6 +286,7 @@ CPF: 11111111111
 ```
 
 ### **4. API Endpoints**
+
 ```bash
 ✅ GET / - API funcionando
 ✅ POST /api/usuarios/login - Login implementado
@@ -279,12 +298,14 @@ CPF: 11111111111
 ## 🚀 Como Usar
 
 ### **1. Iniciar o Servidor**
+
 ```bash
 cd "C:\Users\dbrun\OneDrive\Desktop\TCC real oficial\backend"
 python main.py
 ```
 
 ### **2. Fazer Login**
+
 ```bash
 POST http://localhost:5000/api/usuarios/login
 Content-Type: application/json
@@ -296,6 +317,7 @@ Content-Type: application/json
 ```
 
 ### **3. Credenciais de Administrador**
+
 - **Username**: `admin`
 - **Email**: `admin@admin.com`
 - **Senha**: `admin123`
@@ -306,6 +328,7 @@ Content-Type: application/json
 ## 📦 Dependências Atualizadas
 
 ### **Principais Pacotes**
+
 - `Flask==3.1.1`
 - `Flask-SQLAlchemy==3.1.1`
 - `Flask-CORS==6.0.1`
@@ -317,6 +340,7 @@ Content-Type: application/json
 ## 🎯 Status Final
 
 ### ✅ **Problemas Resolvidos**
+
 1. Erros SQLAlchemy de relacionamentos ✅
 2. Conflitos de dependências JWT ✅
 3. Imports mal estruturados ✅
@@ -326,6 +350,7 @@ Content-Type: application/json
 7. Validações de dados corrigidas ✅
 
 ### 🚀 **Funcionalidades Operacionais**
+
 - ✅ Inicialização do banco de dados
 - ✅ Servidor Flask rodando
 - ✅ Sistema de autenticação JWT
@@ -335,6 +360,7 @@ Content-Type: application/json
 - ✅ Todos os relacionamentos mapeados
 
 ### 🎉 **Resultado Final**
+
 **O backend está 100% funcional e pronto para integração com o frontend React!**
 
 ---
@@ -342,20 +368,29 @@ Content-Type: application/json
 ## 🔧 Manutenção e Desenvolvimento
 
 ### **Adicionando Novos Modelos**
+
 1. Criar o arquivo do modelo em `models/`
 2. Importar no `models/__init__.py` na ordem correta
 3. Importar no `main.py`
 4. Executar `db.create_all()` para criar as tabelas
 
 ### **Adicionando Novos Controllers**
+
 1. Criar o controller em `controllers/`
 2. Importar no `main.py`
 3. Registrar o blueprint: `app.register_blueprint(novo_bp)`
 
 ### **Debugs Recomendados**
+
 - Verificar logs do Flask para relacionamentos
 - Usar `print()` nos services para debug de queries
 - Monitorar o console para erros SQLAlchemy
+
+---
+
+## 📄 Documentação PIX (QRCode)
+
+- `../PIX_QR_ROUTE.md` — Documentação detalhada da rota de pagamento com QR Code (geração, integração com PDF, campos retornados pelo PSP, exemplos de uso e recomendações).
 
 ---
 
