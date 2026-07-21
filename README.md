@@ -82,4 +82,4 @@ npm run dev
 ## 👤 Autor
 
 **Bruno David Martins** — Desenvolvedor Full Stack
-[GitHub](https://github.com/Brunera17) · [LinkedIn]([https://linkedin.com/in/bruno-david-martins](https://www.linkedin.com/in/bruno-david-martins-906781222))
+[GitHub](https://github.com/Brunera17) · [LinkedIn](https://www.linkedin.com/in/bruno-david-martins-906781222)
