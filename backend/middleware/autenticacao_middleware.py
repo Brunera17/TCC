@@ -31,8 +31,8 @@ ERROS = {
 # -----------------------------------------------------------
 # ⚙️ Configurações principais
 # -----------------------------------------------------------
-SECRET_KEY = app.config.get('SECRET_KEY', 'alohomora')
-REFRESH_SECRET_KEY = app.config.get('REFRESH_SECRET_KEY', 'expectopatronum')
+SECRET_KEY = app.config['SECRET_KEY']
+REFRESH_SECRET_KEY = app.config['REFRESH_SECRET_KEY']
 
 ACCESS_TOKEN_EXPIRE_MINUTES = int(app.config.get('ACCESS_TOKEN_EXPIRE_MINUTES', 15))
 REFRESH_TOKEN_EXPIRE_DAYS = int(app.config.get('REFRESH_TOKEN_EXPIRE_DAYS', 7))
@@ -44,6 +44,7 @@ REFRESH_TOKEN_EXPIRE_SECONDS = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
 REDIS_HOST = app.config.get('REDIS_HOST', 'localhost')
 REDIS_PORT = int(app.config.get('REDIS_PORT', 6379))
 REDIS_DB = int(app.config.get('REDIS_DB', 0))
+REDIS_REQUIRED = app.config.get('REDIS_REQUIRED', False)
 
 try:
     redis_client = redis.Redis(
@@ -81,9 +82,14 @@ def _verificar_token(token, secret_key=SECRET_KEY):
     """Decodifica e valida o token JWT."""
     try:
         payload = jwt.decode(token, secret_key, algorithms=['HS256'])
-        if REDIS_AVAILABLE and redis_client.get(f"blacklist:{token}"):
-            return None, ERROS['refresh_token_invalido']
-        return payload, None
+            try:
+                if redis_client.get(f"blacklist:{token}"):
+                    return None, ERROS['refresh_token_invalido']
+            except (ConnectionError, RedisError) as redis_err:
+                logger.error(f"Redis indisponivel ao verificar blacklist de tokens: {redis_err}")
+                if REDIS_REQUIRED:
+                    return None, ERROS['token_invalido']
+            return payload, None
     except jwt.ExpiredSignatureError:
         return None, ERROS['token_expirado']
     except jwt.InvalidTokenError:
