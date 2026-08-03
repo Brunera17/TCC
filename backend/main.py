@@ -1,3 +1,4 @@
+import os
 from config import app, db
 
 # ✅ IMPORTAR TODOS OS MODELOS NA ORDEM CORRETA
@@ -33,4 +34,6 @@ with app.app_context():
 register_controllers(app)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+        debug_mode = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
+        host = os.getenv('FLASK_HOST', '127.0.0.1')
+        app.run(debug=debug_mode, host=host, port=5000)
