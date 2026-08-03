@@ -267,7 +267,11 @@ class UsuarioService:
             usuario.tentativas_login += 1
             if usuario.tentativas_login >= 3:
                 self.repo.bloquear_usuario(usuario, 1)
+                self.repo.atualizar_usuario(usuario)
                 raise ValueError("Usuário bloqueado")
+            self.repo.atualizar_usuario(usuario)
+            raise ValueError("Senha incorreta")
+        usuario.tentativas_login = 0
         usuario.ultimo_login = datetime.utcnow()
         self.repo.atualizar_usuario(usuario)
         return usuario
