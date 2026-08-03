@@ -11,9 +11,17 @@ import os
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / '.env', override=False)
 
-# Garantir valores padrão caso variáveis críticas não estejam definidas
-os.environ.setdefault('SECRET_KEY', 'alohomora')
-os.environ.setdefault('REFRESH_SECRET_KEY', 'expectopatronum')
+# Validar segredos criticos definidos via variavel de ambiente.
+# Nao usamos fallback aqui: um valor padrao conhecido (e agora publico,
+# ja que este repositorio e publico) tornaria SECRET_KEY/REFRESH_SECRET_KEY previsiveis.
+required_secrets = ['SECRET_KEY', 'REFRESH_SECRET_KEY']
+missing_secrets = [name for name in required_secrets if not os.getenv(name)]
+if missing_secrets:
+        raise RuntimeError(
+                    "Variaveis de ambiente obrigatorias nao definidas: "
+                    + ", ".join(missing_secrets)
+                    + ". Defina-as no .env (fora do controle de versao) antes de iniciar a aplicacao."
+        )
 os.environ.setdefault('ACCESS_TOKEN_EXPIRE_MINUTES', '15')
 os.environ.setdefault('REFRESH_TOKEN_EXPIRE_DAYS', '7')
 os.environ.setdefault('REDIS_HOST', 'localhost')
