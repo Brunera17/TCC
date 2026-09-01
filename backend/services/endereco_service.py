@@ -24,12 +24,6 @@ class EnderecoService:
     
     def criar_endereco(self, **data):
         endereco = Endereco(**data)
-
-        if self.repo.get_by_cliente(data['cliente_id']):
-            raise ValueError("Cliente não vinculado ao endereço")
-        if self.repo.get_by_cep(data['cep']):
-            raise ValueError("CEP não informado")
-        
         return self.repo.create(endereco)
 
     def atualizar_endereco(self, cliente_id: int, **dado):
