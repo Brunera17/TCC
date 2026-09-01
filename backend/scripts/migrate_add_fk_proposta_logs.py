@@ -86,9 +86,13 @@ def recreate_table_with_foreign_keys(conn: sqlite3.Connection) -> None:
         """
     )
 
-    columns = "id, proposta_id, usuario_id, acao, detalhes, created_at, deleted_at, updated_at, usuario_nome"
     cursor.execute(
-        f"INSERT INTO proposta_logs_new ({columns}) SELECT {columns} FROM proposta_logs"
+        """
+        INSERT INTO proposta_logs_new
+            (id, proposta_id, usuario_id, acao, detalhes, created_at, deleted_at, updated_at, usuario_nome)
+        SELECT id, proposta_id, usuario_id, acao, detalhes, created_at, deleted_at, updated_at, usuario_nome
+        FROM proposta_logs
+        """
     )
 
     cursor.execute("DROP TABLE proposta_logs")
