@@ -92,7 +92,7 @@ const menuItems: MenuItem[] = [
 
 const Sidebar: React.FC = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, logout: authLogout } = useAuth();
     const sidebarUser = (user as SidebarUser | null) ?? null;
     const avatarUrl = resolveAvatarUrl(sidebarUser?.foto ?? null);
     const displayName = sidebarUser?.nome?.trim() || sidebarUser?.username?.trim() || 'Usuario';
@@ -161,12 +161,8 @@ const Sidebar: React.FC = () => {
         );
     };
 
-    const logout = () => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('autenticado');
+    const logout = async () => {
+        await authLogout();
         navigate('/');
     };
 

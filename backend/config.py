@@ -84,6 +84,10 @@ app.config['REFRESH_TOKEN_EXPIRE_DAYS'] = int(os.getenv('REFRESH_TOKEN_EXPIRE_DA
 app.config['JWT_SECRET_KEY'] = app.config['SECRET_KEY']
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=app.config['ACCESS_TOKEN_EXPIRE_MINUTES'])
 
+# Configurações do cookie httpOnly do refresh token
+app.config['COOKIE_SECURE'] = os.getenv('COOKIE_SECURE', 'true').lower() == 'true'
+app.config['COOKIE_SAMESITE'] = os.getenv('COOKIE_SAMESITE', 'Lax')
+
 # Configurações de cache/persistência de tokens (Redis)
 app.config['REDIS_HOST'] = os.getenv('REDIS_HOST')
 app.config['REDIS_PORT'] = int(os.getenv('REDIS_PORT', 6379))
