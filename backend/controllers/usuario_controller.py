@@ -39,9 +39,7 @@ def login():
         return jsonify({"error": "Identificador e senha são obrigatórios."}), 400
 
     try:
-        usuario = service.validar_credenciais(identificador, senha)
-        if not usuario:
-            return jsonify({"error": "Credenciais inválidas."}), 401
+        usuario = service.autenticar_usuario(identificador, senha)
 
         # Gerar tokens (access + refresh)
         access_token, refresh_token = gerar_tokens(usuario)
@@ -54,6 +52,8 @@ def login():
             'user': usuario.to_json()
         }), 200
 
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 401
     except Exception as e:
         return jsonify({"error": f"Erro interno no servidor: {str(e)}"}), 500
 
