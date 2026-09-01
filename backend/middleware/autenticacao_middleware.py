@@ -82,14 +82,14 @@ def _verificar_token(token, secret_key=SECRET_KEY):
     """Decodifica e valida o token JWT."""
     try:
         payload = jwt.decode(token, secret_key, algorithms=['HS256'])
-            try:
-                if redis_client.get(f"blacklist:{token}"):
-                    return None, ERROS['refresh_token_invalido']
-            except (ConnectionError, RedisError) as redis_err:
-                logger.error(f"Redis indisponivel ao verificar blacklist de tokens: {redis_err}")
-                if REDIS_REQUIRED:
-                    return None, ERROS['token_invalido']
-            return payload, None
+        try:
+            if redis_client.get(f"blacklist:{token}"):
+                return None, ERROS['refresh_token_invalido']
+        except (ConnectionError, RedisError) as redis_err:
+            logger.error(f"Redis indisponivel ao verificar blacklist de tokens: {redis_err}")
+            if REDIS_REQUIRED:
+                return None, ERROS['token_invalido']
+        return payload, None
     except jwt.ExpiredSignatureError:
         return None, ERROS['token_expirado']
     except jwt.InvalidTokenError:

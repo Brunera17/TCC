@@ -4,6 +4,7 @@ from services.cliente_service import ClienteService
 from services.endereco_service import EnderecoService
 from services.entidade_juridica_service import EntidadeJuridicaService
 from sqlalchemy.exc import IntegrityError
+from middleware.autenticacao_middleware import token_obrigatorio
 
 bp = Blueprint('cliente', __name__, url_prefix='/api/clientes')
 service_cliente = ClienteService()
@@ -11,11 +12,13 @@ service_endereco = EnderecoService()
 service_entidade = EntidadeJuridicaService()
 
 @bp.route('/', methods=['GET'])
+@token_obrigatorio
 def get_clientes():
     clientes = service_cliente.get_all()
     return jsonify([cliente.to_json() for cliente in clientes])
 
 @bp.route('/<int:cliente_id>', methods=['GET'])
+@token_obrigatorio
 def get_cliente_especifico(cliente_id):
     cliente = service_cliente.get_by_id(cliente_id)
     if not cliente:
@@ -32,6 +35,7 @@ def get_cliente_especifico(cliente_id):
     return jsonify(response)
 
 @bp.route('/', methods=['POST'])
+@token_obrigatorio
 def criar_cliente():
     try:
         data = request.get_json()
@@ -55,6 +59,7 @@ def criar_cliente():
         return jsonify({'error': f'Erro interno do servidor: {str(e)}'}), 500
 
 @bp.route('/<int:cliente_id>', methods=['PUT'])
+@token_obrigatorio
 def altera_cliente(cliente_id):
     data = request.get_json()
     if not data:
@@ -67,6 +72,7 @@ def altera_cliente(cliente_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<int:cliente_id>', methods=['DELETE'])
+@token_obrigatorio
 def deletar_cliente(cliente_id):
     try:
         cliente = service_cliente.deletar_cliente(cliente_id)

@@ -5,15 +5,19 @@ from models.organizacional import Usuario
 from services.cliente_service import ClienteService
 from services.servico_services import ServicoService
 
+from middleware.autenticacao_middleware import token_obrigatorio
+
 bp = Blueprint('proposta', __name__, url_prefix='/api/propostas')
 service = PropostaService()
 
 @bp.route('/', methods=['GET'])
+@token_obrigatorio
 def get_propostas():
     propostas = service.get_all()
     return jsonify([proposta.to_json() for proposta in propostas])
 
 @bp.route('/<int:proposta_id>', methods=['GET'], strict_slashes=False)
+@token_obrigatorio
 def get_proposta_especifica(proposta_id):
     proposta = service.get_by_id(proposta_id)
     if not proposta:
@@ -21,11 +25,13 @@ def get_proposta_especifica(proposta_id):
     return jsonify(proposta.to_json())
 
 @bp.route('/cliente/<int:cliente_id>', methods=['GET'])
+@token_obrigatorio
 def get_propostas_por_cliente(cliente_id):
     propostas = service.get_by_cliente(cliente_id)
     return jsonify([proposta.to_json() for proposta in propostas])
 # Rota para histórico de alterações da proposta
 @bp.route('/<int:proposta_id>/logs/', methods=['GET'], strict_slashes=False)
+@token_obrigatorio
 def get_proposta_logs(proposta_id):
     # Tentar obter logs reais via serviço, se disponível.
     try:
@@ -205,6 +211,7 @@ def get_proposta_logs(proposta_id):
         print(f"Erro ao recuperar logs da proposta {proposta_id}: {e}")
         return jsonify({'logs': []}), 200
 @bp.route('/', methods=['POST'])
+@token_obrigatorio
 def criar_proposta():
     data = request.get_json()
     if not data:
@@ -217,6 +224,7 @@ def criar_proposta():
         return jsonify({'error': str(e)}), 400
     
 @bp.route('/<int:proposta_id>', methods=['PUT'], strict_slashes=False)
+@token_obrigatorio
 def altera_proposta(proposta_id):   
     data = request.get_json()
     if not data:
@@ -250,6 +258,7 @@ def altera_proposta(proposta_id):
 
 # ROTA PARA GERAR PDF DA PROPOSTA
 @bp.route('/<int:proposta_id>/gerar-pdf/', methods=['POST'])
+@token_obrigatorio
 def gerar_pdf_proposta(proposta_id):
     from services.proposta_pdf_generator import pdf_generator
     try:
@@ -268,6 +277,7 @@ def gerar_pdf_proposta(proposta_id):
 
 # ROTA PARA VISUALIZAR/DOWNLOAD DO PDF GERADO
 @bp.route('/<int:proposta_id>/pdf', methods=['GET'], strict_slashes=False)
+@token_obrigatorio
 def visualizar_pdf_proposta(proposta_id):
     import os
     from flask import send_file
@@ -281,6 +291,7 @@ def visualizar_pdf_proposta(proposta_id):
         return jsonify({"error": str(e)}), 500
     
 @bp.route('/<int:proposta_id>', methods=['DELETE'], strict_slashes=False)
+@token_obrigatorio
 def deletar_proposta(proposta_id):
     try:
         service.deletar_proposta(proposta_id)

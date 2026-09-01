@@ -1,15 +1,19 @@
 from flask import Blueprint, request, jsonify
 from services.entidade_juridica_service import EntidadeJuridicaService
 
+from middleware.autenticacao_middleware import token_obrigatorio
+
 bp = Blueprint('entidade_juridica', __name__, url_prefix='/api/entidades-juridicas')
 service = EntidadeJuridicaService()
 
 @bp.route('/', methods=['GET'])
+@token_obrigatorio
 def get_entidades_juridicas():
     entidades = service.get_all()
     return jsonify([entidade.to_json() for entidade in entidades])
 
 @bp.route('/<int:entidade_id>', methods=['GET'])
+@token_obrigatorio
 def get_entidade_juridica(entidade_id):
     entidade = service.get_by_id(entidade_id)
     if not entidade:
@@ -17,6 +21,7 @@ def get_entidade_juridica(entidade_id):
     return jsonify(entidade.to_json())
 
 @bp.route('/', methods=['POST'])
+@token_obrigatorio
 def criar_entidade_juridica():
     data = request.get_json()
     if not data:
@@ -29,6 +34,7 @@ def criar_entidade_juridica():
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<int:entidade_id>', methods=['PUT'])
+@token_obrigatorio
 def atualiza_entidade_juridica(entidade_id):
     data = request.get_json()
     if not data:
@@ -41,6 +47,7 @@ def atualiza_entidade_juridica(entidade_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<int:entidade_id>', methods=['DELETE'])
+@token_obrigatorio
 def deletar_entidade_juridica(entidade_id):
     try:
         entidade = service.deletar_entidade_juridica(entidade_id)
