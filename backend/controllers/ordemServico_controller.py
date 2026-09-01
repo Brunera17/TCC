@@ -10,6 +10,7 @@ service = OrdemServicoService()
 pdf_service = OrdemServicoPDFService()
 
 @bp.route('/', methods=['GET'])
+@token_obrigatorio
 def get_ordens_servico():
     try:
         page = request.args.get('page', 1, type=int)
@@ -48,6 +49,7 @@ def get_ordens_servico():
         return jsonify({'error': f'Erro interno: {str(e)}'}), 500
 
 @bp.route('/<int:ordem_id>', methods=['GET'])
+@token_obrigatorio
 def get_ordem_especifica(ordem_id):
     ordem = service.get_by_id(ordem_id)
     if not ordem:
@@ -55,11 +57,13 @@ def get_ordem_especifica(ordem_id):
     return jsonify(ordem.to_json())
 
 @bp.route('/cliente/<int:cliente_id>', methods=['GET'])
+@token_obrigatorio
 def get_ordens_por_cliente(cliente_id):
     ordens_servico = service.get_by_cliente(cliente_id)
     return jsonify([ordem.to_json() for ordem in ordens_servico])
 
 @bp.route('/', methods=['POST'])
+@token_obrigatorio
 def criar_ordem_servico():
     data = request.get_json()
     if not data:
@@ -72,6 +76,7 @@ def criar_ordem_servico():
         return jsonify({'error': str(e)}), 400
     
 @bp.route('/<int:ordem_id>', methods=['PUT'])
+@token_obrigatorio
 def altera_ordem_servico(ordem_id):
     data = request.get_json()
     if not data:
@@ -84,6 +89,7 @@ def altera_ordem_servico(ordem_id):
         return jsonify({'error': str(e)}), 400
     
 @bp.route('/<int:ordem_id>', methods=['DELETE'])
+@token_obrigatorio
 def deletar_ordem_servico(ordem_id):
     try:
         service.deletar_ordem_servico(ordem_id)

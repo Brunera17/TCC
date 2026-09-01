@@ -1,15 +1,19 @@
 from flask import Blueprint, request, jsonify
 from services.endereco_service import EnderecoService
 
+from middleware.autenticacao_middleware import token_obrigatorio
+
 bp = Blueprint('endereco', __name__, url_prefix='/api/enderecos')
 service = EnderecoService()
 
 @bp.route('/', methods=['GET'])
+@token_obrigatorio
 def get_enderecos():
     enderecos = service.get_all()
     return jsonify([endereco.to_json() for endereco in enderecos])
 
 @bp.route('/<int:endereco_id>', methods=['GET'])
+@token_obrigatorio
 def get_endereco_por_id(endereco_id):
     endereco = service.get_by_id(endereco_id)
     if not endereco:
@@ -17,6 +21,7 @@ def get_endereco_por_id(endereco_id):
     return jsonify(endereco.to_json())
 
 @bp.route('/', methods=['POST'])
+@token_obrigatorio
 def criar_endereco():
     data = request.get_json()
     if not data:
@@ -29,6 +34,7 @@ def criar_endereco():
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<int:endereco_id>', methods=['PUT'])
+@token_obrigatorio
 def atualizar_endereco(endereco_id):
     data = request.get_json()
     if not data:
@@ -41,6 +47,7 @@ def atualizar_endereco(endereco_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<int:endereco_id>', methods=['DELETE'])
+@token_obrigatorio
 def deletar_endereco(endereco_id):
     try:
         endereco = service.deletar_endereco(endereco_id)

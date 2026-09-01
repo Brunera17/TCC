@@ -75,6 +75,10 @@ pip install -r requirements.txt
 cp .env.example .env  # preencha com seus próprios valores (nunca faça commit do .env)
 python main.py
 
+# Testes do backend
+pip install -r requirements-dev.txt
+pytest
+
 # Frontend
 npm install
 npm run dev
