@@ -198,12 +198,26 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
 
   useEffect(() => {
     if (!isOpen) {
+      if (emailDebounceRef.current) {
+        window.clearTimeout(emailDebounceRef.current);
+        emailDebounceRef.current = null;
+      }
       setFormData(createInitialFormData());
       setErrors({});
       setAbaAtiva('cliente');
       setApiError('');
     }
   }, [isOpen]);
+
+  // Cancela o debounce de verificação de e-mail pendente se o componente
+  // desmontar antes dele disparar (evita setState num componente já removido).
+  useEffect(() => {
+    return () => {
+      if (emailDebounceRef.current) {
+        window.clearTimeout(emailDebounceRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
