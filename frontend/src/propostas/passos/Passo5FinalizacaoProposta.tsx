@@ -14,9 +14,9 @@ import { Button } from '../../components/forms';
 import { useToast } from '../../context/ToastContext';
 
 // ... (Interfaces e formatarMoeda permanecem as mesmas) ...
-interface TipoAtividade { id: number; codigo: string; nome: string; }
-interface RegimeTributario { id: number; codigo: string; nome: string; }
-interface FaixaFaturamento { id: number; nome: string; valor_inicial: number; valor_final?: number; aliquota: number; }
+interface TipoAtividade { id: number; codigo?: string; nome: string; }
+interface RegimeTributario { id: number; codigo?: string; nome: string; }
+interface FaixaFaturamento { id: number; nome: string; valor_inicial: number; valor_final?: number; aliquota?: number; }
 interface ServicoSelecionado { servico_id: number; quantidade: number; valor_unitario: number; subtotal: number; }
 interface Cliente { id: number; nome: string; abertura_empresa: boolean; }
 interface PropostaCompleta {
