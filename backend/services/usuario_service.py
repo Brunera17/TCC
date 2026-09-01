@@ -259,18 +259,39 @@ class UsuarioService:
         self.repo.atualizar_usuario(usuario)
         return usuario
     
-    def autenticar_usuario(self, username: str, senha: str):
-        usuario = self.repo.get_by_username(username)
+    def autenticar_usuario(self, identificador: str, senha: str):
+        """Autentica um usuário por username, email ou CPF.
+
+        Implementação única de login: consolida o que antes eram três
+        funções quase duplicadas (autenticar_usuario, validar_credenciais
+        e validar_credenciais_por_email). Levanta ValueError em qualquer
+        falha — usuário não encontrado ou senha incorreta usam a mesma
+        mensagem genérica para não revelar qual identificador existe;
+        conta bloqueada usa uma mensagem específica.
+        """
+        identificador_limpo = self._clean_str(identificador)
+        if not identificador_limpo or not senha:
+            raise ValueError("Identificador e senha são obrigatórios")
+
+        usuario = (
+            self.repo.get_by_username(identificador_limpo)
+            or self.repo.get_by_email(identificador_limpo)
+            or self.repo.get_by_cpf(identificador_limpo)
+        )
         if not usuario:
-            raise ValueError("Usuário não encontrado")
+            raise ValueError("Credenciais inválidas")
+
+        if usuario.bloqueado_ate and usuario.bloqueado_ate > datetime.utcnow():
+            raise ValueError("Usuário bloqueado")
+
         if not usuario.verificar_senha(senha):
             usuario.tentativas_login += 1
             if usuario.tentativas_login >= 3:
                 self.repo.bloquear_usuario(usuario, 1)
-                self.repo.atualizar_usuario(usuario)
                 raise ValueError("Usuário bloqueado")
             self.repo.atualizar_usuario(usuario)
-            raise ValueError("Senha incorreta")
+            raise ValueError("Credenciais inválidas")
+
         usuario.tentativas_login = 0
         usuario.ultimo_login = datetime.utcnow()
         self.repo.atualizar_usuario(usuario)
@@ -281,84 +302,7 @@ class UsuarioService:
         if not termo_limpo or len(termo_limpo) < 2:
             raise ValueError("Termo deve ter pelo menos 2 caracteres")
         return self.repo.search_by_name_or_email(termo_limpo)
-    
-    def validar_credenciais(self, identificador, senha):
-        """Validar credenciais usando email, username ou CPF"""
-        try:
-            print(f"Tentando login com identificador: {identificador}")
-            
-            # Tentar buscar por username primeiro
-            usuario = Usuario.query.filter_by(username=identificador, ativo=True).first()
-            
-            # Se não encontrou por username, tentar por email
-            if not usuario:
-                usuario = Usuario.query.filter_by(email=identificador, ativo=True).first()
-            
-            # Se não encontrou por email, tentar por CPF
-            if not usuario:
-                usuario = Usuario.query.filter_by(cpf=identificador, ativo=True).first()
-            
-            if not usuario:
-                print("Usuário não encontrado")
-                return None
-            
-            # Verificar se a senha está correta
-            if not usuario.verificar_senha(senha):
-                print("Senha incorreta")
-                return None
-            
-            print(f"Login realizado com sucesso para: {usuario.email}")
-            
-            # Verificar se não está bloqueado
-            if usuario.bloqueado_ate and usuario.bloqueado_ate > datetime.utcnow():
-                raise ValueError("Usuário bloqueado")
-            
-            # Atualizar último login
-            usuario.ultimo_login = datetime.utcnow()
-            usuario.tentativas_login = 0
-            db.session.commit()
-            
-            return usuario
-            
-        except Exception as e:
-            print(f"Erro na validação de credenciais: {str(e)}")
-            return None
 
-    def validar_credenciais_por_email(self, identificador, senha):
-        """Validar credenciais usando email OU username"""
-        try:
-            print(f"Tentando login com identificador: {identificador}")
-            
-            # Tentar buscar por email primeiro
-            usuario = Usuario.query.filter_by(email=identificador, ativo=True).first()
-            
-            # Se não encontrou por email, tentar por username
-            if not usuario:
-                usuario = Usuario.query.filter_by(username=identificador, ativo=True).first()
-            
-            if not usuario:
-                print("Usuário não encontrado")
-                return None
-            
-            print(f"Usuário encontrado: {usuario.nome}")
-            
-            # Verificar senha
-            if not usuario.verificar_senha(senha):
-                print("Senha incorreta")
-                return None
-            
-            print("Login bem-sucedido")
-            # Atualizar último login
-            usuario.ultimo_login = datetime.utcnow()
-            usuario.tentativas_login = 0
-            db.session.commit()
-            
-            return usuario
-            
-        except Exception as e:
-            print(f"Erro na validação: {e}")
-            return None
-    
     def usuario_eh_admin(self, usuario_id):
         """Verificar se usuário é admin"""
         try:
