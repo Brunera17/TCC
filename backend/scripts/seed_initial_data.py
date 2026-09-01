@@ -188,7 +188,7 @@ SERVICOS = (
         "nome": "Abertura de Empresa",
         "descricao": "Abertura e registro de empresa com acompanhamento fiscal.",
         "valor_unitario": 1800.0,
-        "regras_cobranca": "Projeto",
+        "regras_cobranca": "VALOR_UNICO",
         "categoria": "Societário",
     },
     {
@@ -196,7 +196,7 @@ SERVICOS = (
         "nome": "Alteração Contratual",
         "descricao": "Elaboração e protocolo de alterações societárias.",
         "valor_unitario": 950.0,
-        "regras_cobranca": "Projeto",
+        "regras_cobranca": "VALOR_UNICO",
         "categoria": "Societário",
     },
 )
