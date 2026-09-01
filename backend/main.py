@@ -24,10 +24,7 @@ from models import (
 from controllers import register_controllers
 
 with app.app_context():
-    try:
-        db.create_all()
-    except Exception as e:
-        print(f"❌ Erro ao criar tabelas: {e}")
+    db.create_all()
 
 
 # Registrar todos os blueprints de forma centralizada
