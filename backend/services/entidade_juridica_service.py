@@ -18,11 +18,8 @@ class EntidadeJuridicaService:
     
     def get_by_cnpj(self, cnpj: str):
         return self.repo.get_by_cnpj(cnpj)
-    
-    def get_by_email(self, email: str):
-        return self.repo.get_by_email(email)
-    
-    def criar_entidade_juridica(self, **data):  
+
+    def criar_entidade_juridica(self, **data):
         entidade_juridica = EntidadeJuridica(**data)
 
         if self.repo.get_by_cnpj(data['cnpj']):
