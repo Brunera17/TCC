@@ -72,6 +72,7 @@ TCC/
 python -m venv venv
 ./venv/Scripts/activate  # (ou source venv/bin/activate no Linux/Mac)
 pip install -r requirements.txt
+cp .env.example .env  # preencha com seus próprios valores (nunca faça commit do .env)
 python main.py
 
 # Frontend
