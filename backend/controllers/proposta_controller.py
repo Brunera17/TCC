@@ -1,4 +1,5 @@
 import json
+import logging
 from flask import Blueprint, request, jsonify
 from services.proposta_services import PropostaService
 from models.organizacional import Usuario
@@ -6,6 +7,8 @@ from services.cliente_service import ClienteService
 from services.servico_services import ServicoService
 
 from middleware.autenticacao_middleware import token_obrigatorio
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('proposta', __name__, url_prefix='/api/propostas')
 service = PropostaService()
@@ -207,9 +210,9 @@ def get_proposta_logs(proposta_id):
                 continue
 
         return jsonify({'logs': frontend_logs}), 200
-    except Exception as e:
-        print(f"Erro ao recuperar logs da proposta {proposta_id}: {e}")
-        return jsonify({'logs': []}), 200
+    except Exception:
+        logger.exception(f"Erro ao recuperar logs da proposta {proposta_id}")
+        return jsonify({'error': 'Erro ao recuperar histórico da proposta'}), 500
 @bp.route('/', methods=['POST'])
 @token_obrigatorio
 def criar_proposta():
