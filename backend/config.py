@@ -107,3 +107,21 @@ app.config['UPLOAD_FOLDER'] = str(upload_folder_path)
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
+
+# SQLite não aplica constraints de foreign key por padrão em cada conexão
+# (diferente de Postgres/MySQL), então todo ondelete='CASCADE'/'SET NULL'
+# declarado nos modelos fica decorativo até isso ser ligado explicitamente.
+# O guard por isinstance garante que isso só roda para conexões sqlite3
+# reais (o projeto também suporta Postgres em produção, onde "PRAGMA
+# foreign_keys" não existe e quebraria a conexão).
+import sqlite3
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+
+
+@event.listens_for(Engine, "connect")
+def _habilitar_foreign_keys_sqlite(dbapi_connection, connection_record):
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()

@@ -21,9 +21,15 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
     # Relacionamentos
     enderecos = db.relationship('Endereco', back_populates='cliente', lazy='dynamic', cascade="all, delete-orphan")
     entidades_juridicas = db.relationship('EntidadeJuridica', back_populates='cliente', lazy='dynamic', cascade="all, delete-orphan")
-    solicitacoes = db.relationship('Solicitacao', back_populates='cliente', lazy='dynamic')
-    ordens_servico = db.relationship('OrdemServico', back_populates='cliente', lazy='dynamic')
-    propostas = db.relationship('Proposta', back_populates='cliente', lazy='dynamic')
+    # solicitacoes.cliente_id é NOT NULL com ondelete='CASCADE' no banco: o
+    # cascade aqui espelha isso (mesmo padrão de enderecos/entidades_juridicas).
+    solicitacoes = db.relationship('Solicitacao', back_populates='cliente', lazy='dynamic', cascade="all, delete-orphan")
+    # ordens_servico/propostas têm cliente_id nullable com ondelete='SET NULL':
+    # não devem ser apagadas junto do cliente, só perder a referência.
+    # passive_deletes=True deixa o próprio banco aplicar o SET NULL em vez do
+    # SQLAlchemy tentar carregar e desassociar a coleção 'dynamic' em Python.
+    ordens_servico = db.relationship('OrdemServico', back_populates='cliente', lazy='dynamic', passive_deletes=True)
+    propostas = db.relationship('Proposta', back_populates='cliente', lazy='dynamic', passive_deletes=True)
 
     # Métodos
     def to_json(self):
