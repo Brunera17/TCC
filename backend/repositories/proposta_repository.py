@@ -11,10 +11,7 @@ class PropostaRepository:
     
     def get_by_cliente(self, cliente_id: int):
         return Proposta.query.filter_by(cliente_id=cliente_id, ativo=True).all()
-    
-    def get_by_empresa(self, empresa_id: int):
-        return Proposta.query.filter_by(empresa_id=empresa_id, ativo=True).all()
-    
+
     def get_by_usuario(self, usuario_id: int):
         return Proposta.query.filter_by(usuario_id=usuario_id, ativo=True).all()
     
