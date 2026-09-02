@@ -194,6 +194,10 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
   const [emailChecking, setEmailChecking] = useState(false);
   const [existingClient, setExistingClient] = useState<any | null>(null);
   const emailDebounceRef = useRef<number | null>(null);
+  // Incrementado ao fechar o modal ou desmontar: invalida qualquer verificação
+  // de e-mail já em andamento (a chamada awaited não pode ser cancelada, então
+  // seu callback confere esse token antes de cada setState).
+  const emailCheckTokenRef = useRef(0);
   const [apiError, setApiError] = useState(''); // Estado para erros da API no rodapé
 
   useEffect(() => {
@@ -202,6 +206,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
         window.clearTimeout(emailDebounceRef.current);
         emailDebounceRef.current = null;
       }
+      emailCheckTokenRef.current += 1;
       setFormData(createInitialFormData());
       setErrors({});
       setAbaAtiva('cliente');
@@ -216,6 +221,7 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
       if (emailDebounceRef.current) {
         window.clearTimeout(emailDebounceRef.current);
       }
+      emailCheckTokenRef.current += 1;
     };
   }, []);
 
@@ -379,7 +385,9 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
       }
       const emailValor = String(valor || '').trim();
       if (emailValor && validarEmail(emailValor)) {
+        const requestToken = ++emailCheckTokenRef.current;
         emailDebounceRef.current = window.setTimeout(async () => {
+          if (emailCheckTokenRef.current !== requestToken) return;
           setEmailChecking(true);
           try {
             // Não bloquear edição se o email for o do próprio cliente
@@ -388,6 +396,8 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
             }
             // API atualmente retorna clientes ativos; verificar duplicatas ativas
             const response = await apiService.getClientes({ email: emailValor, per_page: 1 });
+            // O modal pode ter fechado/desmontado enquanto a requisição estava em voo.
+            if (emailCheckTokenRef.current !== requestToken) return;
             const clientes = response.data || response;
             const encontrado = Array.isArray(clientes) ? clientes.find((c: any) => (c.email || '').toLowerCase() === emailValor.toLowerCase()) : null;
 
@@ -405,7 +415,9 @@ export const ModalCadastroCliente: React.FC<ModalCadastroClienteProps> = ({
           } catch (err) {
             console.warn('Erro ao verificar e-mail:', err);
           } finally {
-            setEmailChecking(false);
+            if (emailCheckTokenRef.current === requestToken) {
+              setEmailChecking(false);
+            }
           }
         }, 600);
       }
