@@ -51,18 +51,19 @@ REDIS_PORT = int(app.config.get('REDIS_PORT', 6379))
 REDIS_DB = int(app.config.get('REDIS_DB', 0))
 REDIS_REQUIRED = app.config.get('REDIS_REQUIRED', False)
 
+redis_client = redis.Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    db=REDIS_DB,
+    decode_responses=True
+)
 try:
-    redis_client = redis.Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        db=REDIS_DB,
-        decode_responses=True
-    )
     redis_client.ping()
-    REDIS_AVAILABLE = True
 except (ConnectionError, RedisError):
-    logger.warning("Redis indisponível. Continuando sem cache de tokens.")
-    REDIS_AVAILABLE = False
+    # Apenas um diagnóstico de inicialização - cada função que usa o Redis
+    # faz sua própria checagem ao vivo, então isto não trava o boot nem
+    # fica "preso" a um estado indisponível se o Redis voltar depois.
+    logger.warning("Redis indisponível no início da aplicação. Continuando sem cache de tokens.")
 
 
 # -----------------------------------------------------------
@@ -246,12 +247,17 @@ def gerar_tokens(usuario):
     access_token = jwt.encode(access_payload, SECRET_KEY, algorithm='HS256')
     refresh_token = jwt.encode(refresh_payload, REFRESH_SECRET_KEY, algorithm='HS256')
 
-    if REDIS_AVAILABLE:
+    # Checagem ao vivo em vez de depender do REDIS_AVAILABLE calculado uma
+    # única vez na inicialização do processo — se o Redis caiu e voltou
+    # depois do boot, essa flag congelada nunca seria atualizada.
+    try:
         redis_client.setex(
             f"refresh:{usuario.id}:{refresh_token}",
             REFRESH_TOKEN_EXPIRE_SECONDS,
             'valid'
         )
+    except (ConnectionError, RedisError) as redis_err:
+        logger.error(f"Redis indisponivel ao registrar refresh token: {redis_err}")
 
     return access_token, refresh_token
 
@@ -285,19 +291,34 @@ def clear_refresh_cookie(response):
 
 
 def revogar_token(token):
-    """Adiciona o token à blacklist (logout)."""
-    if not REDIS_AVAILABLE:
-        return False
+    """Adiciona o token à blacklist (logout).
+
+    Checagem ao vivo (try/except), não a flag REDIS_AVAILABLE congelada no
+    boot: se o Redis caiu e voltou depois da inicialização, a flag nunca
+    seria atualizada e a revogação ficaria quebrada para sempre.
+    """
     try:
         redis_client.setex(f"blacklist:{token}", REFRESH_TOKEN_EXPIRE_SECONDS, 'revogado')
         return True
+    except (ConnectionError, RedisError) as redis_err:
+        logger.error(f"Redis indisponivel ao revogar token: {redis_err}")
+        return False
     except Exception as e:
         logger.error(f"Erro ao revogar token: {e}")
         return False
 
 
 def verificar_refresh_token(token):
-    """Verifica se o refresh token é válido e não revogado."""
+    """Verifica se o refresh token é válido e não revogado.
+
+    A checagem contra a whitelist no Redis é o que garante que um refresh
+    token revogado (logout, rotação) pare de funcionar. Antes, essa checagem
+    era pulada inteiramente sempre que o Redis estava indisponível no boot
+    do processo — sem respeitar REDIS_REQUIRED e sem nunca se recuperar caso
+    o Redis voltasse depois. Agora a checagem é feita ao vivo a cada chamada
+    e, se o Redis estiver mesmo inacessível, respeita REDIS_REQUIRED como
+    _verificar_token já faz para a blacklist de access tokens.
+    """
     payload, erro = _verificar_token(token, REFRESH_SECRET_KEY)
     if erro:
         return None, erro
@@ -306,9 +327,16 @@ def verificar_refresh_token(token):
     if not user_id:
         return None, ERROS['payload_invalido']
 
-    if REDIS_AVAILABLE:
-        chave = f"refresh:{user_id}:{token}"
-        if not redis_client.get(chave):
+    chave = f"refresh:{user_id}:{token}"
+    try:
+        encontrado = redis_client.get(chave)
+    except (ConnectionError, RedisError) as redis_err:
+        logger.error(f"Redis indisponivel ao verificar refresh token: {redis_err}")
+        if REDIS_REQUIRED:
             return None, ERROS['refresh_token_invalido']
+        return payload, None
+
+    if not encontrado:
+        return None, ERROS['refresh_token_invalido']
 
     return payload, None
