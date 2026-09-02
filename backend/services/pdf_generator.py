@@ -14,8 +14,8 @@ class OrdemServicoPDFGenerator:
         pdf_service: Optional[OrdemServicoPDFService] = None,
         ordem_servico_repo: Optional[OrdemServicoRepository] = None,
     ) -> None:
-        self.pdf_service = pdf_service or OrdemServicoPDFService()
-        self.ordem_servico_repo = ordem_servico_repo or OrdemServicoRepository()
+        self.pdf_service = pdf_service if pdf_service is not None else OrdemServicoPDFService()
+        self.ordem_servico_repo = ordem_servico_repo if ordem_servico_repo is not None else OrdemServicoRepository()
         self.output_dir = Path.cwd() / "uploads" / "pdfs"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
