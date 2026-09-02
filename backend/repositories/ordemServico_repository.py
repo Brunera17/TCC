@@ -77,7 +77,7 @@ class ItemOrdemServicoRepository:
         return ItemOrdemServico.query.filter_by(ativo=True).all()
 
     def get_by_id(self, item_id: int):
-        return ItemOrdemServico.query.filter_by(item_id, ativo=True).first()
+        return ItemOrdemServico.query.filter_by(id=item_id, ativo=True).first()
     
     def get_by_ordem(self, ordem_id: int):
         return ItemOrdemServico.query.filter_by(ordem_id=ordem_id, ativo=True).all()

@@ -2,20 +2,31 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from repositories.ordemServico_repository import OrdemServicoRepository
 from services.ordem_servico_pdf_service import OrdemServicoPDFService
 
 
 class OrdemServicoPDFGenerator:
     """Gera e gerencia arquivos PDF de Ordens de Serviço."""
 
-    def __init__(self, pdf_service: Optional[OrdemServicoPDFService] = None) -> None:
-        self.pdf_service = pdf_service or OrdemServicoPDFService()
+    def __init__(
+        self,
+        pdf_service: Optional[OrdemServicoPDFService] = None,
+        ordem_servico_repo: Optional[OrdemServicoRepository] = None,
+    ) -> None:
+        self.pdf_service = pdf_service if pdf_service is not None else OrdemServicoPDFService()
+        self.ordem_servico_repo = ordem_servico_repo if ordem_servico_repo is not None else OrdemServicoRepository()
         self.output_dir = Path.cwd() / "uploads" / "pdfs"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def gerar_pdf(self, ordem_servico_id: int) -> str:
         """Gera o PDF da ordem de serviço e persiste o arquivo em disco."""
-        pdf_bytes, filename = self.pdf_service.gerar_pdf(ordem_servico_id)
+        ordem = self.ordem_servico_repo.get_by_id(ordem_servico_id)
+        if not ordem:
+            raise ValueError(f"Ordem de Serviço {ordem_servico_id} não encontrada")
+
+        pdf_bytes = self.pdf_service.gerar_pdf(ordem)
+        filename = f"ordem_servico_{ordem_servico_id}.pdf"
         destino = self.output_dir / filename
         destino.write_bytes(pdf_bytes)
         return str(destino)
