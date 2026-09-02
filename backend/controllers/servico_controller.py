@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from middleware.autenticacao_middleware import token_obrigatorio
+from middleware.acesso_empresa import empresa_id_usuario, usuario_eh_admin, usuario_tem_acesso_empresa
 from services.servico_services import ServicoService, CategoriaServicoService
 
 # Criando o blueprint
@@ -18,6 +19,8 @@ def listar_servicos():
     """Lista todos os serviços ativos"""
     try:
         servicos = servico_service.get_all()
+        if not usuario_eh_admin():
+            servicos = [s for s in servicos if usuario_tem_acesso_empresa(s.empresa_id)]
         return jsonify([servico.to_json() for servico in servicos]), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -30,6 +33,8 @@ def buscar_servico(servico_id):
         servico = servico_service.get_by_id(servico_id)
         if not servico:
             return jsonify({'error': 'Serviço não encontrado'}), 404
+        if not usuario_tem_acesso_empresa(servico.empresa_id):
+            return jsonify({'error': 'Acesso negado para este serviço'}), 403
         return jsonify(servico.to_json()), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -41,13 +46,25 @@ def criar_servico():
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Dados não fornecidos'}), 400
-    
+
     # Campos obrigatórios
     campos_obrigatorios = [ 'nome', 'valor_unitario']
     for campo in campos_obrigatorios:
         if campo not in data:
             return jsonify({'error': f'Campo {campo} é obrigatório'}), 400
-    
+
+    empresa_id = empresa_id_usuario()
+    if not usuario_eh_admin():
+        if not empresa_id:
+            return jsonify({'error': 'Usuário não está vinculado a uma empresa.'}), 403
+        if data.get('empresa_id') and data['empresa_id'] != empresa_id:
+            return jsonify({'error': 'Empresa informada não corresponde ao usuário autenticado.'}), 403
+        data['empresa_id'] = empresa_id
+    elif not data.get('empresa_id'):
+        data['empresa_id'] = empresa_id
+    if not data.get('empresa_id'):
+        return jsonify({'error': 'Campo empresa_id é obrigatório.'}), 400
+
     try:
         servico = servico_service.criar_servico(**data)
         return jsonify(servico.to_json()), 201
@@ -63,7 +80,17 @@ def atualizar_servico(servico_id):
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Dados para atualização não fornecidos'}), 400
-    
+
+    servico_existente = servico_service.get_by_id(servico_id)
+    if not servico_existente:
+        return jsonify({'error': 'Serviço não encontrado'}), 404
+    if not usuario_tem_acesso_empresa(servico_existente.empresa_id):
+        return jsonify({'error': 'Acesso negado para este serviço'}), 403
+    if not usuario_eh_admin():
+        data.pop('empresa_id', None)
+    elif data.get('empresa_id') and data['empresa_id'] != servico_existente.empresa_id:
+        return jsonify({'error': 'Não é possível alterar a empresa do serviço'}), 403
+
     try:
         servico = servico_service.atualizar_servico(servico_id, **data)
         return jsonify(servico.to_json()), 200
@@ -76,6 +103,12 @@ def atualizar_servico(servico_id):
 @token_obrigatorio
 def deletar_servico(servico_id):
     """Exclui (desativa) um serviço"""
+    servico_existente = servico_service.get_by_id(servico_id)
+    if not servico_existente:
+        return jsonify({'error': 'Serviço não encontrado'}), 404
+    if not usuario_tem_acesso_empresa(servico_existente.empresa_id):
+        return jsonify({'error': 'Acesso negado para este serviço'}), 403
+
     try:
         servico_service.deletar_servico(servico_id)
         return jsonify({'message': 'Serviço excluído com sucesso'}), 200
@@ -90,6 +123,8 @@ def listar_servicos_por_categoria(categoria_id):
     """Lista serviços por categoria"""
     try:
         servicos = servico_service.get_by_categoria(categoria_id)
+        if not usuario_eh_admin():
+            servicos = [s for s in servicos if usuario_tem_acesso_empresa(s.empresa_id)]
         return jsonify([servico.to_json() for servico in servicos]), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -102,6 +137,8 @@ def buscar_servico_por_codigo(codigo):
         servico = servico_service.get_by_codigo(codigo)
         if not servico:
             return jsonify({'error': 'Serviço não encontrado'}), 404
+        if not usuario_tem_acesso_empresa(servico.empresa_id):
+            return jsonify({'error': 'Acesso negado para este serviço'}), 403
         return jsonify(servico.to_json()), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -114,6 +151,8 @@ def buscar_servico_por_nome(nome):
         servico = servico_service.get_by_nome(nome)
         if not servico:
             return jsonify({'error': 'Serviço não encontrado'}), 404
+        if not usuario_tem_acesso_empresa(servico.empresa_id):
+            return jsonify({'error': 'Acesso negado para este serviço'}), 403
         return jsonify(servico.to_json()), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -201,6 +240,8 @@ def listar_servicos_da_categoria(categoria_id):
             return jsonify({'error': 'Categoria não encontrada'}), 404
         
         servicos = servico_service.get_by_categoria(categoria_id)
+        if not usuario_eh_admin():
+            servicos = [s for s in servicos if usuario_tem_acesso_empresa(s.empresa_id)]
         return jsonify({
             'categoria': categoria.to_json(),
             'servicos': [servico.to_json() for servico in servicos]

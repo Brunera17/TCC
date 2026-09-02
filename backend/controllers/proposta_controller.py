@@ -3,20 +3,65 @@ import logging
 from flask import Blueprint, request, jsonify
 from services.proposta_services import PropostaService
 from models.organizacional import Usuario
+from models.cliente import Cliente
+from models.entidadeJuridica import EntidadeJuridica
 from services.cliente_service import ClienteService
 from services.servico_services import ServicoService
 
 from middleware.autenticacao_middleware import token_obrigatorio
+from middleware.acesso_empresa import empresa_id_usuario, usuario_eh_admin, usuario_tem_acesso_empresa
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('proposta', __name__, url_prefix='/api/propostas')
 service = PropostaService()
 
+
+def _resolver_empresa_proposta(data: dict):
+    """Resolve e valida o empresa_id de uma proposta a partir do cliente/entidade
+    jurídica informado (a proposta sempre herda a empresa deles), caindo de volta
+    para a empresa do usuário autenticado quando nenhum dos dois é informado.
+
+    Retorna (empresa_id, None) em caso de sucesso, ou (None, (payload, status))
+    quando a requisição deve ser rejeitada.
+    """
+    referencia_empresa_id = None
+
+    if data.get('cliente_id'):
+        cliente = Cliente.query.get(data['cliente_id'])
+        if not cliente:
+            return None, ({'error': 'Cliente não encontrado'}, 404)
+        referencia_empresa_id = cliente.empresa_id
+
+    if data.get('entidade_juridica_id'):
+        entidade = EntidadeJuridica.query.get(data['entidade_juridica_id'])
+        if not entidade:
+            return None, ({'error': 'Entidade jurídica não encontrada'}, 404)
+        if referencia_empresa_id is not None and referencia_empresa_id != entidade.empresa_id:
+            return None, ({'error': 'Cliente e entidade jurídica informados pertencem a empresas diferentes'}, 400)
+        referencia_empresa_id = entidade.empresa_id
+
+    if referencia_empresa_id is not None:
+        if not usuario_tem_acesso_empresa(referencia_empresa_id):
+            return None, ({'error': 'Cliente/entidade jurídica não pertence à sua empresa'}, 403)
+        return referencia_empresa_id, None
+
+    empresa_id = empresa_id_usuario()
+    if not usuario_eh_admin():
+        if not empresa_id:
+            return None, ({'error': 'Usuário não está vinculado a uma empresa.'}, 403)
+        return empresa_id, None
+    if not empresa_id:
+        return None, ({'error': 'Campo empresa_id é obrigatório.'}, 400)
+    return empresa_id, None
+
+
 @bp.route('/', methods=['GET'])
 @token_obrigatorio
 def get_propostas():
     propostas = service.get_all()
+    if not usuario_eh_admin():
+        propostas = [p for p in propostas if usuario_tem_acesso_empresa(p.empresa_id)]
     return jsonify([proposta.to_json() for proposta in propostas])
 
 @bp.route('/<int:proposta_id>', methods=['GET'], strict_slashes=False)
@@ -25,17 +70,30 @@ def get_proposta_especifica(proposta_id):
     proposta = service.get_by_id(proposta_id)
     if not proposta:
         return jsonify({'error': 'Proposta não encontrada'}), 404
+    if not usuario_tem_acesso_empresa(proposta.empresa_id):
+        return jsonify({'error': 'Acesso negado para esta proposta'}), 403
     return jsonify(proposta.to_json())
 
 @bp.route('/cliente/<int:cliente_id>', methods=['GET'])
 @token_obrigatorio
 def get_propostas_por_cliente(cliente_id):
+    cliente = Cliente.query.get(cliente_id)
+    if not cliente:
+        return jsonify({'error': 'Cliente não encontrado'}), 404
+    if not usuario_tem_acesso_empresa(cliente.empresa_id):
+        return jsonify({'error': 'Acesso negado para este cliente'}), 403
     propostas = service.get_by_cliente(cliente_id)
     return jsonify([proposta.to_json() for proposta in propostas])
 # Rota para histórico de alterações da proposta
 @bp.route('/<int:proposta_id>/logs/', methods=['GET'], strict_slashes=False)
 @token_obrigatorio
 def get_proposta_logs(proposta_id):
+    proposta = service.get_by_id(proposta_id)
+    if not proposta:
+        return jsonify({'error': 'Proposta não encontrada'}), 404
+    if not usuario_tem_acesso_empresa(proposta.empresa_id):
+        return jsonify({'error': 'Acesso negado para esta proposta'}), 403
+
     # Tentar obter logs reais via serviço, se disponível.
     try:
         if hasattr(service, 'get_logs'):
@@ -230,20 +288,42 @@ def criar_proposta():
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Dados não fornecidos'}), 400
-    
+
+    empresa_id, erro = _resolver_empresa_proposta(data)
+    if erro:
+        payload, status = erro
+        return jsonify(payload), status
+    data['empresa_id'] = empresa_id
+
     try:
         proposta = service.criar_proposta(**data)
         return jsonify(proposta.to_json()), 201
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    
+
 @bp.route('/<int:proposta_id>', methods=['PUT'], strict_slashes=False)
 @token_obrigatorio
-def altera_proposta(proposta_id):   
+def altera_proposta(proposta_id):
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Dados para atualização não encontrados'}), 400
-    
+
+    proposta_existente = service.get_by_id(proposta_id)
+    if not proposta_existente:
+        return jsonify({'error': 'Proposta não encontrada'}), 404
+    if not usuario_tem_acesso_empresa(proposta_existente.empresa_id):
+        return jsonify({'error': 'Acesso negado para esta proposta'}), 403
+
+    # empresa_id nunca é aceito diretamente do payload: só muda se o
+    # cliente/entidade jurídica vinculado mudar (e, mesmo assim, revalidado).
+    data.pop('empresa_id', None)
+    if data.get('cliente_id') or data.get('entidade_juridica_id'):
+        novo_empresa_id, erro = _resolver_empresa_proposta(data)
+        if erro:
+            payload, status = erro
+            return jsonify(payload), status
+        data['empresa_id'] = novo_empresa_id
+
     # Corrigir campo validade para None ou datetime
     from datetime import datetime
     validade = data.get('validade') or data.get('data_validade')
@@ -270,16 +350,20 @@ def altera_proposta(proposta_id):
 @token_obrigatorio
 def gerar_pdf_proposta(proposta_id):
     from services.proposta_pdf_generator import pdf_generator
+    from models.proposta import Proposta
+    from models.base import db
     try:
+        proposta = Proposta.query.filter_by(id=proposta_id).first()
+        if not proposta:
+            return jsonify({'error': 'Proposta não encontrada'}), 404
+        if not usuario_tem_acesso_empresa(proposta.empresa_id):
+            return jsonify({'error': 'Acesso negado para esta proposta'}), 403
+
         caminho_pdf = pdf_generator.gerar_pdf_proposta(proposta_id)
         # Atualiza o campo pdf_gerado na proposta
-        from models.proposta import Proposta
-        from models.base import db
-        proposta = Proposta.query.filter_by(id=proposta_id).first()
-        if proposta:
-            proposta.pdf_gerado = True
-            proposta.pdf_caminho = caminho_pdf
-            db.session.commit()
+        proposta.pdf_gerado = True
+        proposta.pdf_caminho = caminho_pdf
+        db.session.commit()
         return jsonify({"pdf_path": caminho_pdf}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -292,16 +376,28 @@ def visualizar_pdf_proposta(proposta_id):
     from flask import send_file
     from services.proposta_pdf_generator import pdf_generator
     try:
+        proposta = service.get_by_id(proposta_id)
+        if not proposta:
+            return jsonify({'error': 'Proposta não encontrada'}), 404
+        if not usuario_tem_acesso_empresa(proposta.empresa_id):
+            return jsonify({'error': 'Acesso negado para esta proposta'}), 403
+
         caminho_pdf = pdf_generator.gerar_pdf_proposta(proposta_id)
         if not os.path.exists(caminho_pdf):
             return jsonify({"error": "PDF não encontrado"}), 404
         return send_file(caminho_pdf, mimetype='application/pdf', as_attachment=False)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
 @bp.route('/<int:proposta_id>', methods=['DELETE'], strict_slashes=False)
 @token_obrigatorio
 def deletar_proposta(proposta_id):
+    proposta_existente = service.get_by_id(proposta_id)
+    if not proposta_existente:
+        return jsonify({'error': 'Proposta não encontrada'}), 404
+    if not usuario_tem_acesso_empresa(proposta_existente.empresa_id):
+        return jsonify({'error': 'Acesso negado para esta proposta'}), 403
+
     try:
         service.deletar_proposta(proposta_id)
         return jsonify({'message': 'Proposta deletada com sucesso'}), 200

@@ -15,7 +15,7 @@ if str(BASE_DIR) not in sys.path:
 from sqlalchemy import or_
 
 from config import app, db
-from models import CategoriaServico, FaixaFaturamento, RegimeTributario, Servico, TipoAtividade
+from models import CategoriaServico, Empresa, FaixaFaturamento, RegimeTributario, Servico, TipoAtividade
 
 TIPOS_ATIVIDADE = (
     {
@@ -318,7 +318,25 @@ def _seed_categorias_servico() -> Dict[str, CategoriaServico]:
     return categorias
 
 
-def _seed_servicos(categorias: Dict[str, CategoriaServico]) -> int:
+def _get_or_create_empresa_padrao() -> Empresa:
+    """Retorna a primeira empresa cadastrada, criando uma empresa padrão se
+    nenhuma existir - os serviços seedados por este script precisam de uma
+    empresa dona (issue #13: serviços agora são escopados por empresa)."""
+    empresa = Empresa.query.order_by(Empresa.id).first()
+    if empresa:
+        return empresa
+
+    empresa = Empresa(
+        nome="Empresa Padrão",
+        cnpj="00000000000000",
+        email="contato@empresapadrao.local",
+    )
+    db.session.add(empresa)
+    db.session.commit()
+    return empresa
+
+
+def _seed_servicos(categorias: Dict[str, CategoriaServico], empresa: Empresa) -> int:
     novos = 0
     for item in SERVICOS:
         existente = (
@@ -341,6 +359,7 @@ def _seed_servicos(categorias: Dict[str, CategoriaServico]) -> int:
             valor_unitario=item["valor_unitario"],
             regras_cobranca=item["regras_cobranca"],
             categoria=categoria,
+            empresa_id=empresa.id,
         )
         db.session.add(registro)
         novos += 1
@@ -353,11 +372,13 @@ def run_seed() -> None:
     """Executa todas as cargas de dados."""
     db.create_all()
 
+    empresa_padrao = _get_or_create_empresa_padrao()
+
     adicionados_tipos = _seed_tipos_atividade()
     adicionados_regimes = _seed_regimes_tributarios()
     adicionados_faixas = _seed_faixas_faturamento()
     categorias = _seed_categorias_servico()
-    adicionados_servicos = _seed_servicos(categorias)
+    adicionados_servicos = _seed_servicos(categorias, empresa_padrao)
 
     print("Seed executado com sucesso:")
     print(f" - Tipos de atividade inseridos: {adicionados_tipos}")
