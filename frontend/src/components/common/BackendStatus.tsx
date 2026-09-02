@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, CheckCircle, Loader2, ExternalLink } from 'lucide-react';
 import { checkBackendHealth } from '../../utils/backend-check';
+import { BACKEND_URL } from '../../lib/api';
 
 interface BackendStatusProps {
   onStatusChange?: (isRunning: boolean) => void;
@@ -112,7 +113,7 @@ export const BackendStatus: React.FC<BackendStatusProps> = ({ onStatusChange }) 
               Tentar novamente
             </button>
             <a
-              href="http://localhost:5000"
+              href={BACKEND_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center text-red-700 text-xs font-medium hover:text-red-800 underline"

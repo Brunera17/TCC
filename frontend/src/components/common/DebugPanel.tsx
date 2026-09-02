@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Bug, ChevronDown, ChevronUp, Copy, ExternalLink } from 'lucide-react';
 import { debugApiCall, validateToken } from '../../utils/data-validation';
+import { API_URL } from '../../lib/api';
 
 interface DebugPanelProps {
   endpoint?: string;
@@ -34,7 +35,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
       },
       url: {
         development: `http://localhost:5174/api${endpoint}`,
-        backend: `http://localhost:5000/api${endpoint}`
+        backend: `${API_URL}${endpoint}`
       }
     };
 
@@ -48,7 +49,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   };
 
   const openBackendUrl = () => {
-    window.open(`http://localhost:5000/api${endpoint}`, '_blank');
+    window.open(`${API_URL}${endpoint}`, '_blank');
   };
 
   return (

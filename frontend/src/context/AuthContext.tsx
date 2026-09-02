@@ -215,10 +215,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    // 'autenticado' é apenas uma otimização client-side; a fonte real de
+    // verdade é o access_token validado contra o backend logo abaixo. Exigir
+    // as duas coisas deixava um usuário com token válido, mas sem essa flag
+    // (ex.: flag limpa manualmente, ou nunca escrita por um fluxo antigo),
+    // preso como não-autenticado sem nenhuma tentativa de validação.
     const token = localStorage.getItem('access_token');
-    const autenticado = localStorage.getItem('autenticado');
-    
-    if (token && autenticado === 'true') {
+
+    if (token) {
       loadUserInfo();
     } else {
       setLoading(false);

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
@@ -7,6 +8,8 @@ from models.proposta import ItemProposta, Proposta
 from repositories.proposta_repository import PropostaRepository
 from services.audit_log_service import AuditLogService
 from models.organizacional import Usuario
+
+logger = logging.getLogger(__name__)
 
 class PropostaService:
     """ Serviço para gerenciar propostas """
@@ -172,8 +175,9 @@ class PropostaService:
             # Usar acao semântica já padronizada
             self.audit.create_log(criada.id, 'PROPOSTA_CRIADA', detalhes=criada.to_json(), usuario_id=usuario_id, usuario_nome=usuario_nome)
         except Exception:
-            # Não falhar a criação por problemas na auditoria
-            pass
+            # Não falhar a criação por problemas na auditoria, mas registrar
+            # para que a falha não passe despercebida.
+            logger.exception("Erro ao preparar/gravar log de auditoria para criação da proposta %s", criada.id)
         return criada
     
     def atualizar_proposta(self, proposta_id: int, **data):
@@ -183,7 +187,6 @@ class PropostaService:
             raise ValueError("Proposta não encontrada")
         
         dados_normalizados = self._normalizar_dados(data)
-        print(f"🔄 Dados normalizados: {dados_normalizados}")
         # Preparar rastreamento de alterações
         changes = []
         # snapshot de itens antes da alteração
@@ -211,11 +214,9 @@ class PropostaService:
 
                 changes.append({'campo': 'itens', 'before': before_items, 'after': new_items})
                 setattr(proposta, key, value)
-                print(f"📝 itens: {len(before_items) if before_items else 0} -> {len(new_items) if isinstance(new_items, list) else new_items}")
                 continue
 
             setattr(proposta, key, value)
-            print(f"📝 {key}: {old_value} -> {value}")
             if old_value != value:
                 # registrar alteração simples
                 changes.append({'campo': key, 'before': old_value, 'after': value})
@@ -237,7 +238,7 @@ class PropostaService:
                 # Gravar log de atualização com acao semântica
                 self.audit.create_log(atualizado.id, 'PROPOSTA_EDITADA', detalhes=changes, usuario_id=usuario_id, usuario_nome=usuario_nome)
         except Exception:
-            pass
+            logger.exception("Erro ao preparar/gravar log de auditoria para atualização da proposta %s", atualizado.id)
 
         return atualizado
     
@@ -261,7 +262,7 @@ class PropostaService:
             # Gravar log de deleção com acao semântica
             self.audit.create_log(proposta.id, 'PROPOSTA_DELETADA', detalhes=proposta.to_json(), usuario_id=usuario_id, usuario_nome=usuario_nome)
         except Exception:
-            pass
+            logger.exception("Erro ao preparar/gravar log de auditoria para deleção da proposta %s", proposta.id)
 
         return self.repo.delete(proposta)
 

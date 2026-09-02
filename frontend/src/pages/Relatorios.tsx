@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { BarChart3, Download, Calendar, FileText, Calculator, DollarSign, Users } from 'lucide-react';
-import { PageLayout, PageHeader, Card } from '../components/ui';
-import { ErrorMessage } from '../components/ui/ErrorMessage';
-import { Button, Input } from '../components/forms';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { BarChart3, Download, Eye, Calendar, Filter, Search, Plus, FileText, Calculator, DollarSign, Users } from 'lucide-react'; // Added Users here
+import { apiService, ApiError, BACKEND_URL } from '../lib/api';
+import { PageLayout, PageHeader, DataTable, StateHandler, Card, type Column } from '../components/ui'; // Keep only UI components here
+import { formatarData } from '../utils/formatters';
+import { Button, Input, Select } from '../components/forms'; // Import Button, Input, and Select from forms index
 import { Modal } from '../components/modals/Modal';
 
 // Interface para os relatórios predefinidos
@@ -40,7 +41,7 @@ export const RelatoriosPage: React.FC = () => {
       // Remove qualquer /api ou /relatorios do endpoint e monta a rota correta
       const backendUrl = 'http://localhost:5000';
       const tipo = relatorio.tipo;
-      let url = `${backendUrl}/reports/${tipo}`;
+      let url = `${BACKEND_URL}/reports/${tipo}`;
 
       // Caso especial: agendamentos -> abrir modal para informar período
       if (tipo === 'agendamentos') {
@@ -105,9 +106,8 @@ export const RelatoriosPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const backendUrl = 'http://localhost:5000';
       const tipo = pendingRelatorio.tipo;
-      let url = `${backendUrl}/reports/${tipo}`;
+      let url = `${BACKEND_URL}/reports/${tipo}`;
       const params = new URLSearchParams();
       if (agendamentoInicio) params.append('inicio', agendamentoInicio);
       if (agendamentoFim) params.append('fim', agendamentoFim);

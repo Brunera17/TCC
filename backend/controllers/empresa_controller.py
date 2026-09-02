@@ -17,7 +17,7 @@ def get_empresas():
 def get_empresa_by_id(empresa_id):
     empresa = service.get_by_id(empresa_id)
     if not empresa:
-        return jsonify({'error': 'Empresa não encontrada'}), 400
+        return jsonify({'error': 'Empresa não encontrada'}), 404
     return jsonify(empresa.to_json())
 
 @bp.route('/', methods=['POST'])
