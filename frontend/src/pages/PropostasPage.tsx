@@ -115,31 +115,37 @@ interface DadosPropostaCompleta {
   cliente: {
     id: number;
     nome: string;
-    cpf: string;
-    email: string;
+    cpf?: string | null;
+    email?: string | null;
     abertura_empresa: boolean;
+    ativo: boolean;
+    tipo_cliente?: string | null;
+    is_pessoa_juridica?: boolean;
+    entidades_juridicas?: any[];
   };
   tipoAtividade: {
     id: number;
-    codigo: string;
+    codigo?: string;
     nome: string;
-    aplicavel_pf: boolean;
-    aplicavel_pj: boolean;
+    aplicavel_pf?: boolean;
+    aplicavel_pj?: boolean;
+    ativo: boolean;
   };
   regimeTributario: {
     id: number;
-    codigo: string;
+    codigo?: string;
     nome: string;
-    aplicavel_pf: boolean;
-    aplicavel_pj: boolean;
-    requer_definicoes_fiscais: boolean;
+    aplicavel_pf?: boolean;
+    aplicavel_pj?: boolean;
+    requer_definicoes_fiscais?: boolean;
+    ativo: boolean;
   };
   faixaFaturamento?: {
     id: number;
     nome: string;
     valor_inicial: number;
     valor_final?: number;
-    aliquota: number;
+    aliquota?: number;
     regime_tributario_id: number;
   };
   servicosSelecionados: ServicoSelecionado[];
@@ -153,31 +159,37 @@ interface PropostaComDesconto {
   cliente: {
     id: number;
     nome: string;
-    cpf: string;
-    email: string;
+    cpf?: string | null;
+    email?: string | null;
     abertura_empresa: boolean;
+    ativo: boolean;
+    tipo_cliente?: string | null;
+    is_pessoa_juridica?: boolean;
+    entidades_juridicas?: any[];
   };
   tipoAtividade: {
     id: number;
-    codigo: string;
+    codigo?: string;
     nome: string;
-    aplicavel_pf: boolean;
-    aplicavel_pj: boolean;
+    aplicavel_pf?: boolean;
+    aplicavel_pj?: boolean;
+    ativo: boolean;
   };
   regimeTributario: {
     id: number;
-    codigo: string;
+    codigo?: string;
     nome: string;
-    aplicavel_pf: boolean;
-    aplicavel_pj: boolean;
-    requer_definicoes_fiscais: boolean;
+    aplicavel_pf?: boolean;
+    aplicavel_pj?: boolean;
+    requer_definicoes_fiscais?: boolean;
+    ativo: boolean;
   };
   faixaFaturamento?: {
     id: number;
     nome: string;
     valor_inicial: number;
     valor_final?: number;
-    aliquota: number;
+    aliquota?: number;
     regime_tributario_id: number;
   };
   servicosSelecionados: ServicoSelecionado[];
@@ -578,7 +590,8 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
           codigo: dadosProposta.tipoAtividade.codigo,
           nome: dadosProposta.tipoAtividade.nome,
           aplicavel_pf: dadosProposta.tipoAtividade.aplicavel_pf,
-          aplicavel_pj: dadosProposta.tipoAtividade.aplicavel_pj
+          aplicavel_pj: dadosProposta.tipoAtividade.aplicavel_pj,
+          ativo: dadosProposta.tipoAtividade.ativo
         },
         regimeTributario: {
           id: dadosProposta.regimeTributario.id,
@@ -586,7 +599,8 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
           nome: dadosProposta.regimeTributario.nome,
           aplicavel_pf: dadosProposta.regimeTributario.aplicavel_pf,
           aplicavel_pj: dadosProposta.regimeTributario.aplicavel_pj,
-          requer_definicoes_fiscais: dadosProposta.regimeTributario.requer_definicoes_fiscais
+          requer_definicoes_fiscais: dadosProposta.regimeTributario.requer_definicoes_fiscais,
+          ativo: dadosProposta.regimeTributario.ativo
         },
         faixaFaturamento: dadosProposta.faixaFaturamento ? {
           id: dadosProposta.faixaFaturamento.id,
@@ -863,11 +877,11 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
   if (currentStep === 4 && dadosPropostaCompleta) {
     return (
       <Passo4RevisaoProposta
-        dadosProposta={dadosPropostaCompleta as any}
+        dadosProposta={dadosPropostaCompleta}
         propostaId={dadosProposta.propostaId}
         propostaNumero={dadosProposta.propostaNumero}
         onVoltar={handleVoltarPasso4}
-        onProximo={handleProximoPasso4 as any}
+        onProximo={handleProximoPasso4}
         todosServicos={todosServicos}
       />
     );
@@ -888,7 +902,7 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
     };
     return (
       <Passo5FinalizacaoProposta
-        dadosCompletos={dadosCompletosPasso5 as any}
+        dadosCompletos={dadosCompletosPasso5}
         proposta={{
           id: dadosProposta.propostaId || 0,
           numero: dadosProposta.propostaNumero || 'NOVA',
