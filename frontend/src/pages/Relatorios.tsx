@@ -1,19 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { BarChart3, Download, Eye, Calendar, Filter, Search, Plus, FileText, Calculator, DollarSign, Users } from 'lucide-react'; // Added Users here
-import { apiService, ApiError, BACKEND_URL } from '../lib/api';
-import { PageLayout, PageHeader, DataTable, StateHandler, Card, type Column } from '../components/ui'; // Keep only UI components here
-import { formatarData } from '../utils/formatters';
-import { Button, Input, Select } from '../components/forms'; // Import Button, Input, and Select from forms index
+import React, { useState } from 'react';
+import { BarChart3, Download, Calendar, FileText, Calculator, DollarSign, Users } from 'lucide-react';
+import { BACKEND_URL } from '../lib/api';
+import { PageLayout, PageHeader, Card, ErrorMessage } from '../components/ui';
+import { Button, Input } from '../components/forms';
 import { Modal } from '../components/modals/Modal';
-interface Relatorio {
-  id: number;
-  titulo: string;
-  tipo: string; // 'vendas', 'clientes', 'propostas', etc.
-  data_criacao: string;
-  // Outros campos possíveis (filtros, campos, etc.) - a API não especifica
-  filtros?: Record<string, any>;
-  campos?: string[];
-}
 
 // Interface para os relatórios predefinidos
 interface RelatorioPredefinido {
@@ -33,53 +23,13 @@ const relatoriosPredefinidos: RelatorioPredefinido[] = [
 ];
 
 export const RelatoriosPage: React.FC = () => {
-  const [relatoriosSalvos, setRelatoriosSalvos] = useState<Relatorio[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [tipoFiltro, setTipoFiltro] = useState('');
   // Estado para modal de agendamentos
   const [isAgendamentoModalOpen, setIsAgendamentoModalOpen] = useState(false);
   const [agendamentoInicio, setAgendamentoInicio] = useState<string>('');
   const [agendamentoFim, setAgendamentoFim] = useState<string>('');
   const [pendingRelatorio, setPendingRelatorio] = useState<RelatorioPredefinido | null>(null);
-
-  const fetchRelatoriosSalvos = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // A API_URL já inclui /api, então removemos duplicidade
-      // Assumindo que apiService.getRelatorios() busca /api/relatorios (relatórios salvos)
-      const response = await apiService.getRelatorios(); // Usar método genérico getRelatorios
-      // A API /api/relatorios não foi detalhada na estrutura de resposta, assumindo array direto
-      setRelatoriosSalvos(Array.isArray(response) ? response : []);
-    } catch (err) {
-      console.error('Erro ao buscar relatórios salvos:', err);
-      const message = err instanceof ApiError
-        ? `Erro ${err.status}: ${JSON.stringify(err.details)}`
-        : err instanceof Error
-          ? err.message
-          : 'Erro desconhecido';
-      setError(`Falha ao carregar relatórios salvos: ${message}`);
-      setRelatoriosSalvos([]); // Limpa em caso de erro
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchRelatoriosSalvos();
-  }, [fetchRelatoriosSalvos]);
-
-  // Filtrar relatórios salvos localmente (API não especifica filtros no GET /relatorios)
-  const relatoriosFiltrados = relatoriosSalvos.filter(relatorio => {
-    const termo = searchTerm.toLowerCase();
-    const tipoMatch = !tipoFiltro || relatorio.tipo.toLowerCase() === tipoFiltro.toLowerCase();
-    const searchMatch = !termo ||
-      relatorio.titulo.toLowerCase().includes(termo) ||
-      relatorio.tipo.toLowerCase().includes(termo);
-    return tipoMatch && searchMatch;
-  });
 
   const handleGerarRelatorioPredefinido = async (relatorio: RelatorioPredefinido) => {
     setError(null);
@@ -137,40 +87,6 @@ export const RelatoriosPage: React.FC = () => {
       setLoading(false);
     }
   };
-
-  const handleExportarRelatorio = (relatorio: Relatorio) => {
-    alert(`Exportando ${relatorio.titulo}... (Funcionalidade de exemplo)`);
-    // Aqui você chamaria POST /api/relatorios/export com os dados do relatório
-  };
-
-  const handleCriarRelatorio = () => {
-    alert('Abrir modal/página para criar relatório customizado... (Funcionalidade de exemplo)');
-    // Implementar lógica para POST /api/relatorios/custom
-  };
-
-  const colunasRelatoriosSalvos: Column<Relatorio>[] = [
-    {
-      key: 'titulo',
-      label: 'Título',
-      render: (item) => <span className="font-medium">{item.titulo}</span>,
-    },
-    {
-      key: 'tipo',
-      label: 'Tipo',
-      render: (item) => <span className="capitalize">{item.tipo}</span>,
-    },
-    {
-      key: 'data_criacao',
-      label: 'Criado em',
-      render: (item) => formatarData(item.data_criacao)
-    },
-    // Adicionar mais colunas se a API retornar mais dados (ex: filtros usados)
-  ];
-
-  const tiposDisponiveis = useMemo(() => {
-    const tipos = new Set(relatoriosPredefinidos.map(r => r.tipo));
-    return Array.from(tipos).map(tipo => ({ value: tipo, label: tipo.charAt(0).toUpperCase() + tipo.slice(1) }));
-  }, []);
 
   const fecharModalAgendamento = () => {
     setIsAgendamentoModalOpen(false);
@@ -233,6 +149,10 @@ export const RelatoriosPage: React.FC = () => {
       >
       </PageHeader>
 
+      {error && (
+        <ErrorMessage message={error} onDismiss={() => setError(null)} className="mb-4" />
+      )}
+
       {/* Relatórios Predefinidos */}
       <Card>
         <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
@@ -251,6 +171,7 @@ export const RelatoriosPage: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => handleGerarRelatorioPredefinido(relatorio)}
+                disabled={loading}
                 leftIcon={<Download className="w-4 h-4" />}
               >
                 Gerar Agora
@@ -260,22 +181,20 @@ export const RelatoriosPage: React.FC = () => {
         </div>
       </Card>
 
-     
-        {/* Modal para informar período de agendamentos */}
-        <Modal isOpen={isAgendamentoModalOpen} onClose={fecharModalAgendamento} title="Relatório de Agendamentos">
-          <div className="grid grid-cols-1 gap-3">
-            <label className="text-sm text-gray-700">Informe data de início (YYYY-MM-DD) — deixar vazio para sem filtro</label>
-            <Input type="date" value={agendamentoInicio} onChange={(e) => setAgendamentoInicio(e.target.value)} />
-            <label className="text-sm text-gray-700">Informe data de fim (YYYY-MM-DD) — deixar vazio para sem filtro</label>
-            <Input type="date" value={agendamentoFim} onChange={(e) => setAgendamentoFim(e.target.value)} />
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="ghost" onClick={fecharModalAgendamento}>Cancelar</Button>
-              <Button onClick={confirmarGerarAgendamento}>Gerar PDF</Button>
-            </div>
+      {/* Modal para informar período de agendamentos */}
+      <Modal isOpen={isAgendamentoModalOpen} onClose={fecharModalAgendamento} title="Relatório de Agendamentos">
+        <div className="grid grid-cols-1 gap-3">
+          <label className="text-sm text-gray-700">Informe data de início (YYYY-MM-DD) — deixar vazio para sem filtro</label>
+          <Input type="date" value={agendamentoInicio} onChange={(e) => setAgendamentoInicio(e.target.value)} />
+          <label className="text-sm text-gray-700">Informe data de fim (YYYY-MM-DD) — deixar vazio para sem filtro</label>
+          <Input type="date" value={agendamentoFim} onChange={(e) => setAgendamentoFim(e.target.value)} />
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="ghost" onClick={fecharModalAgendamento}>Cancelar</Button>
+            <Button onClick={confirmarGerarAgendamento}>Gerar PDF</Button>
           </div>
-        </Modal>
-
-      </PageLayout>
+        </div>
+      </Modal>
+    </PageLayout>
   );
 };
 
