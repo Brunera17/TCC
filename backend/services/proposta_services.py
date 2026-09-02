@@ -278,9 +278,16 @@ class PropostaService:
         if not Proposta.query.filter_by(numero_proposta=base).first():
             return base
 
-        sequencial = 1
-        while True:
+        # 'base' já usa 18 dos 20 caracteres de numero_proposta (String(20)) -
+        # o sufixo de desempate só tem espaço para 2 dígitos. Limitar o loop a
+        # 99 tentativas evita gerar um candidato mais longo que a coluna
+        # (ex.: sequencial=100 -> "...100", 21 caracteres).
+        for sequencial in range(1, 100):
             candidato = f"{base}{sequencial:02d}"
             if not Proposta.query.filter_by(numero_proposta=candidato).first():
                 return candidato
-            sequencial += 1
+
+        raise RuntimeError(
+            "Não foi possível gerar um número de proposta único: mais de 99 "
+            "propostas já foram criadas no mesmo segundo."
+        )

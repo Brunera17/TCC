@@ -114,15 +114,6 @@ function toNumber(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function generatePropostaNumero(now: Date = new Date()): string {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const time = `${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
-  const millis = String(now.getMilliseconds()).padStart(3, "0");
-  return `PROP-${year}${month}${day}-${time}${millis}`;
-}
-
 type BackendPropostaStatus = 'rascunho' | 'enviada' | 'aceita' | 'rejeitada' | 'expirada';
 
 const STATUS_TO_BACKEND: Record<string, BackendPropostaStatus> = {
@@ -809,7 +800,17 @@ export const apiService = {
               ? payload.numeroProposta.trim()
               : null;
 
-    payload.numero_proposta = numeroExistente ?? generatePropostaNumero();
+    // Só envia numero_proposta se o chamador já tiver um explícito. Sem um
+    // valor, deixamos o backend gerar (PropostaService._gerar_numero_proposta
+    // checa colisão contra o banco antes de usar o número, e a coluna tem
+    // constraint de unicidade) em vez de inventar um aqui no cliente a
+    // partir do relógio do navegador, que não tem como garantir unicidade
+    // entre abas/usuários e nunca chegava a acionar o gerador do backend.
+    if (numeroExistente) {
+      payload.numero_proposta = numeroExistente;
+    } else {
+      delete payload.numero_proposta;
+    }
     delete payload.numero;
     delete payload.propostaNumero;
     delete payload.numeroProposta;
