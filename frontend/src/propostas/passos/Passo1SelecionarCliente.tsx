@@ -11,7 +11,8 @@ import {
   Edit3,
   Users,
   Search,
-  Plus
+  Plus,
+  Loader2
 } from 'lucide-react';
 import { apiService } from "../../lib/api";
 import { formatarHora } from '../../utils/formatters';
