@@ -22,12 +22,13 @@ export const useAuthenticatedApi = () => {
       ...init.headers,
     };
 
-    console.log('🔑 Request autenticada:', {
-      url: input.toString(),
-      method: init.method || 'GET',
-      hasToken: !!token,
-      headers: headers
-    });
+    if (import.meta.env.DEV) {
+      console.log('🔑 Request autenticada:', {
+        url: input.toString(),
+        method: init.method || 'GET',
+        hasToken: !!token,
+      });
+    }
 
     return fetchJSON(input, {
       ...init,
