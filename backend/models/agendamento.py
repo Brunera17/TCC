@@ -22,8 +22,12 @@ class Agendamento(db.Model, TimestampMixin, ActiveMixin):
     
     # Chave estrangeira para o funcionário
     funcionario_id = db.Column(db.Integer, db.ForeignKey('funcionarios.id', ondelete='CASCADE'), nullable=False, index=True)
-    
+
+    # Empresa (escritório de contabilidade) a que este agendamento pertence.
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id', ondelete='CASCADE'), nullable=False, index=True)
+
     # Relacionamentos
+    empresa = db.relationship('Empresa')
     funcionario = db.relationship('Usuario', back_populates='agendamentos', lazy='joined')
     
     # Validadores
@@ -112,6 +116,7 @@ class Agendamento(db.Model, TimestampMixin, ActiveMixin):
             'local': self.local,
             'prioridade': self.prioridade,
             'funcionario_id': self.funcionario_id,
+            'empresa_id': self.empresa_id,
             'funcionario': self.funcionario.to_json() if self.funcionario and self.funcionario.ativo else None,
             'created_at': format_datetime_to_utc_iso(self.created_at),
             'updated_at': format_datetime_to_utc_iso(self.updated_at),
