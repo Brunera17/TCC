@@ -232,6 +232,19 @@ def usuario_opcional(f):
 # -----------------------------------------------------------
 # 🔑 Funções de geração e revogação de tokens
 # -----------------------------------------------------------
+class TokenStorageError(RuntimeError):
+    """Levantado quando REDIS_REQUIRED está habilitado mas o registro do
+    refresh token na whitelist do Redis falha.
+
+    Sem isso, gerar_tokens() emitiria tokens "de fachada": o refresh token
+    nunca teria entrada na whitelist (rejeitado por verificar_refresh_token
+    assim que chamado) e, com REDIS_REQUIRED=true, o próprio access token
+    já seria rejeitado fail-closed por _verificar_token. Ou seja, a
+    autenticação pareceria ter sucesso (200 com tokens) mas devolveria
+    credenciais inutilizáveis - melhor falhar explicitamente aqui.
+    """
+
+
 def gerar_tokens(usuario):
     """Gera access token e refresh token para o usuário."""
     access_payload = {
@@ -258,6 +271,10 @@ def gerar_tokens(usuario):
         )
     except (ConnectionError, RedisError) as redis_err:
         logger.error(f"Redis indisponivel ao registrar refresh token: {redis_err}")
+        if REDIS_REQUIRED:
+            raise TokenStorageError(
+                "Não foi possível concluir a autenticação: serviço de sessão indisponível."
+            ) from redis_err
 
     return access_token, refresh_token
 

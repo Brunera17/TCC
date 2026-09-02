@@ -7,7 +7,7 @@ from models.organizacional import Usuario
 from middleware.autenticacao_middleware import (
     token_obrigatorio, usuario_opcional,
     gerar_tokens, revogar_token, verificar_refresh_token,
-    set_refresh_cookie, clear_refresh_cookie
+    set_refresh_cookie, clear_refresh_cookie, TokenStorageError
 )
 
 bp = Blueprint('usuario', __name__, url_prefix='/api/usuarios')
@@ -56,6 +56,8 @@ def login():
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 401
+    except TokenStorageError as e:
+        return jsonify({"error": str(e)}), 503
     except Exception as e:
         return jsonify({"error": f"Erro interno no servidor: {str(e)}"}), 500
 
@@ -97,7 +99,10 @@ def refresh_token():
     if not usuario:
         return jsonify({"error": "Usuário não encontrado."}), 404
 
-    access_token, novo_refresh_token = gerar_tokens(usuario)
+    try:
+        access_token, novo_refresh_token = gerar_tokens(usuario)
+    except TokenStorageError as e:
+        return jsonify({"error": str(e)}), 503
 
     response = jsonify({
         "access_token": access_token,
