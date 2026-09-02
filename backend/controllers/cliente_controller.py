@@ -1,10 +1,13 @@
 import json
+import logging
 from flask import Blueprint, request, jsonify
 from services.cliente_service import ClienteService
 from services.endereco_service import EnderecoService
 from services.entidade_juridica_service import EntidadeJuridicaService
 from sqlalchemy.exc import IntegrityError
 from middleware.autenticacao_middleware import token_obrigatorio
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('cliente', __name__, url_prefix='/api/clientes')
 service_cliente = ClienteService()
@@ -41,21 +44,18 @@ def criar_cliente():
         data = request.get_json()
         if not data:
             return jsonify({'error': 'Dados não fornecidos'}), 400
-        
-        # Log dos dados recebidos (para debug)
-        print(f"DEBUG: Dados recebidos para criação de cliente: {data}")
-        
+
         cliente = service_cliente.criar_cliente(**data)
         return jsonify(cliente.to_json()), 201
     except ValueError as e:
-        print(f"DEBUG: Erro de validação: {str(e)}")
+        logger.warning("Erro de validação ao criar cliente: %s", e)
         return jsonify({'error': str(e)}), 400
     except IntegrityError as e:
         # Erro de unicidade em banco - retorna 409 Conflict com detalhe
-        print(f"DEBUG: IntegrityError ao criar cliente: {str(e)}")
+        logger.warning("Conflito de integridade ao criar cliente: %s", e)
         return jsonify({'error': 'Conflito ao criar cliente', 'details': str(e)}), 409
     except Exception as e:
-        print(f"DEBUG: Erro interno: {str(e)}")
+        logger.exception("Erro inesperado ao criar cliente")
         return jsonify({'error': f'Erro interno do servidor: {str(e)}'}), 500
 
 @bp.route('/<int:cliente_id>', methods=['PUT'])

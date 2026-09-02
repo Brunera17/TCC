@@ -183,7 +183,6 @@ class PropostaService:
             raise ValueError("Proposta não encontrada")
         
         dados_normalizados = self._normalizar_dados(data)
-        print(f"🔄 Dados normalizados: {dados_normalizados}")
         # Preparar rastreamento de alterações
         changes = []
         # snapshot de itens antes da alteração
@@ -211,11 +210,9 @@ class PropostaService:
 
                 changes.append({'campo': 'itens', 'before': before_items, 'after': new_items})
                 setattr(proposta, key, value)
-                print(f"📝 itens: {len(before_items) if before_items else 0} -> {len(new_items) if isinstance(new_items, list) else new_items}")
                 continue
 
             setattr(proposta, key, value)
-            print(f"📝 {key}: {old_value} -> {value}")
             if old_value != value:
                 # registrar alteração simples
                 changes.append({'campo': key, 'before': old_value, 'after': value})

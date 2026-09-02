@@ -230,11 +230,6 @@ def altera_proposta(proposta_id):
     if not data:
         return jsonify({'error': 'Dados para atualização não encontrados'}), 400
     
-    print(f"🔄 Atualizando proposta {proposta_id}")
-    print(f"📝 Dados recebidos: {data}")
-    print(f"💰 percentual_desconto: {data.get('percentual_desconto')}")
-    print(f"📅 data_validade: {data.get('data_validade')}")
-
     # Corrigir campo validade para None ou datetime
     from datetime import datetime
     validade = data.get('validade') or data.get('data_validade')
