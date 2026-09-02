@@ -71,8 +71,13 @@ def get_proposta_logs(proposta_id):
                     parsed = json.loads(obj['detalhes'])
                     obj['detalhes'] = parsed
             except Exception:
-                # se falhar em parse, manter string original
-                pass
+                # 'detalhes' não é JSON válido (ex.: texto livre de um registro
+                # antigo) - manter a string original é um fallback legítimo,
+                # mas registrar para não esconder um problema real de dados.
+                logger.warning(
+                    "detalhes não é JSON válido no log %s da proposta %s; mantendo como string",
+                    obj.get('id'), proposta_id
+                )
 
             normalized.append(obj)
 
@@ -206,7 +211,13 @@ def get_proposta_logs(proposta_id):
                         entry['acao'] = 'PROPOSTA_EDITADA'
                     frontend_logs.append(entry)
             except Exception:
-                # Se algum registro falhar ao mapear, pular e continuar
+                # Um registro malformado não deve derrubar o histórico inteiro,
+                # mas pular em silêncio escondia exatamente o tipo de falha que
+                # a issue #18 queria visível - registrar antes de continuar.
+                logger.exception(
+                    "Falha ao mapear log %s da proposta %s para o formato do frontend",
+                    entry.get('id'), proposta_id
+                )
                 continue
 
         return jsonify({'logs': frontend_logs}), 200
