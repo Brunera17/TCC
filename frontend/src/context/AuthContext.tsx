@@ -31,7 +31,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (identificador: string, senha: string) => Promise<User>;
-  logout: () => void;
+  logout: () => Promise<void>;
   loading: boolean;
   getAuthHeaders: () => { Authorization?: string };
   syncUser: (rawUser: unknown) => User | null;
@@ -236,6 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // recebe o cookie httpOnly refresh_token
         body: JSON.stringify({
           identificador,
           senha
@@ -247,8 +248,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!response.ok) {
         throw new Error(data.error || 'Credenciais inválidas');
       }
+      // O refresh_token não é mais retornado no corpo: o backend o define
+      // como cookie httpOnly.
       localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
       localStorage.setItem('token', data.access_token);
       localStorage.setItem('autenticado', 'true');
   markTokensIssued();
@@ -263,7 +265,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Chama o backend para revogar o access token e limpar o cookie httpOnly
+    // do refresh token (JS não consegue apagar um cookie httpOnly sozinho).
+    const currentToken = token || localStorage.getItem('access_token');
+    if (currentToken) {
+      try {
+        await fetch(`${API_URL}/usuarios/logout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${currentToken}` },
+          credentials: 'include',
+        });
+      } catch (error) {
+        console.warn('Falha ao notificar o backend sobre o logout:', error);
+      }
+    }
+
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token');

@@ -376,12 +376,6 @@ async function refreshAccessToken(): Promise<boolean> {
     return false;
   }
 
-  const refresh = localStorage.getItem("refresh_token");
-  if (!refresh) {
-    console.warn("🚫 Nenhum refresh token encontrado");
-    return false;
-  }
-
   try {
     const endpoints = ["usuarios/refresh/", "auth/refresh/", "refresh/"];
 
@@ -390,15 +384,13 @@ async function refreshAccessToken(): Promise<boolean> {
         const res = await fetch(normalizeUrl(endpoint), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh_token: refresh }),
+          credentials: "include", // envia o cookie httpOnly refresh_token
+          body: JSON.stringify({}),
         });
 
         if (res.ok) {
           const data = await res.json();
           localStorage.setItem("access_token", data.access_token);
-          if (data.refresh_token) {
-            localStorage.setItem("refresh_token", data.refresh_token);
-          }
           markTokensIssued();
           log("🔁 Token atualizado com sucesso");
           return true;
@@ -428,7 +420,7 @@ async function fetchJSON<T>(
   const isFormDataBody = options.body instanceof FormData;
   const headers = buildHeaders(options.headers ?? {}, !isFormDataBody);
 
-  const config: RequestInit = { ...options, headers };
+  const config: RequestInit = { ...options, headers, credentials: "include" };
   const method = (options.method || "GET").toUpperCase();
 
   try {
@@ -445,7 +437,6 @@ async function fetchJSON<T>(
         localStorage.removeItem("access_token");
         localStorage.removeItem("jwt_token");
         localStorage.removeItem("token");
-        localStorage.removeItem("refresh_token");
         clearTokenMetadata();
         sessionStorage.removeItem("access_token");
 
@@ -581,7 +572,9 @@ export const apiService = {
   },
   // ---------- Usuário ----------
   async login(credentials: { identificador: string; senha: string }) {
-    return postJSON<{ access_token: string; refresh_token: string, user: any }>(
+    // O refresh_token não é mais retornado no corpo: o backend o define como
+    // cookie httpOnly (ver backend/middleware/autenticacao_middleware.py).
+    return postJSON<{ access_token: string; user: any }>(
       "usuarios/login/",
       credentials
     );

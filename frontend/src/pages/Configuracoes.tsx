@@ -494,7 +494,7 @@ const Configuracoes: React.FC = () => {
                         <div className="space-y-1">
                             <InfoItem label="Autenticação ativa" value={user ? 'Sim' : 'Não'} />
                             <InfoItem label="Token no navegador" value={localStorage.getItem('access_token') ? 'Presente' : 'Ausente'} />
-                            <InfoItem label="Refresh token" value={localStorage.getItem('refresh_token') ? 'Presente' : 'Ausente'} />
+                            <InfoItem label="Refresh token" value="Não inspecionável (cookie httpOnly)" />
                             <InfoItem label="Último login" value={formatDateTime(perfil?.ultimo_login)} />
                         </div>
                     </Card>

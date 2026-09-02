@@ -38,6 +38,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(app.config.get('ACCESS_TOKEN_EXPIRE_MINUTES', 
 REFRESH_TOKEN_EXPIRE_DAYS = int(app.config.get('REFRESH_TOKEN_EXPIRE_DAYS', 7))
 REFRESH_TOKEN_EXPIRE_SECONDS = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
 
+REFRESH_COOKIE_NAME = 'refresh_token'
+REFRESH_COOKIE_PATH = '/api/usuarios'
+COOKIE_SECURE = bool(app.config.get('COOKIE_SECURE', True))
+COOKIE_SAMESITE = app.config.get('COOKIE_SAMESITE', 'Lax')
+
 # -----------------------------------------------------------
 # 🧱 Conexão Redis
 # -----------------------------------------------------------
@@ -249,6 +254,34 @@ def gerar_tokens(usuario):
         )
 
     return access_token, refresh_token
+
+
+def set_refresh_cookie(response, refresh_token):
+    """Anexa o refresh token como cookie httpOnly na resposta."""
+    response.set_cookie(
+        REFRESH_COOKIE_NAME,
+        refresh_token,
+        max_age=REFRESH_TOKEN_EXPIRE_SECONDS,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        path=REFRESH_COOKIE_PATH
+    )
+    return response
+
+
+def clear_refresh_cookie(response):
+    """Remove o cookie de refresh token (usado no logout)."""
+    response.set_cookie(
+        REFRESH_COOKIE_NAME,
+        '',
+        max_age=0,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        path=REFRESH_COOKIE_PATH
+    )
+    return response
 
 
 def revogar_token(token):

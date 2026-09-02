@@ -6,7 +6,8 @@ from services.usuario_service import UsuarioService
 from models.organizacional import Usuario
 from middleware.autenticacao_middleware import (
     token_obrigatorio, usuario_opcional,
-    gerar_tokens, revogar_token, verificar_refresh_token
+    gerar_tokens, revogar_token, verificar_refresh_token,
+    set_refresh_cookie, clear_refresh_cookie
 )
 
 bp = Blueprint('usuario', __name__, url_prefix='/api/usuarios')
@@ -44,13 +45,14 @@ def login():
         # Gerar tokens (access + refresh)
         access_token, refresh_token = gerar_tokens(usuario)
 
-        return jsonify({
+        response = jsonify({
             'access_token': access_token,
-            'refresh_token': refresh_token,
             'token_type': 'Bearer',
             'expires_in': 900,  # 15 minutos
             'user': usuario.to_json()
-        }), 200
+        })
+        set_refresh_cookie(response, refresh_token)
+        return response, 200
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 401
@@ -80,7 +82,7 @@ def criar_usuario():
 def refresh_token():
     """Gera novos tokens a partir do refresh token"""
     data = _obter_payload()
-    token = data.get('refresh_token')
+    token = request.cookies.get('refresh_token') or data.get('refresh_token')
 
     if not token:
         return jsonify({"error": "Refresh token é obrigatório."}), 400
@@ -97,12 +99,13 @@ def refresh_token():
 
     access_token, novo_refresh_token = gerar_tokens(usuario)
 
-    return jsonify({
+    response = jsonify({
         "access_token": access_token,
-        "refresh_token": novo_refresh_token,
         "token_type": "Bearer",
         "expires_in": 900
-    }), 200
+    })
+    set_refresh_cookie(response, novo_refresh_token)
+    return response, 200
 
 
 @bp.route('/logout', methods=['POST'])
@@ -119,7 +122,9 @@ def logout():
     if not sucesso:
         return jsonify({"error": "Erro ao revogar token."}), 500
 
-    return jsonify({"message": "Logout realizado com sucesso."}), 200
+    response = jsonify({"message": "Logout realizado com sucesso."})
+    clear_refresh_cookie(response)
+    return response, 200
 
 
 # =======================================================
