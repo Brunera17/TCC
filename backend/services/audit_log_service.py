@@ -1,7 +1,10 @@
 import json
+import logging
 from typing import Any
 from models.audit_log import AuditLog
 from repositories.audit_log_repository import AuditLogRepository
+
+logger = logging.getLogger(__name__)
 
 
 class AuditLogService:
@@ -31,15 +34,20 @@ class AuditLogService:
 
         try:
             return self.repo.create(log)
-        except Exception as e:
-            # Não propagar erro de auditoria para a aplicação principal.
-            # Registrar no stdout para investigação e retornar None.
-            print(f"Erro ao gravar AuditLog: {e}")
+        except Exception:
+            # Não propagar erro de auditoria para a aplicação principal (a
+            # operação de negócio não deve falhar por causa da trilha de
+            # auditoria), mas registrar em nível ERROR para que a falha seja
+            # visível em monitoramento/log agregation, em vez de sumir.
+            logger.exception(
+                "Erro ao gravar AuditLog (proposta_id=%s, acao=%s)",
+                proposta_id, acao,
+            )
             try:
                 from config import db as _db
                 _db.session.rollback()
             except Exception:
-                pass
+                logger.exception("Erro ao reverter sessão após falha de AuditLog")
             return None
 
     def get_logs(self, proposta_id: int):
