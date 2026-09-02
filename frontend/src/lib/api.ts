@@ -36,6 +36,14 @@ export const API_URL = import.meta.env.DEV
   ? "/api"  // Usa proxy do Vite em desenvolvimento
   : (import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:5000/api");
 
+// URL raiz do backend (sem o prefixo /api), para rotas que não passam pelo
+// proxy do Vite (só /api é proxiado — ver vite.config.ts), como /reports/...
+// e o health check. Deriva da mesma VITE_API_URL usada acima em vez de
+// hardcodar localhost:5000, para funcionar em qualquer ambiente configurado.
+export const BACKEND_URL = (
+  import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:5000/api"
+).replace(/\/api$/, "");
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
@@ -572,8 +580,7 @@ function normalizeClientePayload(data: unknown): GenericRecord {
 export const apiService = {
   // ---------- Relatórios PDF (Flask) ----------
   async baixarRelatorioPDF(tipo: string): Promise<Blob> {
-    const backendUrl = 'http://localhost:5000';
-    const url = `${backendUrl}/reports/${tipo}`;
+    const url = `${BACKEND_URL}/reports/${tipo}`;
     const res = await fetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/pdf' }

@@ -1,6 +1,8 @@
 // 🔍 Utilitário para verificar se o backend está rodando
 // Este arquivo ajuda a diagnosticar problemas de conexão com a API
 
+import { BACKEND_URL } from '../lib/api';
+
 export async function checkBackendHealth(): Promise<{
   isRunning: boolean;
   message: string;
@@ -8,7 +10,7 @@ export async function checkBackendHealth(): Promise<{
 }> {
   try {
     // Tenta conectar na URL raiz do backend
-    const response = await fetch('http://localhost:5000/', {
+    const response = await fetch(`${BACKEND_URL}/`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
