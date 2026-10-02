@@ -18,7 +18,11 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
     endereco = db.Column(db.String(255), nullable=True)
     observacoes = db.Column(db.Text, nullable=True)
 
+    # Empresa (escritório de contabilidade) a que este cliente pertence.
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id', ondelete='CASCADE'), nullable=False, index=True)
+
     # Relacionamentos
+    empresa = db.relationship('Empresa')
     enderecos = db.relationship('Endereco', back_populates='cliente', lazy='dynamic', cascade="all, delete-orphan")
     entidades_juridicas = db.relationship('EntidadeJuridica', back_populates='cliente', lazy='dynamic', cascade="all, delete-orphan")
     # solicitacoes.cliente_id é NOT NULL com ondelete='CASCADE' no banco: o
@@ -42,6 +46,7 @@ class Cliente(db.Model, TimestampMixin, ActiveMixin):
             'telefone': self.telefone,
             'endereco': self.endereco,
             'observacoes': self.observacoes,
+            'empresa_id': self.empresa_id,
             'created_at': format_datetime_to_utc_iso(self.created_at),
             'updated_at': format_datetime_to_utc_iso(self.updated_at),
             'deleted_at': format_datetime_to_utc_iso(self.deleted_at) if self.deleted_at else None,

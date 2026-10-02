@@ -1,6 +1,7 @@
 from config import db
 from models.ordemServico import OrdemServico, ItemOrdemServico
 from models.cliente import Cliente
+from models.entidadeJuridica import EntidadeJuridica
 from sqlalchemy import or_
 
 class OrdemServicoRepository:
@@ -9,16 +10,30 @@ class OrdemServicoRepository:
         return OrdemServico.query.filter_by(ativo=True).all()
 
     def get_by_id(self, ordem_id: int):
-        return OrdemServico.query.filter_by(id=ordem_id, ativo=True).first()    
+        return OrdemServico.query.filter_by(id=ordem_id, ativo=True).first()
     def get_by_cliente(self, cliente_id: int):
         return OrdemServico.query.filter_by(cliente_id=cliente_id, ativo=True).all()
-    
-    def get_query_with_filters(self, status: str | None, search: str | None):
+
+    def get_query_with_filters(self, status: str | None, search: str | None, empresa_id: int | None = None):
         """
-        Retorna uma query do SQLAlchemy com filtros de status e busca aplicados.
+        Retorna uma query do SQLAlchemy com filtros de status, busca e empresa aplicados.
+
+        `empresa_id` restringe a ordens cujo cliente OU entidade jurídica vinculado
+        pertence a essa empresa - OrdemServico não tem empresa_id próprio, então a
+        checagem é sempre derivada dessas duas relações (join externo: uma ordem
+        pode não ter cliente/entidade e nesse caso não corresponde a nenhuma empresa).
         """
         # Começa com a query básica
         query = OrdemServico.query.filter_by(ativo=True)
+
+        if empresa_id is not None or search:
+            # Join externo: preserva ordens sem cliente vinculado nos resultados
+            # não filtrados por empresa (ex.: busca por protocolo).
+            query = query.outerjoin(Cliente, OrdemServico.cliente_id == Cliente.id)
+
+        if empresa_id is not None:
+            query = query.outerjoin(EntidadeJuridica, OrdemServico.empresa_id == EntidadeJuridica.id)
+            query = query.filter(or_(Cliente.empresa_id == empresa_id, EntidadeJuridica.empresa_id == empresa_id))
 
         # 1. Aplicar filtro de STATUS
         if status:
@@ -27,21 +42,20 @@ class OrdemServicoRepository:
         # 2. Aplicar filtro de BUSCA (search)
         if search:
             search_term = f"%{search.lower()}%"
-            # Junta com a tabela Cliente para poder buscar pelo nome do cliente
-            query = query.join(OrdemServico.cliente).filter( 
+            query = query.filter(
                 or_(
                     # Busca pelo protocolo da OS
-                    OrdemServico.protocolo.ilike(search_term), 
+                    OrdemServico.protocolo.ilike(search_term),
                     # Busca pelo nome do Cliente
-                    Cliente.nome.ilike(search_term), 
+                    Cliente.nome.ilike(search_term),
                     # Busca pelo email do Cliente
-                    Cliente.email.ilike(search_term) 
+                    Cliente.email.ilike(search_term)
                 )
             )
-        
+
         # Ordenar pelos mais recentes primeiro
         query = query.order_by(OrdemServico.created_at.desc())
-        
+
         return query
     
     def get_by_protocolo(self, protocolo: str):

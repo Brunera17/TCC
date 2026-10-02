@@ -77,6 +77,9 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
     pdf_caminho = db.Column(db.String(255), nullable=True)
     pdf_gerado_em = db.Column(db.DateTime, nullable=True)
     
+    # Empresa (escritório de contabilidade) a que esta proposta pertence.
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id', ondelete='CASCADE'), nullable=False, index=True)
+
     # Foreign Keys
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='SET NULL'), nullable=True, index=True)
     entidade_juridica_id = db.Column(db.Integer, db.ForeignKey('entidades_juridicas.id', ondelete='SET NULL'), nullable=True, index=True)
@@ -87,6 +90,7 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
     valor_mensalidade = db.Column(db.Float, nullable=True)
     
     # Relationships
+    empresa = db.relationship('Empresa')
     cliente = db.relationship('Cliente', back_populates='propostas', lazy='joined')
     entidade_juridica = db.relationship('EntidadeJuridica', back_populates='propostas', lazy='joined')
     usuario = db.relationship('Usuario', back_populates='propostas', lazy='joined')
@@ -205,6 +209,7 @@ class Proposta(db.Model, TimestampMixin, ActiveMixin):
             'id': self.id,
             'numero_proposta': self.numero_proposta,
             'numero': self.numero_proposta,
+            'empresa_id': self.empresa_id,
             'cliente_id': self.cliente_id,
             'entidade_juridica_id': self.entidade_juridica_id,
             'usuario_id': self.usuario_id,

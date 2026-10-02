@@ -41,11 +41,14 @@ class RelatorioService:
             raise ValueError("Relatorio não encontrado")
         return self.repo.delete(relatorio)
 
-    def gerar_relatorio_propostas(self) -> dict:
+    def gerar_relatorio_propostas(self, empresa_id: int | None = None) -> dict:
         """Gera um resumo analítico das propostas cadastradas.
 
         Retorna um dicionário com métricas: total, soma de valores, média, contagem por status,
         totais por status e top clientes por valor.
+
+        `empresa_id` restringe o relatório às propostas dessa empresa; None
+        (uso administrativo) inclui todas as empresas.
         """
         # Importar modelo localmente para evitar erros de importação fora do contexto
         try:
@@ -54,7 +57,10 @@ class RelatorioService:
             raise ValueError(f"Modelos não disponíveis: {e}")
 
         try:
-            propostas = Proposta.query.filter_by(ativo=True).all()
+            query = Proposta.query.filter_by(ativo=True)
+            if empresa_id is not None:
+                query = query.filter_by(empresa_id=empresa_id)
+            propostas = query.all()
         except Exception as e:
             raise ValueError(f"Erro ao consultar propostas: {e}")
 
@@ -106,11 +112,13 @@ class RelatorioService:
 
         return result
 
-    def gerar_relatorio_servicos(self) -> dict:
+    def gerar_relatorio_servicos(self, empresa_id: int | None = None) -> dict:
         """Gera um relatório agregando serviços usados nas propostas.
 
         Retorna um dicionário com métricas agregadas por serviço: quantidade total,
         receita total, média de valor unitário e quantas propostas incluíram o serviço.
+
+        `empresa_id` restringe às propostas dessa empresa; None inclui todas.
         """
         try:
             from models.proposta import Proposta, ItemProposta
@@ -119,7 +127,10 @@ class RelatorioService:
             raise ValueError(f"Modelos não disponíveis: {e}")
 
         try:
-            itens = ItemProposta.query.filter_by(ativo=True).all()
+            query = ItemProposta.query.filter_by(ativo=True)
+            if empresa_id is not None:
+                query = query.join(Proposta, ItemProposta.proposta_id == Proposta.id).filter(Proposta.empresa_id == empresa_id)
+            itens = query.all()
         except Exception as e:
             raise ValueError(f"Erro ao consultar itens de proposta: {e}")
 
@@ -185,9 +196,9 @@ class RelatorioService:
 
         return resultado
 
-    def gerar_relatorio_servicos_pdf(self) -> bytes:
+    def gerar_relatorio_servicos_pdf(self, empresa_id: int | None = None) -> bytes:
         """Gera PDF do relatório de serviços."""
-        dados = self.gerar_relatorio_servicos()
+        dados = self.gerar_relatorio_servicos(empresa_id=empresa_id)
         template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
         jinja_env = Environment(loader=FileSystemLoader(template_dir))
         try:
@@ -218,10 +229,12 @@ class RelatorioService:
                 ) from e
             raise ValueError(f"Erro ao gerar PDF de serviços: {e}") from e
 
-    def gerar_relatorio_financeiro(self) -> dict:
+    def gerar_relatorio_financeiro(self, empresa_id: int | None = None) -> dict:
         """Gera um relatório financeiro baseado nas propostas.
 
         Retorna totais por status e detalhamento mensal (ano/mes) com soma de valores e contagens.
+
+        `empresa_id` restringe às propostas dessa empresa; None inclui todas.
         """
         try:
             from models.proposta import Proposta
@@ -229,7 +242,10 @@ class RelatorioService:
             raise ValueError(f"Modelos não disponíveis: {e}")
 
         try:
-            propostas = Proposta.query.filter_by(ativo=True).all()
+            query = Proposta.query.filter_by(ativo=True)
+            if empresa_id is not None:
+                query = query.filter_by(empresa_id=empresa_id)
+            propostas = query.all()
         except Exception as e:
             raise ValueError(f"Erro ao consultar propostas: {e}")
 
@@ -283,9 +299,9 @@ class RelatorioService:
 
         return resultado
 
-    def gerar_relatorio_financeiro_pdf(self) -> bytes:
+    def gerar_relatorio_financeiro_pdf(self, empresa_id: int | None = None) -> bytes:
         """Gera PDF do relatório financeiro."""
-        dados = self.gerar_relatorio_financeiro()
+        dados = self.gerar_relatorio_financeiro(empresa_id=empresa_id)
         template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
         jinja_env = Environment(loader=FileSystemLoader(template_dir))
         try:
@@ -316,12 +332,14 @@ class RelatorioService:
                 ) from e
             raise ValueError(f"Erro ao gerar PDF financeiro: {e}") from e
 
-    def gerar_relatorio_agendamentos(self, inicio: str = None, fim: str = None) -> dict:
+    def gerar_relatorio_agendamentos(self, inicio: str = None, fim: str = None, empresa_id: int | None = None) -> dict:
         """Gera relatório de agendamentos agregados por mês/ano e por conclusão.
 
         Retorna um dicionário com a chave 'periodos' contendo uma lista de períodos
         (cada período = mês/ano) com contagens: total, concluidos, nao_concluidos,
         contagem por status e, opcionalmente, por funcionario.
+
+        `empresa_id` restringe aos agendamentos dessa empresa; None inclui todas.
         """
         try:
             from models.agendamento import Agendamento
@@ -331,6 +349,8 @@ class RelatorioService:
         # construir query com filtros de data_inicio se fornecidos
         try:
             query = Agendamento.query.filter_by(ativo=True)
+            if empresa_id is not None:
+                query = query.filter_by(empresa_id=empresa_id)
 
             from datetime import datetime, time, timedelta
 
@@ -442,10 +462,10 @@ class RelatorioService:
 
         return resultado
 
-    def gerar_relatorio_agendamentos_pdf(self, inicio: str = None, fim: str = None) -> bytes:
+    def gerar_relatorio_agendamentos_pdf(self, inicio: str = None, fim: str = None, empresa_id: int | None = None) -> bytes:
         """Gera um PDF do relatório de agendamentos para o período opcionalmente fornecido."""
         # Obter os dados já formatados
-        dados = self.gerar_relatorio_agendamentos(inicio=inicio, fim=fim)
+        dados = self.gerar_relatorio_agendamentos(inicio=inicio, fim=fim, empresa_id=empresa_id)
 
         # Preparar template Jinja
         template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
@@ -484,10 +504,10 @@ class RelatorioService:
             # Repassa ValueError com mensagens já tratadas
             raise
 
-    def gerar_relatorio_propostas_pdf(self) -> bytes:
+    def gerar_relatorio_propostas_pdf(self, empresa_id: int | None = None) -> bytes:
         """Gera um PDF do relatório de propostas usando um template Jinja."""
         # Obter dados do relatório
-        dados = self.gerar_relatorio_propostas()
+        dados = self.gerar_relatorio_propostas(empresa_id=empresa_id)
 
         # Preparar ambiente Jinja
         template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
@@ -523,10 +543,13 @@ class RelatorioService:
                 ) from e
             raise ValueError(f"Erro ao gerar PDF de propostas: {e}") from e
 
-    def gerar_relatorio_clientes_pdf(self) -> bytes:
+    def gerar_relatorio_clientes_pdf(self, empresa_id: int | None = None) -> bytes:
         """Gera um PDF com informações analíticas e listagem de clientes.
 
         Retorna os bytes do PDF prontos para serem enviados em uma resposta HTTP.
+
+        `empresa_id` restringe aos clientes/entidades jurídicas dessa empresa;
+        None (uso administrativo) inclui todas.
         """
         if not MODELS_AVAILABLE:
             raise ValueError("Modelos não disponíveis - banco de dados não acessível")
@@ -537,7 +560,10 @@ class RelatorioService:
 
         # Coletar dados dos clientes
         try:
-            clientes = Cliente.query.filter_by(ativo=True).all()
+            query = Cliente.query.filter_by(ativo=True)
+            if empresa_id is not None:
+                query = query.filter_by(empresa_id=empresa_id)
+            clientes = query.all()
         except Exception as e:
             raise ValueError(f"Erro ao consultar clientes: {e}")
 
@@ -594,7 +620,10 @@ class RelatorioService:
 
         # Construir lista de empresas (PJ) a partir de EntidadeJuridica ativas
         try:
-            empresas = EntidadeJuridica.query.filter_by(ativo=True).all()
+            entidades_query = EntidadeJuridica.query.filter_by(ativo=True)
+            if empresa_id is not None:
+                entidades_query = entidades_query.filter_by(empresa_id=empresa_id)
+            empresas = entidades_query.all()
         except Exception as e:
             raise ValueError(f"Erro ao consultar entidades jurídicas: {e}")
 

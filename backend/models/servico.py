@@ -27,10 +27,14 @@ class Servico(db.Model, TimestampMixin, ActiveMixin):
     valor_unitario = db.Column(db.Float, nullable=False)
     regras_cobranca = db.Column(db.String(255), nullable=True)
     status = db.Column(db.String(50), default='ativo')
-    
+
+    # Empresa (escritório de contabilidade) a que este serviço pertence.
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id', ondelete='CASCADE'), nullable=False, index=True)
+
     # Foreign Keys
     categoria_id = db.Column(db.Integer, db.ForeignKey('categorias_servicos.id', ondelete='SET NULL'), nullable=True)
     #Relationships
+    empresa = db.relationship('Empresa')
     item_ordem_servicos = db.relationship('ItemOrdemServico', back_populates='servico', lazy='joined')
     item_propostas = db.relationship('ItemProposta', back_populates='servico', lazy='joined')
     categoria = db.relationship('CategoriaServico', back_populates='servicos', lazy='joined')
@@ -51,6 +55,7 @@ class Servico(db.Model, TimestampMixin, ActiveMixin):
             'valor_unitario': self.valor_unitario,
             'regras_cobranca': self.regras_cobranca,
             'categoria_id': self.categoria_id,
+            'empresa_id': self.empresa_id,
             'ativo': self.ativo,
             'created_at': format_datetime_to_utc_iso(self.created_at),
             'updated_at': format_datetime_to_utc_iso(self.updated_at),

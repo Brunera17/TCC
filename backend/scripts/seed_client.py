@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from config import app, db
 from models.cliente import Cliente, Endereco
 from models.entidadeJuridica import EntidadeJuridica, TipoEmpresa, RegimeTributario
+from models.organizacional import Empresa
 
 DATA = {
     "cliente": {
@@ -53,6 +54,19 @@ DATA = {
 def seed():
     with app.app_context():
         try:
+            # O cliente e a entidade jurídica agora exigem uma empresa dona
+            # (issue #13: escopo multi-tenant) - reaproveita a primeira
+            # empresa cadastrada, ou cria uma padrão se nenhuma existir.
+            empresa = Empresa.query.order_by(Empresa.id).first()
+            if not empresa:
+                empresa = Empresa(
+                    nome="Empresa Padrão",
+                    cnpj="00000000000000",
+                    email="contato@empresapadrao.local",
+                )
+                db.session.add(empresa)
+                db.session.flush()
+
             # Verificar se o cliente já existe (idempotência)
             cdata = DATA['cliente']
             cpf_clean = reformat_digits(cdata.get('cpf'))
@@ -84,7 +98,8 @@ def seed():
                     email=cdata.get('email'),
                     telefone=reformat_digits(cdata.get('telefone')) if cdata.get('telefone') else None,
                     endereco=cdata.get('endereco'),
-                    observacoes=cdata.get('observacoes')
+                    observacoes=cdata.get('observacoes'),
+                    empresa_id=empresa.id
                 )
                 db.session.add(cliente)
                 db.session.flush()  # Gera id do cliente
@@ -189,7 +204,8 @@ def seed():
                     cliente_id=cliente.id,
                     endereco_id=endereco.id if endereco and getattr(endereco, 'id', None) else None,
                     tipo_id=tipo_exists.id if tipo_exists else None,
-                    regime_tributario_id=regime_exists.id if regime_exists else None
+                    regime_tributario_id=regime_exists.id if regime_exists else None,
+                    empresa_id=cliente.empresa_id
                 )
                 db.session.add(entidade)
             db.session.commit()

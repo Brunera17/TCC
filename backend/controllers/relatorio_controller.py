@@ -2,6 +2,7 @@ import json
 from flask import Blueprint, request, jsonify, Response
 from services.relatorio_services import RelatorioService
 from middleware.autenticacao_middleware import token_obrigatorio
+from middleware.acesso_empresa import empresa_id_de_usuario, empresa_id_usuario, usuario_eh_admin, usuario_tem_acesso_empresa
 
 bp = Blueprint('relatorio', __name__, url_prefix='/api/relatorios')
 service = RelatorioService()
@@ -10,12 +11,24 @@ service = RelatorioService()
 reports_bp = Blueprint('reports', __name__, url_prefix='/reports')
 
 
+def _empresa_id_filtro():
+    """None para administradores (relatório inclui todas as empresas);
+    empresa do usuário autenticado para os demais."""
+    return None if usuario_eh_admin() else empresa_id_usuario()
+
+
+def _empresa_id_relatorio(relatorio):
+    """Relatorio (documento salvo) não tem empresa_id próprio: deriva da
+    empresa do funcionário que o criou, via seu cargo/departamento."""
+    return empresa_id_de_usuario(getattr(relatorio, 'funcionario_id', None))
+
+
 @reports_bp.route('/clientes', methods=['GET'])
 @token_obrigatorio
 def reports_clientes():
     # Rota compatível com /reports/clientes -> gera PDF
     try:
-        pdf_bytes = service.gerar_relatorio_clientes_pdf()
+        pdf_bytes = service.gerar_relatorio_clientes_pdf(empresa_id=_empresa_id_filtro())
         response = Response(pdf_bytes, status=200, mimetype='application/pdf')
         response.headers['Content-Disposition'] = 'attachment; filename=relatorio_clientes.pdf'
         return response
@@ -30,7 +43,7 @@ def reports_clientes():
 def reports_relatorios_clientes_alias():
     # Rota alias usada por algumas versões do frontend
     try:
-        pdf_bytes = service.gerar_relatorio_clientes_pdf()
+        pdf_bytes = service.gerar_relatorio_clientes_pdf(empresa_id=_empresa_id_filtro())
         response = Response(pdf_bytes, status=200, mimetype='application/pdf')
         response.headers['Content-Disposition'] = 'attachment; filename=relatorio_clientes.pdf'
         return response
@@ -49,12 +62,12 @@ def reports_propostas():
         accept = request.headers.get('Accept', '') or request.headers.get('accept', '')
         # Se o cliente pedir explicitamente PDF via query ?format=pdf ou pelo header Accept, retornamos PDF
         if (fmt and fmt.lower() == 'pdf') or ('application/pdf' in accept.lower()):
-            pdf_bytes = service.gerar_relatorio_propostas_pdf()
+            pdf_bytes = service.gerar_relatorio_propostas_pdf(empresa_id=_empresa_id_filtro())
             response = Response(pdf_bytes, status=200, mimetype='application/pdf')
             response.headers['Content-Disposition'] = 'attachment; filename=relatorio_propostas.pdf'
             return response
 
-        relatorio = service.gerar_relatorio_propostas()
+        relatorio = service.gerar_relatorio_propostas(empresa_id=_empresa_id_filtro())
         return jsonify(relatorio), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -82,7 +95,7 @@ def reports_agendamentos():
         # Se o cliente solicitar PDF via header Accept, retorna PDF
         if 'application/pdf' in accept.lower():
             try:
-                pdf_bytes = service.gerar_relatorio_agendamentos_pdf(inicio=inicio, fim=fim)
+                pdf_bytes = service.gerar_relatorio_agendamentos_pdf(inicio=inicio, fim=fim, empresa_id=_empresa_id_filtro())
                 response = Response(pdf_bytes, status=200, mimetype='application/pdf')
                 response.headers['Content-Disposition'] = 'attachment; filename=relatorio_agendamentos.pdf'
                 return response
@@ -91,7 +104,7 @@ def reports_agendamentos():
                 return jsonify({'error': str(e)}), 400
 
         # Caso contrário, retorna JSON com os dados do relatório
-        relatorio = service.gerar_relatorio_agendamentos(inicio=inicio, fim=fim)
+        relatorio = service.gerar_relatorio_agendamentos(inicio=inicio, fim=fim, empresa_id=_empresa_id_filtro())
         return jsonify(relatorio), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -106,13 +119,13 @@ def reports_servicos():
         accept = request.headers.get('Accept', '') or request.headers.get('accept', '')
         if 'application/pdf' in accept.lower():
             try:
-                pdf_bytes = service.gerar_relatorio_servicos_pdf()
+                pdf_bytes = service.gerar_relatorio_servicos_pdf(empresa_id=_empresa_id_filtro())
                 response = Response(pdf_bytes, status=200, mimetype='application/pdf')
                 response.headers['Content-Disposition'] = 'attachment; filename=relatorio_servicos.pdf'
                 return response
             except ValueError as e:
                 return jsonify({'error': str(e)}), 400
-        relatorio = service.gerar_relatorio_servicos()
+        relatorio = service.gerar_relatorio_servicos(empresa_id=_empresa_id_filtro())
         return jsonify(relatorio), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -127,13 +140,13 @@ def reports_financeiro():
         accept = request.headers.get('Accept', '') or request.headers.get('accept', '')
         if 'application/pdf' in accept.lower():
             try:
-                pdf_bytes = service.gerar_relatorio_financeiro_pdf()
+                pdf_bytes = service.gerar_relatorio_financeiro_pdf(empresa_id=_empresa_id_filtro())
                 response = Response(pdf_bytes, status=200, mimetype='application/pdf')
                 response.headers['Content-Disposition'] = 'attachment; filename=relatorio_financeiro.pdf'
                 return response
             except ValueError as e:
                 return jsonify({'error': str(e)}), 400
-        relatorio = service.gerar_relatorio_financeiro()
+        relatorio = service.gerar_relatorio_financeiro(empresa_id=_empresa_id_filtro())
         return jsonify(relatorio), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -146,7 +159,7 @@ def reports_financeiro():
 def relatorio_clientes():
     # Gera e retorna PDF do relatório de clientes
     try:
-        pdf_bytes = service.gerar_relatorio_clientes_pdf()
+        pdf_bytes = service.gerar_relatorio_clientes_pdf(empresa_id=_empresa_id_filtro())
         response = Response(pdf_bytes, status=200, mimetype='application/pdf')
         response.headers['Content-Disposition'] = 'attachment; filename=relatorio_clientes.pdf'
         return response
@@ -154,7 +167,7 @@ def relatorio_clientes():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': 'Erro inesperado: ' + str(e)}), 500
-    
+
 
 @bp.route('/agendamentos', methods=['GET'])
 @token_obrigatorio
@@ -163,7 +176,7 @@ def relatorio_agendamentos():
         # Suporta filtros de data: ?inicio=YYYY-MM-DD&fim=YYYY-MM-DD
         inicio = request.args.get('inicio')
         fim = request.args.get('fim')
-        relatorio = service.gerar_relatorio_agendamentos(inicio=inicio, fim=fim)
+        relatorio = service.gerar_relatorio_agendamentos(inicio=inicio, fim=fim, empresa_id=_empresa_id_filtro())
         return jsonify(relatorio), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -172,7 +185,7 @@ def relatorio_agendamentos():
 @token_obrigatorio
 def relatorio_servicos():
     try:
-        relatorio = service.gerar_relatorio_servicos()
+        relatorio = service.gerar_relatorio_servicos(empresa_id=_empresa_id_filtro())
         return jsonify(relatorio), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -181,7 +194,7 @@ def relatorio_servicos():
 @token_obrigatorio
 def relatorio_financeiro():
     try:
-        relatorio = service.gerar_relatorio_financeiro()
+        relatorio = service.gerar_relatorio_financeiro(empresa_id=_empresa_id_filtro())
         return jsonify(relatorio), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -202,14 +215,22 @@ def relatorio_customizado():
         return jsonify({'error': 'Erro inesperado: ' + str(e)}), 500
 @bp.route('/<int:relatorio_id>', methods=['GET'])
 @token_obrigatorio
-def get_relatorio_especifico(relatorio_id):  
+def get_relatorio_especifico(relatorio_id):
     relatorio = service.get_by_id(relatorio_id)
     if not relatorio:
         return jsonify({'error': 'Relatório não encontrado'}), 404
+    if not usuario_tem_acesso_empresa(_empresa_id_relatorio(relatorio)):
+        return jsonify({'error': 'Acesso negado para este relatório'}), 403
     return jsonify(relatorio.to_json())
 @bp.route('/<int:relatorio_id>', methods=['DELETE'])
 @token_obrigatorio
 def deletar_relatorio(relatorio_id):
+    relatorio_existente = service.get_by_id(relatorio_id)
+    if not relatorio_existente:
+        return jsonify({'error': 'Relatório não encontrado'}), 404
+    if not usuario_tem_acesso_empresa(_empresa_id_relatorio(relatorio_existente)):
+        return jsonify({'error': 'Acesso negado para este relatório'}), 403
+
     try:
         service.deletar_relatorio(relatorio_id)
         return jsonify({'message': 'Relatório deletado com sucesso'}), 200
@@ -219,26 +240,45 @@ def deletar_relatorio(relatorio_id):
 @token_obrigatorio
 def get_relatorios():
     relatorios = service.get_all()
-    return jsonify([relatorio.to_json() for relatorio in relatorios])   
+    if not usuario_eh_admin():
+        relatorios = [r for r in relatorios if usuario_tem_acesso_empresa(_empresa_id_relatorio(r))]
+    return jsonify([relatorio.to_json() for relatorio in relatorios])
 @bp.route('/', methods=['POST'])
 @token_obrigatorio
 def criar_relatorio():
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Dados não fornecidos'}), 400
-    
+
+    if not usuario_eh_admin() and data.get('funcionario_id'):
+        if empresa_id_de_usuario(data['funcionario_id']) != empresa_id_usuario():
+            return jsonify({'error': 'Funcionário informado não pertence à sua empresa'}), 403
+
     try:
         relatorio = service.criar_relatorio(**data)
         return jsonify(relatorio.to_json()), 201
     except ValueError as e:
-        return jsonify({'error': str(e)}), 400  
+        return jsonify({'error': str(e)}), 400
 @bp.route('/<int:relatorio_id>', methods=['PUT'])
 @token_obrigatorio
 def alterar_relatorio(relatorio_id):
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Dados para atualização não encontrados'}), 400
-    
+
+    relatorio_existente = service.get_by_id(relatorio_id)
+    if not relatorio_existente:
+        return jsonify({'error': 'Relatório não encontrado'}), 404
+    empresa_atual = _empresa_id_relatorio(relatorio_existente)
+    if not usuario_tem_acesso_empresa(empresa_atual):
+        return jsonify({'error': 'Acesso negado para este relatório'}), 403
+    # Reatribuir funcionario_id para um funcionário de outra empresa moveria
+    # o relatório para fora do tenant atual (issue levantada pelo Sourcery:
+    # o relatório passaria a ser visível para a outra empresa).
+    if not usuario_eh_admin() and data.get('funcionario_id'):
+        if empresa_id_de_usuario(data['funcionario_id']) != empresa_atual:
+            return jsonify({'error': 'Funcionário informado não pertence à sua empresa'}), 403
+
     try:
         relatorio = service.atualizar_relatorio(relatorio_id, **data)
         return jsonify(relatorio.to_json()), 200

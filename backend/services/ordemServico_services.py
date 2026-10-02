@@ -18,12 +18,12 @@ class OrdemServicoService:
     def get_all(self):
         return self.repo.get_all()
     
-    def get_all_paginated(self, page: int, per_page: int, status: str | None, search: str | None):
+    def get_all_paginated(self, page: int, per_page: int, status: str | None, search: str | None, empresa_id: int | None = None):
         """
         Busca ordens de serviço de forma paginada e com filtros.
         """
         # 1. Passa os filtros para o repositório construir a query
-        query = self.repo.get_query_with_filters(status=status, search=search)
+        query = self.repo.get_query_with_filters(status=status, search=search, empresa_id=empresa_id)
         
         # 2. Executa a paginação na query filtrada
         paginacao = query.paginate(

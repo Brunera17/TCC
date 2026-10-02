@@ -16,13 +16,17 @@ class EntidadeJuridica(db.Model, TimestampMixin, ActiveMixin):
     status = db.Column(db.String(50), default='ativa')
     inscricao_estadual = db.Column(db.String(20), nullable=True)
 
+    # Empresa (escritório de contabilidade) a que esta entidade jurídica pertence.
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id', ondelete='CASCADE'), nullable=False, index=True)
+
     # Chave estrangeira para o cliente
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='CASCADE'), nullable=False, index=True)
     endereco_id = db.Column(db.Integer, db.ForeignKey('enderecos.id', ondelete='SET NULL'), nullable=True)
     tipo_id = db.Column(db.Integer, db.ForeignKey('tipos_empresas.id', ondelete='SET NULL'), nullable=True)
     regime_tributario_id = db.Column(db.Integer, db.ForeignKey('regimes_tributarios.id', ondelete='SET NULL'), nullable=True)
-    
+
     # Relacionamentos
+    empresa = db.relationship('Empresa')
     cliente = db.relationship('Cliente', back_populates='entidades_juridicas')
     tipo = db.relationship('TipoEmpresa', back_populates='entidades_juridicas')
     regime_tributario = db.relationship('RegimeTributario', back_populates='entidades_juridicas')
@@ -59,6 +63,7 @@ class EntidadeJuridica(db.Model, TimestampMixin, ActiveMixin):
             'contato': self.contato,
             'status': self.status,
             'inscricao_estadual': self.inscricao_estadual,
+            'empresa_id': self.empresa_id,
             'cliente_id': self.cliente_id,
             'endereco_id': self.endereco_id,
             'tipo_id': self.tipo_id,
