@@ -40,6 +40,17 @@ TABELAS = ["clientes", "propostas", "servicos", "agendamentos", "entidades_jurid
 
 
 def resolve_db_path() -> Path:
+    if DEFAULT_DB_PATH.exists() and INSTANCE_DB_PATH.exists():
+        # Flask resolve 'sqlite:///database.db' (URI relativa) para a pasta
+        # instance/, então instance/database.db é o banco que a aplicação de
+        # fato usa. Se os dois arquivos existirem, escolher um "na sorte"
+        # arriscaria migrar o banco errado e deixar a proteção contra IDOR
+        # inativa (ou travar a app, que esperaria a coluna no banco real).
+        raise RuntimeError(
+            "Mais de um banco de dados encontrado em 'database.db' e 'instance/database.db'. "
+            "Remova ou renomeie um deles antes de rodar esta migração - não é seguro adivinhar "
+            "qual deles é o banco realmente usado pela aplicação."
+        )
     if DEFAULT_DB_PATH.exists():
         return DEFAULT_DB_PATH
     if INSTANCE_DB_PATH.exists():
@@ -48,6 +59,8 @@ def resolve_db_path() -> Path:
 
 
 def tem_coluna_empresa_id(cursor: sqlite3.Cursor, tabela: str) -> bool:
+    if tabela not in TABELAS:
+        raise ValueError(f"Tabela não reconhecida: {tabela!r}")
     cursor.execute(f"PRAGMA table_info({tabela})")
     colunas = {row[1] for row in cursor.fetchall()}
     return "empresa_id" in colunas
@@ -75,6 +88,14 @@ def resolver_empresa_backfill(cursor: sqlite3.Cursor) -> int:
 
 
 def adicionar_coluna(cursor: sqlite3.Cursor, tabela: str, empresa_id_default: int) -> None:
+    # `tabela` só pode vir de TABELAS (lista fixa, nunca de entrada externa) e
+    # `empresa_id_default` é sempre um int (id lido de 'empresas') - nenhum
+    # dos dois é dado não confiável, mas a checagem explícita deixa isso
+    # verificável no próprio código em vez de implícito no call site.
+    if tabela not in TABELAS:
+        raise ValueError(f"Tabela não reconhecida: {tabela!r}")
+    empresa_id_default = int(empresa_id_default)
+
     cursor.execute(
         f"ALTER TABLE {tabela} ADD COLUMN empresa_id INTEGER NOT NULL "
         f"DEFAULT {empresa_id_default} REFERENCES empresas(id) ON DELETE CASCADE"

@@ -60,8 +60,10 @@ def cenario(app_context):
 
     return {
         'empresa_a': empresa_a,
+        'usuario_a': usuario_a,
         'headers_a': _auth_headers(usuario_a),
         'empresa_b': empresa_b,
+        'usuario_b': usuario_b,
         'headers_b': _auth_headers(usuario_b),
         'headers_admin': _auth_headers(usuario_admin),
     }
@@ -179,3 +181,32 @@ def test_empresa_nao_admin_so_ve_a_propria_empresa(client, cenario):
 
     resp_outra = client.get(f"/api/empresas/{cenario['empresa_b'].id}", headers=cenario['headers_a'])
     assert resp_outra.status_code == 403
+
+
+def test_relatorio_nao_pode_ser_reatribuido_para_funcionario_de_outra_empresa(client, cenario):
+    """Regressão: um relatório não pode ser movido para outro tenant trocando
+    funcionario_id para alguém de outra empresa (o relatório não tem
+    empresa_id próprio - sua empresa é derivada do funcionário dono)."""
+    resp_criar = client.post('/api/relatorios/', json={
+        'titulo': f'Relatorio {uuid.uuid4().hex[:6]}',
+        'conteudo': 'Conteudo de teste com mais de dez caracteres.',
+        'arquivo': 'relatorio.pdf',
+        'funcionario_id': cenario['usuario_a'].id,
+    }, headers=cenario['headers_a'])
+    assert resp_criar.status_code == 201, resp_criar.get_json()
+    relatorio = resp_criar.get_json()
+
+    # Usuário A não pode reatribuir o próprio relatório para um funcionário da empresa B.
+    resp_put = client.put(f"/api/relatorios/{relatorio['id']}", json={
+        'funcionario_id': cenario['usuario_b'].id,
+    }, headers=cenario['headers_a'])
+    assert resp_put.status_code == 403
+
+    # Nem criar um novo relatório já atribuído a um funcionário de outra empresa.
+    resp_criar_forjado = client.post('/api/relatorios/', json={
+        'titulo': f'Relatorio {uuid.uuid4().hex[:6]}',
+        'conteudo': 'Conteudo de teste com mais de dez caracteres.',
+        'arquivo': 'relatorio.pdf',
+        'funcionario_id': cenario['usuario_b'].id,
+    }, headers=cenario['headers_a'])
+    assert resp_criar_forjado.status_code == 403

@@ -2,7 +2,7 @@ import json
 from flask import Blueprint, request, jsonify, Response
 from services.relatorio_services import RelatorioService
 from middleware.autenticacao_middleware import token_obrigatorio
-from middleware.acesso_empresa import empresa_id_usuario, usuario_eh_admin, usuario_tem_acesso_empresa
+from middleware.acesso_empresa import empresa_id_de_usuario, empresa_id_usuario, usuario_eh_admin, usuario_tem_acesso_empresa
 
 bp = Blueprint('relatorio', __name__, url_prefix='/api/relatorios')
 service = RelatorioService()
@@ -20,10 +20,7 @@ def _empresa_id_filtro():
 def _empresa_id_relatorio(relatorio):
     """Relatorio (documento salvo) não tem empresa_id próprio: deriva da
     empresa do funcionário que o criou, via seu cargo/departamento."""
-    funcionario = getattr(relatorio, 'funcionario', None)
-    if funcionario and funcionario.cargo and funcionario.cargo.departamento:
-        return funcionario.cargo.departamento.empresa_id
-    return None
+    return empresa_id_de_usuario(getattr(relatorio, 'funcionario_id', None))
 
 
 @reports_bp.route('/clientes', methods=['GET'])
@@ -253,6 +250,10 @@ def criar_relatorio():
     if not data:
         return jsonify({'error': 'Dados não fornecidos'}), 400
 
+    if not usuario_eh_admin() and data.get('funcionario_id'):
+        if empresa_id_de_usuario(data['funcionario_id']) != empresa_id_usuario():
+            return jsonify({'error': 'Funcionário informado não pertence à sua empresa'}), 403
+
     try:
         relatorio = service.criar_relatorio(**data)
         return jsonify(relatorio.to_json()), 201
@@ -268,8 +269,15 @@ def alterar_relatorio(relatorio_id):
     relatorio_existente = service.get_by_id(relatorio_id)
     if not relatorio_existente:
         return jsonify({'error': 'Relatório não encontrado'}), 404
-    if not usuario_tem_acesso_empresa(_empresa_id_relatorio(relatorio_existente)):
+    empresa_atual = _empresa_id_relatorio(relatorio_existente)
+    if not usuario_tem_acesso_empresa(empresa_atual):
         return jsonify({'error': 'Acesso negado para este relatório'}), 403
+    # Reatribuir funcionario_id para um funcionário de outra empresa moveria
+    # o relatório para fora do tenant atual (issue levantada pelo Sourcery:
+    # o relatório passaria a ser visível para a outra empresa).
+    if not usuario_eh_admin() and data.get('funcionario_id'):
+        if empresa_id_de_usuario(data['funcionario_id']) != empresa_atual:
+            return jsonify({'error': 'Funcionário informado não pertence à sua empresa'}), 403
 
     try:
         relatorio = service.atualizar_relatorio(relatorio_id, **data)

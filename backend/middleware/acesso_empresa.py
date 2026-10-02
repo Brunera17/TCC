@@ -21,15 +21,11 @@ def usuario_contexto() -> dict:
     return conteudo
 
 
-def empresa_id_usuario():
-    """Empresa (escritório) a que o usuário autenticado pertence, via seu
-    cargo/departamento - mesma cadeia usada por cargo_/departamento_controller."""
-    usuario_payload = usuario_contexto()
-    empresa = usuario_payload.get('empresa')
-    if isinstance(empresa, dict) and empresa.get('id') is not None:
-        return empresa.get('id')
-
-    usuario_id = usuario_payload.get('id')
+def empresa_id_de_usuario(usuario_id):
+    """Empresa (escritório) a que um usuário qualquer pertence, via seu
+    cargo/departamento - mesma cadeia de empresa_id_usuario(), mas para um
+    usuario_id arbitrário (ex.: um funcionario_id recebido em um payload),
+    não necessariamente o usuário autenticado na requisição atual."""
     if not usuario_id:
         return None
 
@@ -41,6 +37,17 @@ def empresa_id_usuario():
         pass
 
     return None
+
+
+def empresa_id_usuario():
+    """Empresa (escritório) a que o usuário autenticado pertence, via seu
+    cargo/departamento - mesma cadeia usada por cargo_/departamento_controller."""
+    usuario_payload = usuario_contexto()
+    empresa = usuario_payload.get('empresa')
+    if isinstance(empresa, dict) and empresa.get('id') is not None:
+        return empresa.get('id')
+
+    return empresa_id_de_usuario(usuario_payload.get('id'))
 
 
 def usuario_eh_admin() -> bool:
