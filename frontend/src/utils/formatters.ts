@@ -153,35 +153,12 @@ export const detectarTipoDocumento = (documento: string): 'CPF' | 'CNPJ' | 'INVA
 
 // ✅ MELHORADO: Funções de formatação para clientes com detecção robusta
 export const formatarCliente = (cliente: any) => {
-  // Debug da estrutura do cliente
-  console.log('🔍 DEBUG formatarCliente - Estrutura do cliente:', {
-    cliente,
-    tipo_cliente: cliente?.tipo_cliente,
-    is_pessoa_juridica: cliente?.is_pessoa_juridica,
-    entidades_juridicas: cliente?.entidades_juridicas,
-    hasEntidades: !!(cliente?.entidades_juridicas && cliente.entidades_juridicas.length > 0)
-  });
-
   // ✅ NOVO: Priorizar detecção do backend, com fallback para frontend
   const isPJ = cliente?.is_pessoa_juridica === true ||
     (cliente?.tipo_cliente === 'PJ') ||
     (cliente?.entidades_juridicas && Array.isArray(cliente.entidades_juridicas) && cliente.entidades_juridicas.length > 0);
 
   const empresa = isPJ ? cliente.entidades_juridicas?.[0] : null;
-
-  console.log('🔍 DEBUG formatarCliente - Análise:', {
-    clienteId: cliente?.id,
-    clienteNome: cliente?.nome,
-    isPJ,
-    empresa,
-    empresaFields: empresa ? Object.keys(empresa) : 'N/A',
-    backendDetection: {
-      tipo_cliente: cliente?.tipo_cliente,
-      is_pessoa_juridica: cliente?.is_pessoa_juridica
-    },
-    entidades_juridicas: cliente?.entidades_juridicas,
-    dadosCompletos: cliente
-  });
 
   return {
     nome: cliente?.nome || '',
@@ -218,14 +195,4 @@ export const getTipoCliente = (cliente: any): 'PF' | 'PJ' => {
 
   // Fallback para detecção frontend
   return (cliente?.entidades_juridicas && cliente.entidades_juridicas.length > 0) ? 'PJ' : 'PF';
-};
-
-export const debugCliente = (cliente: any, contexto: string = '') => {
-  console.log(`🔍 DEBUG CLIENTE ${contexto}:`, {
-    nome: cliente.nome,
-    cpf: cliente.cpf,
-    entidades_juridicas: cliente.entidades_juridicas,
-    isPJ: getTipoCliente(cliente) === 'PJ',
-    empresa: cliente.entidades_juridicas?.[0]
-  });
 };

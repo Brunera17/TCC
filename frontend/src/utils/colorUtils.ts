@@ -277,19 +277,6 @@ export const getClienteConfig = (cliente: any): { tipo: ClienteType; cores: Colo
     const tipo: ClienteType = isPessoaJuridica ? 'pessoaJuridica' : 'pessoaFisica';
     const config = SEMANTIC_COLORS.cliente[tipo];
 
-    // ✅ DEBUG: Log para verificar detecção
-    console.log('🔍 getClienteConfig Debug:', {
-        clienteId: cliente.id,
-        clienteNome: cliente.nome,
-        temEntidadesJuridicas,
-        temAberturaEmpresa,
-        backendDetectouPJ,
-        tipo_cliente: cliente.tipo_cliente,
-        is_pessoa_juridica: cliente.is_pessoa_juridica,
-        isPessoaJuridica,
-        tipoFinal: tipo
-    });
-
     return {
         tipo,
         cores: config

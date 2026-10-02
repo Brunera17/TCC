@@ -285,40 +285,25 @@ export function validateToken(): { isValid: boolean; error?: string } {
 }
 
 /**
- * Função para debug de dados antes do envio
+ * Função para debug de dados antes do envio (ativa apenas em desenvolvimento)
  */
 export function debugApiCall(endpoint: string, data: any, method: string = 'POST') {
+  if (!import.meta.env.DEV) return;
+
   console.group(`🐛 Debug API Call: ${method} ${endpoint}`);
-  
-  // Validação de token
-  const tokenValidation = validateToken();
-  console.log('🔐 Token Status:', tokenValidation);
-  
+
   // Validação de dados (se for cliente)
   if (endpoint.includes('clientes')) {
     const validation = validateClienteData(data);
-    console.log('📋 Validação de Dados:', validation);
-    
+
     if (!validation.isValid) {
       console.error('❌ Dados inválidos:', validation.errors);
     }
-    
+
     if (validation.warnings.length > 0) {
       console.warn('⚠️ Avisos:', validation.warnings);
     }
   }
-  
-  // Headers que serão enviados
-  const headers: any = {
-    'Content-Type': 'application/json'
-  };
-  
-  if (tokenValidation.isValid) {
-    headers.Authorization = `Bearer ${localStorage.getItem('access_token')}`;
-  }
-  
-  console.log('📤 Headers:', headers);
-  console.log('📤 Dados a enviar:', data);
-  
+
   console.groupEnd();
 }

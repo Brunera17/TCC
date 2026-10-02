@@ -22,14 +22,6 @@ export const useAuthenticatedApi = () => {
       ...init.headers,
     };
 
-    if (import.meta.env.DEV) {
-      console.log('🔑 Request autenticada:', {
-        url: input.toString(),
-        method: init.method || 'GET',
-        hasToken: !!token,
-      });
-    }
-
     return fetchJSON(input, {
       ...init,
       headers

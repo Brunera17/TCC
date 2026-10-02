@@ -322,13 +322,6 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
       const items = response.data || [];
       const pages = Math.ceil(response.total / response.per_page) || 1;
 
-      // Log para debug - verificar se propostas têm cliente_id
-      console.log('📋 Propostas carregadas:', items.length);
-      if (items.length > 0) {
-        console.log('🔍 Primeira proposta exemplo:', items[0]);
-        console.log('🏢 cliente_id da primeira proposta:', items[0].cliente_id);
-      }
-
       setPropostas(items);
       setFilteredPropostas(items);
       setTotalPages(pages);
@@ -568,11 +561,6 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
       const valorMensalidade = dadosProposta.valor_mensalidade || 0;
       const valorTotal = valorServicos + valorMensalidade;
 
-      console.log('💰 CÁLCULO VALOR TOTAL:');
-      console.log('   Valor serviços:', valorServicos);
-      console.log('   Valor mensalidade:', valorMensalidade);
-      console.log('   Valor total final:', valorTotal);
-      console.log('   dadosProposta.valor_mensalidade:', dadosProposta.valor_mensalidade);
       const dadosCompletos: DadosPropostaCompleta = {
         cliente: {
           ...dadosProposta.cliente,
@@ -695,8 +683,6 @@ export const PropostasPage: React.FC<PropostasPageProps> = ({ openModalOnLoad = 
   };
 
   const handleEditarPropostaCompleta = (proposta: Proposta) => {
-    console.log('🔧 Editando proposta completa:', proposta);
-    console.log('🔍 cliente_id:', proposta.cliente_id);
 
     if (!proposta.cliente_id) {
       console.error('❌ Tentativa de editar proposta sem cliente_id:', proposta);

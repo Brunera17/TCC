@@ -1,49 +1,24 @@
 import type { Cliente } from '../../types';
 import {
     formatarCliente,
-    getTipoCliente,
-    debugCliente
+    getTipoCliente
 } from '../../utils/formatters';
 
 interface ClienteDisplayProps {
     cliente: Cliente;
     showDetails?: boolean;
     className?: string;
-    showDebug?: boolean;
 }
 
 const ClienteDisplay: React.FC<ClienteDisplayProps> = ({
     cliente,
     showDetails = true,
-    className = '',
-    showDebug = false
+    className = ''
 }) => {
-    // Debug do cliente se habilitado
-    if (showDebug) {
-        debugCliente(cliente, 'ClienteDisplay');
-    }
-
     // Formatar dados do cliente usando utilitários
     const dadosFormatados = formatarCliente(cliente);
     const tipo = getTipoCliente(cliente);
     const isPJ = tipo === 'PJ';
-
-    // ✅ NOVO: Debug adicional para verificar detecção
-    console.log('🔍 DEBUG ClienteDisplay - Detecção:', {
-        clienteId: cliente?.id,
-        clienteNome: cliente?.nome,
-        tipo,
-        isPJ,
-        backendDetection: {
-            tipo_cliente: cliente?.tipo_cliente,
-            is_pessoa_juridica: cliente?.is_pessoa_juridica
-        },
-        frontendDetection: {
-            entidades_juridicas: cliente?.entidades_juridicas?.length || 0,
-            entidades_juridicas_data: cliente?.entidades_juridicas
-        },
-        dadosCompletos: cliente
-    });
 
     return (
         <div className={`bg-white rounded-lg border border-gray-200 p-4 ${className}`}>
