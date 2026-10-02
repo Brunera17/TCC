@@ -1,4 +1,4 @@
-﻿instance/database.db
+instance/database.db
 .env
 .env.*
 !.env.example
@@ -6,4 +6,3 @@ venv/
 __pycache__/
 *.pyc
 .pytest_cache/
-
