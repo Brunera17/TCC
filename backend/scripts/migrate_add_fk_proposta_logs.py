@@ -5,8 +5,7 @@ Contexto: o modelo `AuditLog` (backend/models/audit_log.py) declara essas FKs,
 mas `db.create_all()` só cria tabelas que ainda não existem — ele nunca altera
 uma tabela `proposta_logs` já existente para adicionar constraints novas.
 SQLite também não suporta `ALTER TABLE ... ADD CONSTRAINT`, então a única forma
-de aplicar isso retroativamente é recriar a tabela (padrão já usado por
-scripts/downgrade_usuario_foto.py).
+de aplicar isso retroativamente é recriar a tabela.
 
 Antes de recriar a tabela, o script verifica se já existem linhas órfãs
 (proposta_id sem proposta correspondente, ou usuario_id apontando para um
