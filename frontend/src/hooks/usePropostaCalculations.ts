@@ -12,12 +12,6 @@ export const usePropostaCalculations = (
     // ✅ CORREÇÃO: Usar mensalidade dos dados da proposta se disponível
     const valorMensalidade = dadosProposta.valor_mensalidade || valorMensalidadeExterno || 0;
 
-    console.log('💰 Hook de cálculos - Mensalidade:', {
-      dosDados: dadosProposta.valor_mensalidade,
-      externa: valorMensalidadeExterno,
-      final: valorMensalidade
-    });
-
     // ✅ CORREÇÃO: Calcular subtotal diretamente dos serviços selecionados
     const subtotalServicos = dadosProposta.servicosSelecionados.reduce((sum, item) => sum + item.subtotal, 0);
 
@@ -31,12 +25,6 @@ export const usePropostaCalculations = (
       subtotalPorCategoria.set(categoria, atual + item.subtotal);
     });
 
-    console.log('🔍 Debug serviços:', {
-      servicosSelecionados: dadosProposta.servicosSelecionados,
-      subtotalServicos,
-      subtotalPorCategoria: Array.from(subtotalPorCategoria.entries())
-    });
-
     // Calcular taxa de abertura
     const taxaAberturaEmpresa = calcularTaxaAbertura(dadosProposta.cliente, dadosProposta.regimeTributario);
     const tipoAbertura = getTipoAbertura(dadosProposta.cliente, dadosProposta.regimeTributario);
@@ -45,15 +33,6 @@ export const usePropostaCalculations = (
     const subtotalGeral = subtotalServicos + taxaAberturaEmpresa + valorMensalidade;
     const valorDesconto = calcularDesconto(subtotalGeral, percentualDesconto);
     const totalFinal = subtotalGeral - valorDesconto;
-
-    console.log('💰 Hook de cálculos - Totais:', {
-      subtotalServicos,
-      taxaAberturaEmpresa,
-      valorMensalidade,
-      subtotalGeral,
-      valorDesconto,
-      totalFinal
-    });
 
     return {
       subtotalPorCategoria,

@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 
 /**
  * Hook personalizado para gerenciar o reset automático de dados de propostas
@@ -23,7 +23,6 @@ export const usePropostaDataReset = () => {
      * Limpa todos os dados de propostas salvos no localStorage
      */
     const limparTodosDadosProposta = useCallback(() => {
-        console.log('🧹 [usePropostaDataReset] Iniciando limpeza de dados de propostas...');
 
         let dadosRemovidos = 0;
 
@@ -32,7 +31,6 @@ export const usePropostaDataReset = () => {
             if (dadosExistentes) {
                 localStorage.removeItem(key);
                 dadosRemovidos++;
-                console.log(`🗑️ [usePropostaDataReset] Removido: ${key}`);
             }
         });
 
@@ -49,11 +47,8 @@ export const usePropostaDataReset = () => {
             if (!PROPOSTA_KEYS.includes(chave)) {
                 localStorage.removeItem(chave);
                 dadosRemovidos++;
-                console.log(`🗑️ [usePropostaDataReset] Removido adicional: ${chave}`);
             }
         });
-
-        console.log(`✅ [usePropostaDataReset] Limpeza concluída! ${dadosRemovidos} itens removidos.`);
 
         return dadosRemovidos;
     }, []);
@@ -67,7 +62,6 @@ export const usePropostaDataReset = () => {
 
         if (dadosExistentes) {
             localStorage.removeItem(chavePasso);
-            console.log(`🗑️ [usePropostaDataReset] Dados do passo ${passo} removidos`);
             return true;
         }
 
@@ -79,7 +73,6 @@ export const usePropostaDataReset = () => {
      */
     const verificarDadosExistentes = useCallback(() => {
         const dadosExistentes = PROPOSTA_KEYS.some(key => localStorage.getItem(key));
-        console.log(`🔍 [usePropostaDataReset] Dados existentes: ${dadosExistentes}`);
         return dadosExistentes;
     }, []);
 
@@ -97,17 +90,7 @@ export const usePropostaDataReset = () => {
             };
         });
 
-        console.log('📊 [usePropostaDataReset] Informações dos dados salvos:', info);
         return info;
-    }, []);
-
-    /**
-     * Reset automático quando o componente é desmontado
-     */
-    useEffect(() => {
-        return () => {
-            console.log('🔄 [usePropostaDataReset] Componente desmontado - dados serão limpos');
-        };
     }, []);
 
     return {

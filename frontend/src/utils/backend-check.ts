@@ -58,37 +58,3 @@ export async function checkBackendHealth(): Promise<{
     };
   }
 }
-
-export function showBackendInstructions() {
-  console.group('🚀 Como iniciar o backend:');
-  console.log('1. Abra um novo terminal');
-  console.log('2. Navegue até a pasta do backend:');
-  console.log('   cd "C:\\Users\\dbrun\\OneDrive\\Desktop\\TCC real oficial\\backend"');
-  console.log('3. Execute o servidor:');
-  console.log('   python main.py');
-  console.log('4. Aguarde a mensagem: "Running on http://localhost:5000"');
-  console.log('5. Recarregue esta página');
-  console.groupEnd();
-}
-
-// Função para mostrar status no console do navegador
-export async function debugBackendConnection() {
-  console.group('🔍 Diagnóstico da conexão com backend');
-  
-  const health = await checkBackendHealth();
-  console.log(health.message);
-  
-  if (!health.isRunning && health.instructions) {
-    console.group('📋 Instruções para resolver:');
-    health.instructions.forEach(instruction => {
-      if (instruction === '') {
-        console.log('');
-      } else {
-        console.log(instruction);
-      }
-    });
-    console.groupEnd();
-  }
-  
-  console.groupEnd();
-}

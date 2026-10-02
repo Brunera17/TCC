@@ -147,18 +147,6 @@ const prepararDadosParaAPI = async (dados: any): Promise<PropostaParaCriacao> =>
   };
 };
 
-// ⚠️ NOVO: Debug detalhado durante desenvolvimento
-const debugSalvamento = (dados: any, dadosAPI: PropostaParaCriacao) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.group('🔍 Debug Salvamento Proposta');
-    console.log('Dados originais:', dados);
-    console.log('Dados para API:', dadosAPI);
-    console.log('Itens preparados:', dadosAPI.itens);
-    console.log('Total calculado:', dadosAPI.valor_total);
-    console.groupEnd();
-  }
-};
-
 export const useSalvamentoAutomatico = (dadosProposta: any) => {
   const [estadoSalvamento, setEstadoSalvamento] = useState<EstadoSalvamento>({
     salvando: false,
@@ -174,19 +162,16 @@ export const useSalvamentoAutomatico = (dadosProposta: any) => {
 
     try {
       const dadosAPI = await prepararDadosParaAPI(dados);
-      debugSalvamento(dados, dadosAPI);
 
       let proposta: PropostaResponse;
 
       if (propostaIdRef.current) {
         // ⚠️ ATUALIZAR: Proposta existente
         proposta = await apiService.updateProposta(propostaIdRef.current, dadosAPI);
-        console.log(`Proposta #${proposta.numero} atualizada como rascunho`);
       } else {
         // ⚠️ CRIAR: Nova proposta
         proposta = await apiService.createProposta(dadosAPI);
         propostaIdRef.current = proposta.id;
-        console.log(`Nova proposta #${proposta.numero} criada como rascunho`);
       }
 
       setEstadoSalvamento({

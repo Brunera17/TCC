@@ -134,8 +134,6 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
   const carregarDadosCompletos = async () => {
     setLoading(true);
     try {
-      console.log('🔍 Carregando dados da proposta:', proposta!.id);
-      console.log('📋 Dados completos da proposta:', proposta);
 
       // ✅ VALIDAÇÃO: Verificar se a proposta tem cliente_id
       if (!proposta!.cliente_id || proposta!.cliente_id === undefined || proposta!.cliente_id === null) {
@@ -148,8 +146,6 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
         throw new Error('Proposta não possui tipo de atividade definido. Não é possível carregar regimes tributários.');
       }
 
-      console.log('✅ Validações OK - cliente_id:', proposta!.cliente_id, 'tipo_atividade_id:', proposta!.tipo_atividade_id);
-
       const [propostaCompleta, cliente, tipos, regimes, servicosResponse] = await Promise.all([
         apiService.getProposta(proposta!.id),
         apiService.getCliente(proposta!.cliente_id),
@@ -161,17 +157,6 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
         }),
         apiService.getServicos({ ativo: true, per_page: 1000 }) // Carregar todos os serviços ativos
       ]);
-
-      console.log('📄 Proposta completa:', propostaCompleta);
-      console.log('💰 Resumo financeiro:', propostaCompleta.resumo_financeiro);
-      console.log('🏢 Taxa abertura:', propostaCompleta.taxa_abertura);
-      console.log('🎯 CAMPOS DE DESCONTO:');
-      console.log('   percentual_desconto:', propostaCompleta.percentual_desconto);
-      console.log('   porcentagem_desconto:', propostaCompleta.porcentagem_desconto);
-      console.log('   valor_total:', propostaCompleta.valor_total);
-      console.log('💰 CAMPO MENSALIDADE:');
-      console.log('   propostaCompleta.valor_mensalidade:', propostaCompleta.valor_mensalidade);
-      console.log('   typeof:', typeof propostaCompleta.valor_mensalidade);
 
       const servicos = extractCollection<Servico>(servicosResponse);
 
@@ -205,10 +190,6 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
       const taxaAbertura = resumo.taxa_abertura || 0;
       const valorMensalidade = resumo.valor_mensalidade || propostaCompleta.valor_mensalidade || 0;
 
-      console.log('💰 DEBUG MENSALIDADE:');
-      console.log('   resumo.valor_mensalidade:', resumo.valor_mensalidade);
-      console.log('   propostaCompleta.valor_mensalidade:', propostaCompleta.valor_mensalidade);
-      console.log('   valorMensalidade final:', valorMensalidade);
       const valorBase = resumo.valor_base || (valorServicos + taxaAbertura + valorMensalidade);
       const valorFinal = resumo.valor_final || propostaCompleta.valor_total;
       // ⚠️ CORRIGIDO: Usar o percentual salvo diretamente na proposta
@@ -216,17 +197,6 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
       // ⚠️ CALCULAR: Valor do desconto baseado no percentual real
       const descontoValor = (valorBase * descontoPercentual) / 100;
       const descontoTipo = descontoPercentual > 0 ? 'percentual' : 'sem_desconto';
-
-      console.log('💰 Valores financeiros corretos:', {
-        valorServicos,
-        taxaAbertura,
-        valorMensalidade,
-        valorBase,
-        valorFinal,
-        descontoValor,
-        descontoPercentual,
-        descontoTipo
-      });
 
       // ⚠️ DEFINIR: Dados do estado
       setDados({
@@ -309,13 +279,6 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
     // ⚠️ VALOR BASE: Serviços + Taxa + Mensalidade
     const valorBaseAtual = valorServicosAtual + taxaAberturaAtual + dados.valor_mensalidade;
 
-    console.log('🧮 Cálculo do valor base:', {
-      valorServicosAtual,
-      taxaAberturaAtual,
-      valor_mensalidade: dados.valor_mensalidade,
-      valorBaseAtual
-    });
-
     // ⚠️ APLICAR: Desconto ao valor base
     const descontoValor = (valorBaseAtual * dados.percentual_desconto) / 100;
     const valorTotalFinal = valorBaseAtual - descontoValor;
@@ -340,17 +303,6 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
       desconto_tipo: tipoDesconto,
       valor_desconto: Math.abs(descontoValor) // ⚠️ VALOR DO DESCONTO
     }));
-
-    console.log('💰 Valores recalculados:', {
-      valorServicosAtual,
-      taxaAberturaAtual,
-      valorMensalidade: dados.valor_mensalidade,
-      valorBaseAtual,
-      percentualDesconto: dados.percentual_desconto,
-      descontoValor,
-      valorTotalFinal,
-      tipoDesconto
-    });
 
   }, [dados.servicosSelecionados, dados.regime_tributario_id, dados.percentual_desconto, dados.valor_mensalidade, clienteCompleto, regimesTributarios, dados.taxa_abertura_aplicavel]);
 
@@ -377,9 +329,7 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
   };
 
   // Função para lidar com mensalidade encontrada
-  const handleMensalidadeEncontrada = (mensalidade: any) => {
-    console.log('💰 Mensalidade encontrada no callback:', mensalidade);
-    console.log('💰 Estado atual dos dados:', dados);
+  const handleMensalidadeEncontrada = () => {
     // Aqui podemos adicionar lógica adicional se necessário
   };
 
@@ -421,11 +371,7 @@ export const ModalEdicaoCompleta: React.FC<ModalEdicaoCompletaProps> = ({
         }))
       };
 
-      console.log('💾 Salvando dados:', dadosUpdate);
-
       await apiService.updateProposta(proposta!.id, dadosUpdate);
-
-      console.log(`✅ Proposta #${proposta!.numero} atualizada completamente`);
 
       // Mostrar feedback sobre regeneração de PDF
       if (valorMensalidade > 0) {
@@ -748,25 +694,13 @@ const ConfiguracoesTributariasEdit: React.FC<ConfiguracoesTributariasEditProps> 
   // Função para buscar mensalidade automática
   const buscarMensalidadeAutomatica = async () => {
     if (!dados.tipo_atividade_id || !dados.regime_tributario_id) {
-      console.log('❌ Configurações incompletas para buscar mensalidade:', {
-        tipo_atividade_id: dados.tipo_atividade_id,
-        regime_tributario_id: dados.regime_tributario_id,
-        faixa_faturamento_id: dados.faixa_faturamento_id
-      });
       return;
     }
 
     // Se estamos editando uma proposta e ela já tem mensalidade, não sobrescrever
     if (proposta && dados.valor_mensalidade && dados.valor_mensalidade > 0) {
-      console.log('📝 Modo edição - mantendo mensalidade existente:', dados.valor_mensalidade);
       return;
     }
-
-    console.log('🔍 Buscando mensalidade automática com configuração:', {
-      tipo_atividade_id: dados.tipo_atividade_id,
-      regime_tributario_id: dados.regime_tributario_id,
-      faixa_faturamento_id: dados.faixa_faturamento_id
-    });
 
     setBuscandoMensalidade(true);
     try {
@@ -778,19 +712,15 @@ const ConfiguracoesTributariasEdit: React.FC<ConfiguracoesTributariasEditProps> 
 
       const response = await apiService.buscarMensalidadeAutomatica(configuracao);
 
-      console.log('📊 Resposta da API de mensalidade:', response);
-
       // O backend retorna { mensalidadeSugerida: ... } ou { mensalidade_sugerida: ... }
       const mensalidadeEncontrada = response?.mensalidadeSugerida || response?.mensalidade_sugerida || response?.data?.valor_mensalidade;
 
       if (mensalidadeEncontrada) {
-        console.log('✅ Mensalidade encontrada:', mensalidadeEncontrada);
         setMensalidadeEncontrada(response);
         const dadosAtualizados = { ...dados, valor_mensalidade: Number(mensalidadeEncontrada) };
         setDados(dadosAtualizados);
         onMensalidadeEncontrada?.(response);
       } else {
-        console.log('❌ Nenhuma mensalidade encontrada para esta configuração');
         setMensalidadeEncontrada(null);
         const dadosAtualizados = { ...dados, valor_mensalidade: 0 };
         setDados(dadosAtualizados);
@@ -1231,7 +1161,6 @@ const FinalizacaoEditCorrigida: React.FC<{
           />
           <span className="absolute right-3 top-2 text-gray-500">%</span>
         </div>
-
 
         {dados.percentual_desconto > 20 && (
           <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-800">

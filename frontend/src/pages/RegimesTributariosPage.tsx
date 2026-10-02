@@ -77,11 +77,9 @@ export const RegimesTributariosPage: React.FC = () => {
     }
   };
 
-
   const fetchRegimes = useCallback(async (page = currentPage, search = searchTerm) => {
     setLoading(true);
     setError(''); // Limpa erro anterior
-    console.log('🔍 Iniciando fetchRegimes:', { page, search });
     try {
       const response = await apiService.getRegimesTributarios({
         page,
@@ -89,7 +87,6 @@ export const RegimesTributariosPage: React.FC = () => {
         search: search || undefined, // Envia undefined se vazio
         ativo: true, // Ou ajuste conforme necessidade (ex: enviar 'all' para buscar todos)
       });
-      console.log('🔍 Resposta API:', response);
 
       // Verifica se a resposta tem a estrutura esperada
       if (response && response.data && typeof response.total === 'number' && typeof response.per_page === 'number') {
@@ -139,13 +136,11 @@ export const RegimesTributariosPage: React.FC = () => {
   const handleExcluirClick = (regime: RegimeTributarioPage) => { setRegimeParaDeletar(regime); setModalExclusaoOpen(true); };
 
   const handleFecharVisualizacao = () => {
-    console.log('[Modal Visualização] onClose disparado');
     setIsModalVisualizacaoOpen(false);
     setRegimeParaVisualizar(null);
   };
 
   const handleConfirmarVisualizacao = () => {
-    console.log('[Modal Visualização] onConfirm disparado');
     setIsModalVisualizacaoOpen(false);
     setRegimeParaVisualizar(null);
   };
@@ -400,7 +395,6 @@ export const RegimesTributariosPage: React.FC = () => {
             )}
         </ModalPadrao>
       {/* --- End Refactored Modal --- */}
-
 
       <ConfirmDialog
         open={modalExclusaoOpen}
