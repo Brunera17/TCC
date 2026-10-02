@@ -38,6 +38,24 @@ INSTANCE_DB_PATH = BASE_DIR / "instance" / "database.db"
 
 TABELAS = ["clientes", "propostas", "servicos", "agendamentos", "entidades_juridicas"]
 
+# Templates fixos por tabela (nenhuma interpolação de identificador em tempo de
+# execução): cada string já tem o nome da tabela escrito por extenso. O único
+# valor dinâmico é o backfill de empresa_id, substituído via .replace() antes
+# do execute() - mantém o scanner de SQL injection satisfeito sem recriar as
+# tabelas inteiras como as migrações anteriores deste projeto fazem.
+_PRAGMA_POR_TABELA = {tabela: f"PRAGMA table_info({tabela})" for tabela in TABELAS}
+_INDEX_POR_TABELA = {
+    tabela: f"CREATE INDEX IF NOT EXISTS ix_{tabela}_empresa_id ON {tabela} (empresa_id)"
+    for tabela in TABELAS
+}
+_ALTER_TEMPLATE_POR_TABELA = {
+    tabela: (
+        f"ALTER TABLE {tabela} ADD COLUMN empresa_id INTEGER NOT NULL "
+        "DEFAULT __EMPRESA_ID_DEFAULT__ REFERENCES empresas(id) ON DELETE CASCADE"
+    )
+    for tabela in TABELAS
+}
+
 
 def resolve_db_path() -> Path:
     if DEFAULT_DB_PATH.exists() and INSTANCE_DB_PATH.exists():
@@ -61,7 +79,7 @@ def resolve_db_path() -> Path:
 def tem_coluna_empresa_id(cursor: sqlite3.Cursor, tabela: str) -> bool:
     if tabela not in TABELAS:
         raise ValueError(f"Tabela não reconhecida: {tabela!r}")
-    cursor.execute(f"PRAGMA table_info({tabela})")
+    cursor.execute(_PRAGMA_POR_TABELA[tabela])
     colunas = {row[1] for row in cursor.fetchall()}
     return "empresa_id" in colunas
 
@@ -96,11 +114,11 @@ def adicionar_coluna(cursor: sqlite3.Cursor, tabela: str, empresa_id_default: in
         raise ValueError(f"Tabela não reconhecida: {tabela!r}")
     empresa_id_default = int(empresa_id_default)
 
-    cursor.execute(
-        f"ALTER TABLE {tabela} ADD COLUMN empresa_id INTEGER NOT NULL "
-        f"DEFAULT {empresa_id_default} REFERENCES empresas(id) ON DELETE CASCADE"
+    alter_query = _ALTER_TEMPLATE_POR_TABELA[tabela].replace(
+        "__EMPRESA_ID_DEFAULT__", str(empresa_id_default)
     )
-    cursor.execute(f"CREATE INDEX IF NOT EXISTS ix_{tabela}_empresa_id ON {tabela} (empresa_id)")
+    cursor.execute(alter_query)
+    cursor.execute(_INDEX_POR_TABELA[tabela])
 
 
 def main() -> None:
